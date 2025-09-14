@@ -1,0 +1,8 @@
+
+{
+  "name": "CheckMate",
+  "description": "A web application for tracking payment checks with a drag-and-drop Kanban board. Features include AI data extraction, collaborative tools, a streamlined batching process, and an automated archiving system.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

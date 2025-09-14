@@ -1,0 +1,161 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { PlusIcon, ArchiveBoxIcon, CheckMateLogo, CubeIcon, SearchIcon, AdjustmentsHorizontalIcon, UserCircleIcon, Cog6ToothIcon } from './icons';
+import { CheckCategory } from '../types';
+import { auth } from '../services/firebase';
+
+interface HeaderProps {
+    onAddCheck: () => void;
+    onBatching: () => void;
+    onViewArchive: () => void;
+    onViewBatchHistory: () => void;
+    searchTerm: string;
+    onSearchChange: (term: string) => void;
+    activeCategory: CheckCategory | null;
+    onCategoryFilterChange: (category: CheckCategory | null) => void;
+    userEmail: string | null;
+    onOpenPreferences: () => void;
+}
+
+const Header: React.FC<HeaderProps> = ({ 
+    onAddCheck, 
+    onBatching, 
+    onViewArchive, 
+    onViewBatchHistory, 
+    searchTerm, 
+    onSearchChange,
+    activeCategory,
+    onCategoryFilterChange,
+    userEmail,
+    onOpenPreferences
+}) => {
+    const [isProfileMenuOpen, setProfileMenuOpen] = useState(false);
+    const [isFilterMenuOpen, setFilterMenuOpen] = useState(false);
+    const profileMenuRef = useRef<HTMLDivElement>(null);
+    const filterMenuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+                setProfileMenuOpen(false);
+            }
+            if (filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
+                setFilterMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleLogout = () => {
+        auth.signOut();
+    };
+
+    return (
+        <header className="bg-white shadow-sm sticky top-0 z-20">
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex items-center justify-between h-16">
+                    {/* Left Side */}
+                    <div className="flex items-center">
+                        <CheckMateLogo className="h-8 w-8" />
+                        <h1 className="text-2xl font-bold text-slate-800 ml-2 hidden sm:block">CheckMate</h1>
+                    </div>
+
+                    {/* Center: Search & Filter */}
+                    <div className="flex-1 flex justify-center px-2 lg:ml-6 lg:justify-end">
+                        <div className="max-w-lg w-full lg:max-w-xs">
+                            <label htmlFor="search" className="sr-only">Search</label>
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <SearchIcon className="h-5 w-5 text-gray-400" />
+                                </div>
+                                <input
+                                    id="search"
+                                    name="search"
+                                    className="block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-md leading-5 bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-500 sm:text-sm"
+                                    placeholder="Search payor, memo..."
+                                    type="search"
+                                    value={searchTerm}
+                                    onChange={(e) => onSearchChange(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                         <div ref={filterMenuRef} className="relative ml-2">
+                            <button
+                                onClick={() => setFilterMenuOpen(prev => !prev)}
+                                className="p-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-600 rounded-md"
+                            >
+                                <AdjustmentsHorizontalIcon className="h-5 w-5" />
+                            </button>
+                            {isFilterMenuOpen && (
+                                <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none border border-slate-200">
+                                    <div className="py-1">
+                                        <p className="px-4 py-2 text-xs text-gray-500 uppercase">Filter by Category</p>
+                                        <button onClick={() => onCategoryFilterChange(null)} className={`block w-full text-left px-4 py-2 text-sm ${!activeCategory ? 'bg-sky-50 text-sky-700 font-semibold' : 'text-gray-700 hover:bg-slate-50'}`}>All Categories</button>
+                                        {Object.values(CheckCategory).map(cat => (
+                                             <button key={cat} onClick={() => onCategoryFilterChange(cat)} className={`block w-full text-left px-4 py-2 text-sm ${activeCategory === cat ? 'bg-sky-50 text-sky-700 font-semibold' : 'text-gray-700 hover:bg-slate-50'}`}>{cat}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    
+                    {/* Right Side */}
+                    <div className="flex items-center space-x-2">
+                         <button
+                            onClick={onViewArchive}
+                            title="View Archive"
+                            className="p-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-600 rounded-md shadow-sm transition-colors duration-200"
+                        >
+                            <ArchiveBoxIcon className="h-5 w-5" />
+                        </button>
+                        <button
+                            onClick={onViewBatchHistory}
+                            title="Batch History"
+                            className="p-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-600 rounded-md shadow-sm transition-colors duration-200"
+                        >
+                            <CubeIcon className="h-5 w-5" />
+                        </button>
+                         <button
+                            onClick={onBatching}
+                            className="hidden sm:flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors duration-200"
+                        >
+                            <span>Batch</span>
+                        </button>
+                        <button
+                            onClick={onAddCheck}
+                            className="flex items-center justify-center bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors duration-200"
+                        >
+                            <PlusIcon className="h-5 w-5 sm:mr-2" />
+                            <span className="hidden sm:block">Add Check</span>
+                        </button>
+                        <div ref={profileMenuRef} className="relative">
+                             <button onClick={() => setProfileMenuOpen(prev => !prev)} className="p-1.5 bg-slate-100 text-slate-600 rounded-full hover:bg-slate-200">
+                                <UserCircleIcon className="h-6 w-6" />
+                             </button>
+                             {isProfileMenuOpen && (
+                                <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-xl py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none border border-slate-200">
+                                    <div className="px-4 py-2 text-sm text-gray-500">
+                                        <p>Signed in as</p>
+                                        <p className="font-medium text-gray-700 truncate" title={userEmail || ''}>{userEmail}</p>
+                                    </div>
+                                    <div className="border-t my-1"></div>
+                                    <button onClick={() => { onOpenPreferences(); setProfileMenuOpen(false); }} className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-slate-100">
+                                        <Cog6ToothIcon className="h-5 w-5" />
+                                        <span>Preferences</span>
+                                    </button>
+                                    <div className="border-t my-1"></div>
+                                    <button onClick={(e) => {e.preventDefault(); handleLogout();}} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-slate-100">
+                                        Log Out
+                                    </button>
+                                </div>
+                             )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+    );
+};
+
+export default Header;

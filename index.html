@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CheckMate</title>
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0ea5e9" />
+
+    <!-- PWA enhancements for iOS -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="CheckMate">
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+
+    <script async src="https://docs.opencv.org/4.x/opencv.js" id="opencv-js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.17.0",
+    "vite": "https://aistudiocdn.com/vite@^7.1.4",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.0.2",
+    "exceljs": "https://aistudiocdn.com/exceljs@^4.4.0",
+    "@atlaskit/pragmatic-drag-and-drop/": "https://aistudiocdn.com/@atlaskit/pragmatic-drag-and-drop@^1.2.2/",
+    "@atlaskit/pragmatic-drag-and-drop-hitbox/": "https://aistudiocdn.com/@atlaskit/pragmatic-drag-and-drop-hitbox@^1.1.0/",
+    "@atlaskit/pragmatic-drag-and-drop-flourish/": "https://aistudiocdn.com/@atlaskit/pragmatic-drag-and-drop-flourish@^1.0.1/",
+    "firebase/compat/app": "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js",
+    "firebase/compat/auth": "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js",
+    "firebase/compat/firestore": "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js",
+    "firebase/compat/storage": "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js",
+    "firebase/compat/functions": "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions-compat.js",
+    "uuid": "https://aistudiocdn.com/uuid@^13.0.0",
+    "firebase/": "https://aistudiocdn.com/firebase@^12.2.1/",
+    "firebase-functions/": "https://aistudiocdn.com/firebase-functions@^6.4.0/",
+    "firebase-admin": "https://aistudiocdn.com/firebase-admin@^13.5.0",
+    "firebase-functions": "https://aistudiocdn.com/firebase-functions@^6.4.0"
+  }
+}
+</script>
+</head>
+  <body class="bg-slate-50">
+    <div id="root"></div>
+    <script type="module" src="/src/index.tsx"></script>
+  </body>
+</html>
