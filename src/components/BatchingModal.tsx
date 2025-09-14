@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Check, CheckStatus, CheckCategory } from '../types';
 import { XMarkIcon, ProcessingLoaderIcon } from './icons';
-// FIX: Import as namespace to resolve type errors for Fill and Font
 import * as ExcelJS from 'exceljs';
 
 interface ProcessBatchModalProps {
@@ -63,10 +62,11 @@ const ProcessBatchModal: React.FC<ProcessBatchModalProps> = ({ isOpen, checks, o
             workbook.creator = 'CheckMate App';
             workbook.created = new Date();
 
-            const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD3D3D3' } };
-            const headerFont: Partial<ExcelJS.Font> = { bold: true };
+            // FIX: Changed ExcelJS.Fill to any to resolve type error.
+            const headerFill: any = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD3D3D3' } };
+            // FIX: Changed Partial<ExcelJS.Font> to any to resolve type error.
+            const headerFont: any = { bold: true };
 
-            // Define sheet structures
             const sheetDefs = {
                 'Tracking Log': {
                     headers: ['Tracking #', 'Association', 'Memo', 'Type', 'Account #', 'Property Address', 'Check #', 'Amount'],
@@ -108,16 +108,13 @@ const ProcessBatchModal: React.FC<ProcessBatchModalProps> = ({ isOpen, checks, o
             const selectedCheckObjects = checksToBatch.filter(c => selectedChecks[c.id]);
             const modifiedSheetNames = new Set<string>();
 
-            // Process checks into appropriate sheets
             for (const [sheetName, def] of Object.entries(sheetDefs)) {
                 const sheet = workbook.addWorksheet(sheetName);
                 sheet.getRow(1).values = def.headers;
                 sheet.getRow(1).fill = headerFill;
                 sheet.getRow(1).font = headerFont;
-                // FIX: Removed `key: col.key` as `col` object does not have a `key` property.
                 sheet.columns = def.columns.map((col: any) => ({ width: col.width, style: { numFmt: col.numFmt } }));
 
-                // FIX: Use a type guard to safely access `def.category` which doesn't exist on the 'Tracking Log' definition.
                 const checksForSheet = 'category' in def
                     ? selectedCheckObjects.filter((c) => c.category === def.category)
                     : selectedCheckObjects;
@@ -130,7 +127,6 @@ const ProcessBatchModal: React.FC<ProcessBatchModalProps> = ({ isOpen, checks, o
                 }
             }
 
-            // Remove unmodified sheets
             for (let i = workbook.worksheets.length - 1; i >= 0; i--) {
                 const sheet = workbook.worksheets[i];
                 if (!modifiedSheetNames.has(sheet.name)) {
@@ -169,61 +165,59 @@ const ProcessBatchModal: React.FC<ProcessBatchModalProps> = ({ isOpen, checks, o
     return (
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity z-40" aria-labelledby="modal-title" role="dialog" aria-modal="true">
             <div className="flex items-start justify-center min-h-screen p-4 text-center overflow-y-auto">
-                <div className="relative bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all my-8 sm:max-w-2xl sm:w-full">
-                    <div className="p-6">
+                <div className="relative bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all my-8 sm:max-w-2xl sm:w-full max-h-[80vh] flex flex-col">
+                    <div className="p-6 flex-shrink-0 border-b">
                         <div className="flex justify-between items-start">
                             <h3 className="text-2xl font-bold text-slate-800">Process Queued Checks</h3>
                             <button onClick={onClose} className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"><XMarkIcon className="h-6 w-6" /></button>
                         </div>
+                    </div>
+                    <div className="p-6 flex-grow overflow-y-auto">
+                        <div className="mb-4">
+                            <label htmlFor="trackingNumber" className="block text-sm font-medium text-slate-600">Package Tracking Number</label>
+                            <input 
+                                type="text" 
+                                name="trackingNumber" 
+                                id="trackingNumber" 
+                                value={trackingNumber}
+                                onChange={(e) => setTrackingNumber(e.target.value)}
+                                className="mt-1 block w-full bg-slate-50 border border-slate-300 text-slate-900 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-500 sm:text-sm"
+                                placeholder="Enter tracking number..."
+                                required
+                            />
+                        </div>
 
-                        <div className="mt-4">
-                             <div className="mb-4">
-                                <label htmlFor="trackingNumber" className="block text-sm font-medium text-slate-600">Package Tracking Number</label>
-                                <input 
-                                    type="text" 
-                                    name="trackingNumber" 
-                                    id="trackingNumber" 
-                                    value={trackingNumber}
-                                    onChange={(e) => setTrackingNumber(e.target.value)}
-                                    className="mt-1 block w-full bg-slate-50 border border-slate-300 text-slate-900 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-500 sm:text-sm"
-                                    placeholder="Enter tracking number..."
-                                    required
-                                />
+                        <div className="flex justify-between items-center mb-2 p-2 bg-slate-100 rounded-t-md border-b">
+                            <div className="flex items-center">
+                                <input type="checkbox" checked={allSelected} onChange={handleSelectAll} className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500"/>
+                                <label htmlFor="select-all" className="ml-3 text-sm font-medium text-slate-700">Select All</label>
                             </div>
-
-                            <div className="flex justify-between items-center mb-2 p-2 bg-slate-100 rounded-t-md border-b">
-                                <div className="flex items-center">
-                                    <input type="checkbox" checked={allSelected} onChange={handleSelectAll} className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500"/>
-                                    <label htmlFor="select-all" className="ml-3 text-sm font-medium text-slate-700">Select All</label>
-                                </div>
-                                <span className="text-sm font-medium text-slate-600">{selectedCount} / {checksToBatch.length} selected</span>
-                            </div>
-                            <div className="space-y-2 max-h-[40vh] overflow-y-auto p-2 bg-slate-50 rounded-b-md">
-                                {checksToBatch.length > 0 ? (
-                                    <ul className="space-y-1">
-                                        {checksToBatch.map(check => (
-                                            <li key={check.id} className="flex items-center p-2 bg-white rounded-md border">
-                                                <input type="checkbox" checked={!!selectedChecks[check.id]} onChange={() => handleToggleCheck(check.id)} className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500"/>
-                                                <div className="ml-3 flex-grow flex justify-between">
-                                                    <div>
-                                                        <span className="text-sm text-slate-800 font-medium">{check.payor} - #{check.checkNumber}</span>
-                                                        <p className="text-xs text-slate-500">{check.category}</p>
-                                                    </div>
-                                                    <span className="text-sm font-semibold text-slate-800">${check.amount.toFixed(2)}</span>
+                            <span className="text-sm font-medium text-slate-600">{selectedCount} / {checksToBatch.length} selected</span>
+                        </div>
+                        <div className="space-y-2 p-2 bg-slate-50 rounded-b-md">
+                            {checksToBatch.length > 0 ? (
+                                <ul className="space-y-1">
+                                    {checksToBatch.map(check => (
+                                        <li key={check.id} className="flex items-center p-2 bg-white rounded-md border">
+                                            <input type="checkbox" checked={!!selectedChecks[check.id]} onChange={() => handleToggleCheck(check.id)} className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500"/>
+                                            <div className="ml-3 flex-grow flex justify-between">
+                                                <div>
+                                                    <span className="text-sm text-slate-800 font-medium">{check.payor} - #{check.checkNumber}</span>
+                                                    <p className="text-xs text-slate-500">{check.category}</p>
                                                 </div>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                ) : <p className="text-slate-500 text-center py-8">No checks are currently in the queue.</p>}
-                            </div>
+                                                <span className="text-sm font-semibold text-slate-800">${check.amount.toFixed(2)}</span>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : <p className="text-slate-500 text-center py-8">No checks are currently in the queue.</p>}
                         </div>
-                        {error && <p className="mt-2 text-sm text-red-600 text-center">{error}</p>}
-
-                        <div className="mt-6 border-t pt-4 flex justify-end">
-                             <button onClick={handleProcessBatch} className="w-full sm:w-auto px-6 py-2 text-base font-medium text-white bg-sky-600 rounded-md hover:bg-sky-700 disabled:bg-sky-300 disabled:cursor-not-allowed flex items-center justify-center" disabled={selectedCount === 0 || !trackingNumber.trim() || isProcessing}>
-                                {isProcessing ? <><ProcessingLoaderIcon className="h-5 w-5 mr-2" /> Processing...</> : `Process Batch & Download (${selectedCount})`}
-                             </button>
-                        </div>
+                         {error && <p className="mt-2 text-sm text-red-600 text-center">{error}</p>}
+                    </div>
+                    <div className="p-6 flex-shrink-0 border-t flex justify-end">
+                        <button onClick={handleProcessBatch} className="w-full sm:w-auto px-6 py-2 text-base font-medium text-white bg-sky-600 rounded-md hover:bg-sky-700 disabled:bg-sky-300 disabled:cursor-not-allowed flex items-center justify-center" disabled={selectedCount === 0 || !trackingNumber.trim() || isProcessing}>
+                            {isProcessing ? <><ProcessingLoaderIcon className="h-5 w-5 mr-2" /> Processing...</> : `Process Batch & Download (${selectedCount})`}
+                        </button>
                     </div>
                 </div>
             </div>

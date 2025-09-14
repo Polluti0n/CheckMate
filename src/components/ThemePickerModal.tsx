@@ -14,7 +14,6 @@ const ThemeSwatch = ({ theme }: { theme: Theme }) => {
     if (theme.id === 'default') {
         return <div className="w-16 h-16 rounded-full border-2 border-slate-700 bg-gradient-to-br from-slate-100 to-slate-300 shadow-inner group-hover:scale-110 transition-transform duration-200" title="Default theme"></div>;
     }
-    // Use the explicit 'accent' color to ensure the vivid color is always available
     const accentColorClass = theme.colors.accent;
     const bgColorClass = theme.colors.bg;
 
@@ -41,8 +40,8 @@ const ThemePickerModal: React.FC<ThemePickerModalProps> = ({ isOpen, onClose, th
     return (
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity z-50" aria-labelledby="modal-title" role="dialog" aria-modal="true">
             <div className="flex items-start justify-center min-h-screen p-4 text-center overflow-y-auto">
-                <div className="relative bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all my-8 sm:max-w-md sm:w-full">
-                    <div className="p-6">
+                <div className="relative bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all my-8 sm:max-w-md sm:w-full max-h-[80vh] flex flex-col">
+                    <div className="p-6 flex-shrink-0 border-b">
                         <div className="flex justify-between items-start">
                             <div>
                                 <h3 className="text-xl font-bold text-slate-800" id="modal-title">Select Theme</h3>
@@ -52,9 +51,9 @@ const ThemePickerModal: React.FC<ThemePickerModalProps> = ({ isOpen, onClose, th
                                 <XMarkIcon className="h-6 w-6" />
                             </button>
                         </div>
-
-                        {/* Updated layout for a cleaner, more horizontal appearance */}
-                        <div className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-8">
+                    </div>
+                    <div className="p-6 flex-grow overflow-y-auto">
+                        <div className="flex flex-wrap justify-center gap-x-6 gap-y-8">
                             {themes.map(theme => (
                                 <button
                                     key={theme.id}

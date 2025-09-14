@@ -13,9 +13,14 @@ export enum CheckStatus {
   ARCHIVED = "Archived",
 }
 
-export type CheckField = keyof Check | 'lastComment';
-export type CardLayoutZone = 'title' | 'topRight' | 'subtitle' | 'body1' | 'body2' | 'footerLeft' | 'footerRight';
-
+export interface UserProfile {
+    uid: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    phone?: string;
+    photoURL?: string;
+}
 
 export interface Flag {
   id: string;
@@ -26,14 +31,18 @@ export interface Flag {
 
 export interface Comment {
   id: string;
-  author: string;
+  authorUid: string;
+  authorName: string; // Denormalized for easy display
+  authorPhotoURL?: string; // Denormalized for easy display
   text: string;
   timestamp: string;
 }
 
 export interface AuditLog {
   id: string;
-  user: string;
+  userUid: string;
+  userName: string; // Denormalized for easy display
+  userPhotoURL?: string; // Denormalized for easy display
   field: string;
   oldValue: string;
   newValue: string;
@@ -69,6 +78,7 @@ export interface Check {
   trackingNumber?: string;
   batchId?: string;
   statusUpdatedAt?: string;
+  statusBeforeArchive?: CheckStatus; // For unarchiving
   comments: Comment[];
   auditTrail: AuditLog[];
   flags: string[]; // array of flag ids
@@ -82,23 +92,28 @@ export interface Batch {
     trackingNumber: string;
 }
 
+// FIX: Add missing type definitions to resolve errors in multiple components.
+export type CheckField = keyof Check | 'lastComment';
+
+export type CardLayoutZone = 'title' | 'topRight' | 'subtitle' | 'body1' | 'body2' | 'footerLeft' | 'footerRight';
+
 export interface Theme {
     id: string;
     name: string;
     colors: {
-        border: string; // Tailwind border color class e.g., 'border-red-500'
-        bg: string; // Tailwind bg color class e.g., 'bg-red-50'
-        text: string; // Tailwind text color class e.g., 'text-red-800'
-        accent: string; // Tailwind bg color for the accent swatch e.g., 'bg-red-500'
-        glow?: string; // Tailwind ring and shadow classes for selection glow e.g., 'ring-sky-500 shadow-lg shadow-sky-500/40'
+        border: string;
+        bg: string;
+        text: string;
+        accent: string;
+        glow: string;
     };
 }
 
 export interface UserPreferences {
-  columnThemes: Record<CheckStatus, string>;
-  columnDisplayOptions: Record<CheckStatus, { showCount: boolean; showTotal: boolean }>;
-  cardLayout: Partial<Record<CardLayoutZone, CheckField>>;
-  visibleArchiveColumns: CheckField[];
-  archiveColumnWidths: Record<string, number>;
-  archiveTheme: string;
+    columnThemes: Record<CheckStatus, string>;
+    columnDisplayOptions: Record<CheckStatus, { showCount: boolean; showTotal: boolean }>;
+    cardLayout: Partial<Record<CardLayoutZone, CheckField>>;
+    visibleArchiveColumns: CheckField[];
+    archiveColumnWidths: Record<string, number>;
+    archiveTheme: string;
 }

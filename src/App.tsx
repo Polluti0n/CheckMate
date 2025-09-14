@@ -1,9 +1,10 @@
-
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { auth } from './services/firebase';
 import { useAuth } from './hooks/useAuth';
 import * as firestoreService from './services/firestoreService';
-import { Check, Flag, Comment, AuditLog, CheckStatus, CheckCategory, Batch, CheckField, CardLayoutZone, Theme, UserPreferences } from './types';
+import { Check, Flag, Comment, AuditLog, CheckStatus, CheckCategory, Batch, UserProfile } from './types';
+import { useUserProfiles } from './hooks/useUserProfiles';
 import { usePreferences } from './hooks/usePreferences';
 import { THEMES } from './constants';
 
@@ -18,12 +19,10 @@ import ProcessBatchModal from './components/BatchingModal';
 import ArchiveView from './components/ArchiveView';
 import BatchHistoryView from './components/BatchHistoryView';
 import ExpandedColumnView from './components/ExpandedColumnView';
+import ProfilePage from './components/ProfilePage';
 import SelectionActionBar from './components/SelectionActionBar';
 import ThemePickerModal from './components/ThemePickerModal';
 import PreferencesModal from './components/PreferencesModal';
-
-
-type View = 'KANBAN' | 'ARCHIVE' | 'BATCH_HISTORY';
 
 const App: React.FC = () => {
     const { user, loading } = useAuth();
@@ -31,69 +30,53 @@ const App: React.FC = () => {
     const [flags, setFlags] = useState<Flag[]>([]);
     const [batches, setBatches] = useState<Batch[]>([]);
     
-    const [activeModal, setActiveModal] = useState<string | null>(null);
-    const [selectedCheck, setSelectedCheck] = useState<Check | null>(null);
-    const [currentView, setCurrentView] = useState<View>('KANBAN');
-    const [expandedStatus, setExpandedStatus] = useState<CheckStatus | null>(null);
-
     const [searchTerm, setSearchTerm] = useState('');
     const [activeCategoryFilter, setActiveCategoryFilter] = useState<CheckCategory | null>(null);
-    
-    // FIX: Add preferences state and handlers
-    const [preferences, savePreferences] = usePreferences();
-    const [sortConfig, setSortConfig] = useState<Record<CheckStatus, { key: keyof Check; direction: 'asc' | 'desc' } | undefined>>({
-        [CheckStatus.RECEIVED]: undefined,
-        [CheckStatus.CONFIRMING_DETAILS]: undefined,
-        [CheckStatus.QUEUED]: undefined,
-        [CheckStatus.COMPLETE]: undefined,
-        [CheckStatus.ARCHIVED]: undefined,
-    });
+
+    const [preferences, setPreferences] = usePreferences();
+    const [sortConfig, setSortConfig] = useState<Record<CheckStatus, { key: keyof Check; direction: 'asc' | 'desc' } | undefined>>({} as any);
     const [selectedCheckIds, setSelectedCheckIds] = useState<string[]>([]);
     const [multiSelectColumns, setMultiSelectColumns] = useState<CheckStatus[]>([]);
     const [themePickerTarget, setThemePickerTarget] = useState<CheckStatus | 'ARCHIVE' | null>(null);
 
-    const currentUser = useMemo(() => {
-        if (!user) return null;
-        return {
-            name: user.displayName || user.email || 'User',
-            uid: user.uid,
-        };
-    }, [user]);
+    const location = useLocation();
+    const navigate = useNavigate();
+    const backgroundLocation = location.state?.backgroundLocation;
 
-    // Set up Firestore listeners when user is logged in
+    const uidsToFetch = useMemo(() => {
+        const ids = new Set<string>();
+        if (user) ids.add(user.uid);
+        checks.forEach(check => {
+            check.comments.forEach(c => c.authorUid && ids.add(c.authorUid));
+            check.auditTrail.forEach(a => a.userUid && ids.add(a.userUid));
+        });
+        const rawIds = Array.from(ids);
+        return rawIds.filter((id): id is string => !!id);
+    }, [checks, user]);
+
+    const { profiles, loading: profilesLoading } = useUserProfiles(uidsToFetch);
+    const currentUserProfile = useMemo(() => profiles.find(p => p.uid === user?.uid), [profiles, user]);
+
     useEffect(() => {
         if (user) {
             const unsubscribeChecks = firestoreService.onChecksSnapshot(setChecks);
             const unsubscribeFlags = firestoreService.onFlagsSnapshot(setFlags);
             const unsubscribeBatches = firestoreService.onBatchesSnapshot(setBatches);
-
-            // Cleanup function
-            return () => {
-                unsubscribeChecks();
-                unsubscribeFlags();
-                unsubscribeBatches();
-            };
+            return () => { unsubscribeChecks(); unsubscribeFlags(); unsubscribeBatches(); };
         }
     }, [user]);
     
-    // Auto-archive logic (runs once when checks data is first populated)
     useEffect(() => {
-        if (checks.length > 0) {
+        if (checks.length > 0 && currentUserProfile) {
             const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
             checks.forEach(check => {
                 if (check.status === CheckStatus.COMPLETE && check.statusUpdatedAt && new Date(check.statusUpdatedAt) < tenDaysAgo) {
-                    firestoreService.updateCheck(check.id, { status: CheckStatus.ARCHIVED }, {
-                        user: 'System',
-                        field: 'status',
-                        oldValue: CheckStatus.COMPLETE,
-                        newValue: CheckStatus.ARCHIVED
-                    });
+                    firestoreService.archiveCheck(check.id, check.status, currentUserProfile);
                 }
             });
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [checks.length > 0]);
-
+    }, [checks.length, currentUserProfile]);
 
     const filteredChecks = useMemo(() => {
         return checks.filter(check => {
@@ -101,307 +84,206 @@ const App: React.FC = () => {
             const matchesSearch = searchLower === '' || 
                 check.payor.toLowerCase().includes(searchLower) ||
                 check.checkNumber.toLowerCase().includes(searchLower) ||
-                check.memo.toLowerCase().includes(searchLower);
-
+                (check.memo && check.memo.toLowerCase().includes(searchLower));
             const matchesCategory = !activeCategoryFilter || check.category === activeCategoryFilter;
-
             return matchesSearch && matchesCategory;
         });
     }, [checks, searchTerm, activeCategoryFilter]);
 
-
-    const handleSelectCheck = useCallback((check: Check) => {
-        setSelectedCheck(check);
-        setActiveModal('VIEW_CHECK');
-    }, []);
-
-    const handleCloseModal = useCallback(() => {
-        setActiveModal(null);
-        setSelectedCheck(null);
-        setThemePickerTarget(null);
-    }, []);
+    const handleCloseModal = useCallback(() => navigate(backgroundLocation || '/', { replace: true }), [navigate, backgroundLocation]);
+    const handleOpenModal = (modal: string) => navigate(`?modal=${modal}`, { state: { backgroundLocation: location } });
 
     const handleAddCheck = useCallback((newCheckData: Omit<Check, 'id' | 'createdAt' | 'comments' | 'auditTrail' | 'flags' | 'statusUpdatedAt' | 'batchId'>) => {
-        if (!currentUser) return;
-        const initialLog: Omit<AuditLog, 'id' | 'timestamp'> = {
-            user: currentUser.name,
-            field: 'Check Created',
-            oldValue: 'N/A',
-            newValue: `Amount: $${newCheckData.amount.toFixed(2)}`,
-        };
-
-        const newCheck: Omit<Check, 'id'> = {
-            ...newCheckData,
-            createdAt: new Date().toISOString(), // This will be replaced by serverTimestamp
-            comments: [],
-            auditTrail: [], // Firestore will add the log
-            flags: [],
-        };
-        firestoreService.addCheck(newCheck, initialLog);
-    }, [currentUser]);
+        if (!currentUserProfile) return;
+        firestoreService.addCheck(newCheckData, currentUserProfile);
+    }, [currentUserProfile]);
     
-    const handleUpdateCheck = useCallback((updatedCheck: Check, log: Omit<AuditLog, 'id' | 'timestamp'>) => {
-        if (!currentUser) return;
+    const handleUpdateCheck = useCallback((updatedCheck: Check, log: Omit<AuditLog, 'id' | 'timestamp' | 'userUid' | 'userName' | 'userPhotoURL'>) => {
+        if (!currentUserProfile) return;
         const { id, ...updateData } = updatedCheck;
-        
-        firestoreService.updateCheck(id, updateData, log);
-        setSelectedCheck(updatedCheck); // Optimistic update for modal
-    }, [currentUser]);
+        firestoreService.updateCheck(id, updateData, log, currentUserProfile);
+    }, [currentUserProfile]);
 
     const handleDeleteCheck = useCallback((checkId: string) => {
         firestoreService.deleteCheck(checkId);
         handleCloseModal();
     }, [handleCloseModal]);
     
-    const handleMoveCheck = useCallback((checkId: string, newStatus: CheckStatus, targetIndex: number) => {
-        // NOTE: targetIndex is ignored as we don't persist order in Firestore.
-        const idsToMove = selectedCheckIds.length > 0 ? selectedCheckIds : [checkId];
-
-        if (!currentUser) return;
-
-        idsToMove.forEach(id => {
-            const check = checks.find(c => c.id === id);
-            if (!check || check.status === newStatus) return;
-
-            const log: Omit<AuditLog, 'id' | 'timestamp'> = {
-                user: currentUser.name,
-                field: 'status',
-                oldValue: check.status,
-                newValue: newStatus,
-            };
-
-            firestoreService.updateCheck(id, { status: newStatus }, log);
-        });
-
-        if (selectedCheckIds.length > 0) {
-            setSelectedCheckIds([]);
-            setMultiSelectColumns([]);
+    const handleMoveCheck = useCallback((checkId: string, newStatus: CheckStatus) => {
+        if (!currentUserProfile) return;
+        const check = checks.find(c => c.id === checkId);
+        if (check && check.status !== newStatus) {
+            firestoreService.updateCheckStatus(checkId, check.status, newStatus, currentUserProfile);
         }
-    }, [currentUser, checks, selectedCheckIds]);
-
-
+    }, [currentUserProfile, checks]);
+    
     const handleAddComment = useCallback((checkId: string, commentText: string) => {
-        if (!currentUser) return;
-        const newComment: Omit<Comment, 'id' | 'timestamp'> = {
-            author: currentUser.name,
-            text: commentText,
-        };
-        firestoreService.addComment(checkId, newComment);
-    }, [currentUser]);
+        if (!currentUserProfile) return;
+        firestoreService.addComment(checkId, commentText, currentUserProfile);
+    }, [currentUserProfile]);
     
     const handleToggleFlag = useCallback((checkId: string, flagId: string) => {
-        if (!currentUser) return;
+        if (!currentUserProfile) return;
         const check = checks.find(c => c.id === checkId);
         const flag = flags.find(f => f.id === flagId);
         if (!check || !flag) return;
-
-        const isAdding = !check.flags.includes(flagId);
-        const log: Omit<AuditLog, 'id' | 'timestamp'> = {
-            user: currentUser.name,
-            field: isAdding ? 'Flag Added' : 'Flag Removed',
-            oldValue: isAdding ? 'N/A' : flag.name,
-            newValue: isAdding ? flag.name : 'N/A',
-        };
-
-        firestoreService.toggleFlag(checkId, flagId, isAdding, log);
-    }, [currentUser, checks, flags]);
+        firestoreService.toggleFlag(checkId, flagId, !check.flags.includes(flagId), flag.name, currentUserProfile);
+    }, [currentUserProfile, checks, flags]);
 
     const handleProcessBatch = (checkIds: string[], trackingNumber: string) => {
-        firestoreService.processBatch(checkIds, trackingNumber);
+        if (!currentUserProfile) return;
+        firestoreService.processBatch(checkIds, trackingNumber, currentUserProfile);
     };
 
-    const handleSort = (status: CheckStatus, key: keyof Check) => {
-        const currentSort = sortConfig[status];
-        const newDirection = currentSort && currentSort.key === key && currentSort.direction === 'asc' ? 'desc' : 'asc';
-        setSortConfig(prev => ({ ...prev, [status]: { key, direction: newDirection } }));
-    };
+    const handleSort = useCallback((status: CheckStatus, key: keyof Check) => {
+        setSortConfig(prev => {
+            const currentSort = prev[status];
+            const direction = currentSort && currentSort.key === key && currentSort.direction === 'asc' ? 'desc' : 'asc';
+            return { ...prev, [status]: { key, direction } };
+        });
+    }, []);
 
-    const handleToggleSelection = (checkId: string) => {
+    const handleToggleSelection = useCallback((checkId: string) => {
         setSelectedCheckIds(prev => prev.includes(checkId) ? prev.filter(id => id !== checkId) : [...prev, checkId]);
-    };
-    
-    const handleSelectAllInColumn = (status: CheckStatus) => {
+    }, []);
+
+    const handleSelectAllInColumn = useCallback((status: CheckStatus) => {
         const checkIdsInColumn = checks.filter(c => c.status === status).map(c => c.id);
-        const allSelected = checkIdsInColumn.every(id => selectedCheckIds.includes(id));
-        if (allSelected) {
+        const allCurrentlySelected = checkIdsInColumn.length > 0 && checkIdsInColumn.every(id => selectedCheckIds.includes(id));
+        if (allCurrentlySelected) {
             setSelectedCheckIds(prev => prev.filter(id => !checkIdsInColumn.includes(id)));
         } else {
             setSelectedCheckIds(prev => [...new Set([...prev, ...checkIdsInColumn])]);
         }
-    };
-    
-    const handleToggleColumnMultiSelect = (status: CheckStatus) => {
-        setMultiSelectColumns(prev => prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]);
-    };
-    
-    const handleOpenThemePicker = (target: CheckStatus | 'ARCHIVE') => {
-        setThemePickerTarget(target);
-        setActiveModal('THEME_PICKER');
-    };
-    
-    const handleSetTheme = (target: CheckStatus | 'ARCHIVE', themeId: string) => {
-        if (target === 'ARCHIVE') {
-            savePreferences({ ...preferences, archiveTheme: themeId });
-        } else {
-            savePreferences({ ...preferences, columnThemes: { ...preferences.columnThemes, [target]: themeId } });
-        }
-    };
-    
-    const handleToggleDisplayOption = (status: CheckStatus, option: 'showCount' | 'showTotal') => {
-        savePreferences({
-            ...preferences,
-            columnDisplayOptions: {
-                ...preferences.columnDisplayOptions,
-                [status]: {
-                    ...preferences.columnDisplayOptions[status],
-                    [option]: !preferences.columnDisplayOptions[status][option]
-                }
+    }, [checks, selectedCheckIds]);
+
+    const handleToggleColumnMultiSelect = useCallback((status: CheckStatus) => {
+        setMultiSelectColumns(prev => {
+            if (prev.includes(status)) {
+                const idsInColumn = checks.filter(c => c.status === status).map(c => c.id);
+                setSelectedCheckIds(currentIds => currentIds.filter(id => !idsInColumn.includes(id)));
+                return prev.filter(s => s !== status);
             }
+            return [...prev, status];
         });
+    }, [checks]);
+
+    const handleToggleDisplayOption = useCallback((status: CheckStatus, option: 'showCount' | 'showTotal') => {
+        const newPrefs = { ...preferences };
+        newPrefs.columnDisplayOptions[status][option] = !newPrefs.columnDisplayOptions[status][option];
+        setPreferences(newPrefs);
+    }, [preferences, setPreferences]);
+
+    const handleSetTheme = useCallback((target: CheckStatus | 'ARCHIVE', themeId: string) => {
+        const newPrefs = { ...preferences };
+        if (target === 'ARCHIVE') {
+            newPrefs.archiveTheme = themeId;
+        } else {
+            newPrefs.columnThemes[target] = themeId;
+        }
+        setPreferences(newPrefs);
+    }, [preferences, setPreferences]);
+
+    const handleBulkUpdate = (newStatus: CheckStatus) => {
+        if (!currentUserProfile) return;
+        const checksToUpdate = checks.filter(c => selectedCheckIds.includes(c.id));
+        firestoreService.bulkUpdateChecksStatus(checksToUpdate, newStatus, currentUserProfile);
+        setSelectedCheckIds([]);
+        setMultiSelectColumns([]);
     };
+    
+    if (loading || (user && profilesLoading)) return <SplashScreen />;
+    if (!user) return <Login />;
+    if (!currentUserProfile) return <SplashScreen />;
 
-    const renderView = () => {
-        if (expandedStatus) {
-            return <ExpandedColumnView
-                status={expandedStatus}
-                checks={filteredChecks.filter(c => c.status === expandedStatus)}
-                flags={flags}
-                onSelectCheck={handleSelectCheck}
-                onClose={() => setExpandedStatus(null)}
-            />;
-        }
-
-        switch (currentView) {
-            case 'ARCHIVE':
-                return <ArchiveView 
-                    checks={filteredChecks.filter(c => c.status === CheckStatus.ARCHIVED)} 
-                    onSelectCheck={handleSelectCheck} 
-                    onBack={() => setCurrentView('KANBAN')} 
-                    searchTerm={searchTerm}
-                    visibleColumns={preferences.visibleArchiveColumns}
-                    onVisibleColumnsChange={(newColumns) => savePreferences({...preferences, visibleArchiveColumns: newColumns})}
-                    columnWidths={preferences.archiveColumnWidths}
-                    onColumnWidthsChange={(newWidths) => savePreferences({...preferences, archiveColumnWidths: newWidths})}
-                    archiveTheme={preferences.archiveTheme}
-                    themes={THEMES}
-                    onOpenThemePicker={() => handleOpenThemePicker('ARCHIVE')}
-                />;
-            case 'BATCH_HISTORY':
-                return <BatchHistoryView batches={batches} checks={checks} onSelectCheck={handleSelectCheck} onBack={() => setCurrentView('KANBAN')} />;
-            case 'KANBAN':
-            default:
-                return <KanbanBoard
-                    checks={filteredChecks.filter(c => c.status !== CheckStatus.ARCHIVED)}
-                    flags={flags}
-                    themes={THEMES}
-                    onSelectCheck={handleSelectCheck}
-                    onMoveCheck={handleMoveCheck}
-                    onExpandColumn={setExpandedStatus}
-                    sortConfig={sortConfig}
-                    onSort={handleSort}
-                    onSelectAllInColumn={handleSelectAllInColumn}
-                    selectedCheckIds={selectedCheckIds}
-                    onToggleSelection={handleToggleSelection}
-                    columnDisplayOptions={preferences.columnDisplayOptions}
-                    columnThemes={preferences.columnThemes}
-                    onToggleDisplayOption={handleToggleDisplayOption}
-                    onOpenThemePicker={handleOpenThemePicker}
-                    multiSelectColumns={multiSelectColumns}
-                    onToggleColumnMultiSelect={handleToggleColumnMultiSelect}
-                    cardLayout={preferences.cardLayout}
-                />;
-        }
-    }
-
-    if (loading) {
-        return <SplashScreen />;
-    }
-
-    if (!user) {
-        return <Login />;
-    }
+    const modalParam = new URLSearchParams(location.search).get('modal');
 
     return (
         <div className="min-h-screen bg-slate-50 font-sans flex flex-col">
             <Header
-                onAddCheck={() => setActiveModal('ADD_CHECK')}
-                onBatching={() => setActiveModal('BATCHING')}
-                onViewArchive={() => setCurrentView('ARCHIVE')}
-                onViewBatchHistory={() => setCurrentView('BATCH_HISTORY')}
-                searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
                 activeCategory={activeCategoryFilter}
                 onCategoryFilterChange={setActiveCategoryFilter}
-                userEmail={user.email}
-                onOpenPreferences={() => setActiveModal('PREFERENCES')}
+                userProfile={currentUserProfile}
             />
             
-            <div className="flex-grow flex flex-col pb-16"> {/* Add padding-bottom for action bar */}
-                {renderView()}
+            <div className="flex-grow flex flex-col">
+                 <Routes location={backgroundLocation || location}>
+                    <Route path="/" element={
+                        <KanbanBoard
+                            checks={filteredChecks.filter(c => c.status !== CheckStatus.ARCHIVED)}
+                            flags={flags}
+                            themes={THEMES}
+                            onMoveCheck={handleMoveCheck}
+                            sortConfig={sortConfig}
+                            onSort={handleSort}
+                            onSelectAllInColumn={handleSelectAllInColumn}
+                            selectedCheckIds={selectedCheckIds}
+                            onToggleSelection={handleToggleSelection}
+                            columnDisplayOptions={preferences.columnDisplayOptions}
+                            columnThemes={preferences.columnThemes}
+                            onToggleDisplayOption={handleToggleDisplayOption}
+                            onOpenThemePicker={setThemePickerTarget}
+                            multiSelectColumns={multiSelectColumns}
+                            onToggleColumnMultiSelect={handleToggleColumnMultiSelect}
+                            cardLayout={preferences.cardLayout}
+                        />
+                    } />
+                    <Route path="/archive" element={<ArchiveView 
+                        checks={filteredChecks.filter(c => c.status === CheckStatus.ARCHIVED)} 
+                        onUnarchiveCheck={(check) => firestoreService.unarchiveCheck(check.id, check.statusBeforeArchive, currentUserProfile)}
+                        searchTerm={searchTerm}
+                        visibleColumns={preferences.visibleArchiveColumns}
+                        onVisibleColumnsChange={(newColumns) => setPreferences({...preferences, visibleArchiveColumns: newColumns})}
+                        columnWidths={preferences.archiveColumnWidths}
+                        onColumnWidthsChange={(newWidths) => setPreferences({...preferences, archiveColumnWidths: newWidths})}
+                        archiveTheme={preferences.archiveTheme}
+                        themes={THEMES}
+                        onOpenThemePicker={() => setThemePickerTarget('ARCHIVE')}
+                    />} />
+                    <Route path="/batches" element={<BatchHistoryView batches={batches} checks={checks} />} />
+                    <Route path="/profile" element={<ProfilePage userProfile={currentUserProfile} onUpdateProfile={firestoreService.updateUserProfile} />} />
+                    <Route path="/column/:status" element={<ExpandedColumnView allChecks={filteredChecks} allFlags={flags} />} />
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
             </div>
-            
-            {selectedCheckIds.length > 0 && (
-                 <SelectionActionBar
-                    selectedCount={selectedCheckIds.length}
-                    onCancel={() => setSelectedCheckIds([])}
-                    onMove={(newStatus) => handleMoveCheck('', newStatus, 0)} // checkId and index are not used when moving selections
-                />
-            )}
 
-            {activeModal === 'ADD_CHECK' && (
-                <AddCheckWizard
-                    isOpen={true}
-                    onClose={handleCloseModal}
-                    onAddCheck={handleAddCheck}
-                />
+            {backgroundLocation && (
+                <Routes>
+                    <Route path="/check/:checkId" element={
+                        <CheckDetailModal
+                            allChecks={checks} allFlags={flags} profiles={profiles}
+                            onClose={handleCloseModal} onUpdateCheck={handleUpdateCheck} onAddComment={handleAddComment}
+                            onToggleFlag={handleToggleFlag} onOpenFlagManager={() => handleOpenModal('manage-flags')}
+                            onDeleteCheck={handleDeleteCheck} currentUser={currentUserProfile}
+                        />
+                    }/>
+                </Routes>
             )}
-            {activeModal === 'VIEW_CHECK' && (
-                <CheckDetailModal
-                    check={selectedCheck}
-                    flags={flags}
-                    onClose={handleCloseModal}
-                    onUpdateCheck={handleUpdateCheck}
-                    onAddComment={handleAddComment}
-                    onToggleFlag={handleToggleFlag}
-                    onOpenFlagManager={() => setActiveModal('MANAGE_FLAGS')}
-                    onDeleteCheck={handleDeleteCheck}
-                    currentUser={currentUser}
-                />
-            )}
-            {activeModal === 'MANAGE_FLAGS' && (
-                <FlagManager
-                    isOpen={true}
-                    flags={flags}
-                    onClose={() => {
-                        if (selectedCheck) setActiveModal('VIEW_CHECK');
-                        else handleCloseModal();
-                    }}
-                    onUpdateFlags={firestoreService.syncFlags}
-                />
-            )}
-            {activeModal === 'BATCHING' && (
-                <ProcessBatchModal
-                    isOpen={true}
-                    checks={checks}
-                    onClose={handleCloseModal}
-                    onProcessBatch={handleProcessBatch}
-                />
-            )}
-            {activeModal === 'THEME_PICKER' && (
+            
+            {modalParam === 'add-check' && <AddCheckWizard isOpen={true} onClose={handleCloseModal} onAddCheck={handleAddCheck} />}
+            {modalParam === 'batching' && <ProcessBatchModal isOpen={true} checks={checks} onClose={handleCloseModal} onProcessBatch={handleProcessBatch} />}
+            {modalParam === 'manage-flags' && <FlagManager isOpen={true} flags={flags} onClose={handleCloseModal} onUpdateFlags={firestoreService.syncFlags} />}
+            {modalParam === 'preferences' && <PreferencesModal isOpen={true} onClose={handleCloseModal} currentPreferences={preferences} onSave={setPreferences} />}
+
+            {themePickerTarget && (
                 <ThemePickerModal
-                    isOpen={true}
-                    onClose={handleCloseModal}
+                    isOpen={!!themePickerTarget}
+                    onClose={() => setThemePickerTarget(null)}
                     themes={THEMES}
                     onSetTheme={handleSetTheme}
                     target={themePickerTarget}
                 />
             )}
-             {activeModal === 'PREFERENCES' && (
-                <PreferencesModal
-                    isOpen={true}
-                    onClose={handleCloseModal}
-                    currentPreferences={preferences}
-                    onSave={savePreferences}
+
+            {selectedCheckIds.length > 0 && (
+                <SelectionActionBar
+                    selectedCount={selectedCheckIds.length}
+                    onCancel={() => {
+                        setSelectedCheckIds([]);
+                        setMultiSelectColumns([]);
+                    }}
+                    onMove={handleBulkUpdate}
                 />
             )}
         </div>

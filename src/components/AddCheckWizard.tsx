@@ -145,7 +145,7 @@ const AddCheckWizard: React.FC<AddCheckWizardProps> = ({ isOpen, onClose, onAddC
                 const imageBlob = await (await fetch(processedDataUrl)).blob();
                 // Give the processed file a consistent extension
                 const processedFileName = file.name.replace(/\.[^/.]+$/, ".jpg");
-                const imageUrlPromise = firestoreService.uploadCheckImage(imageBlob, processedFileName);
+                const imageUrlPromise = firestoreService.uploadCheckImage(imageBlob, `check-images/${processedFileName}`);
 
                 const [extractedData, imageUrl] = await Promise.all([extractedDataPromise, imageUrlPromise]);
 
@@ -287,92 +287,85 @@ const AddCheckWizard: React.FC<AddCheckWizardProps> = ({ isOpen, onClose, onAddC
 
     if (!isOpen) return null;
     
-    const renderStep = () => {
+    const renderContent = () => {
         switch (step) {
             case 'CATEGORY':
                 return (
-                    <div>
-                        <h3 className="text-xl font-semibold leading-6 text-gray-900 text-center">Select Check Category</h3>
-                        <p className="mt-1 text-sm text-gray-500 text-center">Choose the category that best fits the payment type.</p>
-                        <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
-                            {Object.entries(categoryConfig).map(([category, config]) => {
-                                const Icon = config.icon;
-                                return (
-                                    <button
-                                        key={category}
-                                        onClick={() => handleCategorySelect(category as CheckCategory)}
-                                        className={`group relative text-left p-4 border rounded-lg transition-all duration-300 ease-in-out transform hover:scale-[1.03] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 ${config.colors}`}
-                                    >
-                                        <div className="flex items-start space-x-4">
-                                            <div className={`flex-shrink-0 p-3 rounded-lg ${config.iconColors}`}>
-                                                <Icon className="h-6 w-6" />
-                                            </div>
-                                            <div>
-                                                <p className="font-semibold text-slate-800">{category}</p>
-                                                <p className="text-sm text-slate-600">{config.description}</p>
-                                            </div>
-                                        </div>
-                                    </button>
-                                );
-                            })}
+                    <>
+                        <div className="p-6 flex-shrink-0 border-b">
+                            <h3 className="text-xl font-semibold leading-6 text-gray-900 text-center">Select Check Category</h3>
+                            <p className="mt-1 text-sm text-gray-500 text-center">Choose the category that best fits the payment type.</p>
                         </div>
-                    </div>
+                        <div className="p-6 flex-grow overflow-y-auto">
+                            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                                {Object.entries(categoryConfig).map(([category, config]) => {
+                                    const Icon = config.icon;
+                                    return (
+                                        <button
+                                            key={category}
+                                            onClick={() => handleCategorySelect(category as CheckCategory)}
+                                            className={`group relative text-left p-4 border rounded-lg transition-all duration-300 ease-in-out transform hover:scale-[1.03] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 ${config.colors}`}
+                                        >
+                                            <div className="flex items-start space-x-4">
+                                                <div className={`flex-shrink-0 p-3 rounded-lg ${config.iconColors}`}><Icon className="h-6 w-6" /></div>
+                                                <div>
+                                                    <p className="font-semibold text-slate-800">{category}</p>
+                                                    <p className="text-sm text-slate-600">{config.description}</p>
+                                                </div>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </>
                 );
             case 'UPLOAD':
                 return (
-                    <div>
-                        <h3 className="text-lg font-medium leading-6 text-gray-900">Upload Check Image (Optional)</h3>
-                        <p className="mt-1 text-sm text-gray-500">Upload an image of the check to automatically extract details using AI.</p>
-                        <div className="mt-4">
+                    <>
+                        <div className="p-6 flex-shrink-0 border-b">
+                            <h3 className="text-lg font-medium leading-6 text-gray-900">Upload Check Image (Optional)</h3>
+                            <p className="mt-1 text-sm text-gray-500">Upload an image to automatically extract details using AI.</p>
+                        </div>
+                        <div className="p-6 flex-grow overflow-y-auto">
                             <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-sky-600 hover:text-sky-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-sky-500">
                                 <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-md hover:border-sky-400">
                                     <div className="space-y-1 text-center">
                                         {isLoading ? (
-                                            <div className="py-4">
-                                                <ProcessingLoaderIcon className="mx-auto h-12 w-12" />
-                                                <p className="mt-4 text-sm font-medium text-slate-600">Processing image, please wait...</p>
-                                                <p className="text-xs text-slate-400">This may take a moment.</p>
-                                            </div>
+                                            <div className="py-4"><ProcessingLoaderIcon className="mx-auto h-12 w-12" /><p className="mt-4 text-sm font-medium text-slate-600">Processing image...</p></div>
                                         ) : imagePreview ? (
                                             <img src={imagePreview} alt="Check preview" className="mx-auto h-32 object-contain rounded-md shadow-sm" />
                                         ) : (
-                                            <>
-                                                <CheckPlaceholderIcon className="mx-auto h-16 w-auto text-slate-400" />
-                                                <div className="mt-2 flex text-sm text-gray-600">
-                                                    <span>Upload a file</span>
-                                                    <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleImageUpload} accept="image/*" capture />
-                                                </div>
-                                                <p className="text-xs text-gray-500">PNG, JPG, or use camera</p>
-                                            </>
+                                            <><CheckPlaceholderIcon className="mx-auto h-16 w-auto text-slate-400" /><div className="mt-2 flex text-sm text-gray-600"><span>Upload a file</span><input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleImageUpload} accept="image/*" capture /></div><p className="text-xs text-gray-500">PNG, JPG, or use camera</p></>
                                         )}
                                     </div>
                                 </div>
                             </label>
+                            {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
                         </div>
-                        {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-                        <div className="mt-6 flex justify-end space-x-4">
-                            <button onClick={handleManualEntry} type="button" className="inline-flex justify-center rounded-md border border-slate-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
-                                Skip & Enter Manually
-                            </button>
+                        <div className="p-6 flex-shrink-0 border-t flex justify-end space-x-4">
+                            <button onClick={handleManualEntry} type="button" className="inline-flex justify-center rounded-md border border-slate-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-slate-700 hover:bg-slate-50">Skip & Enter Manually</button>
                         </div>
-                    </div>
+                    </>
                 );
             case 'DETAILS':
                 return (
-                    <form onSubmit={handleSubmit}>
-                        <h3 className="text-lg font-medium leading-6 text-gray-900">Enter Check Details</h3>
-                        <p className="text-sm text-slate-500">Category: <span className="font-semibold">{newCheck.category}</span></p>
-                        {newCheck.imageUrl && (
-                            <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-md flex items-center">
-                                <CheckCircleIcon className="h-5 w-5 text-green-500 mr-2" />
-                                <p className="text-sm text-green-700">Some details extracted from image. Please verify and complete the form.</p>
-                            </div>
-                        )}
-                        {error && !isLoading && <p className="mt-2 text-sm text-red-600">{error}</p>}
-                        
-                        {renderDetailsForm()}
-
-                        <div className="mt-6 flex justify-end space-x-4">
+                    <form onSubmit={handleSubmit} className="flex flex-col max-h-[80vh]">
+                        <div className="p-6 flex-shrink-0 border-b">
+                            <h3 className="text-lg font-medium leading-6 text-gray-900">Enter Check Details</h3>
+                            <p className="text-sm text-slate-500">Category: <span className="font-semibold">{newCheck.category}</span></p>
+                        </div>
+                        <div className="p-6 flex-grow overflow-y-auto">
+                            {newCheck.imageUrl && (
+                                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md flex items-center">
+                                    <CheckCircleIcon className="h-5 w-5 text-green-500 mr-2" />
+                                    <p className="text-sm text-green-700">Details extracted from image. Please verify and complete the form.</p>
+                                </div>
+                            )}
+                            {error && !isLoading && <p className="mb-4 text-sm text-red-600">{error}</p>}
+                            {renderDetailsForm()}
+                        </div>
+                        <div className="p-6 flex-shrink-0 border-t flex justify-end space-x-4">
                              <button type="button" onClick={handleClose} className="inline-flex justify-center rounded-md border border-slate-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
                              <button type="submit" className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-sky-600 text-base font-medium text-white hover:bg-sky-700">Add Check</button>
                         </div>
@@ -382,15 +375,13 @@ const AddCheckWizard: React.FC<AddCheckWizardProps> = ({ isOpen, onClose, onAddC
     };
     
     return (
-        <div className="fixed overflow-y-auto h-100 inset-0 bg-gray-500 bg-opacity-75 transition-opacity z-30" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity z-30" aria-labelledby="modal-title" role="dialog" aria-modal="true">
             <div className="flex items-center justify-center min-h-screen p-4 text-center">
-                <div ref={wizardRef} className="relative bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:max-w-3xl sm:w-full">
-                    <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                        <button onClick={handleClose} className="absolute top-3 right-3 p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
-                           <XMarkIcon className="h-6 w-6" />
-                        </button>
-                        {renderStep()}
-                    </div>
+                <div ref={wizardRef} className="relative bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:max-w-3xl sm:w-full max-h-[80vh] flex flex-col">
+                    <button onClick={handleClose} className="absolute top-3 right-3 p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors z-10">
+                        <XMarkIcon className="h-6 w-6" />
+                    </button>
+                    {renderContent()}
                 </div>
             </div>
         </div>

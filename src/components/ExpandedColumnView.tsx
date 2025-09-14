@@ -1,13 +1,11 @@
 import React from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Check, CheckStatus, Flag } from '../types';
 import { ArrowUturnLeftIcon, FlagIcon, DocumentTextIcon } from './icons';
 
 interface ExpandedColumnViewProps {
-    status: CheckStatus;
-    checks: Check[];
-    flags: Flag[];
-    onSelectCheck: (check: Check) => void;
-    onClose: () => void;
+    allChecks: Check[];
+    allFlags: Flag[];
 }
 
 const statusColors: Record<CheckStatus, { border: string, bg: string, text: string }> = {
@@ -18,7 +16,18 @@ const statusColors: Record<CheckStatus, { border: string, bg: string, text: stri
     [CheckStatus.ARCHIVED]: { border: 'border-slate-500', bg: 'bg-slate-50', text: 'text-slate-800' },
 };
 
-const ExpandedColumnView: React.FC<ExpandedColumnViewProps> = ({ status, checks, flags, onSelectCheck, onClose }) => {
+const ExpandedColumnView: React.FC<ExpandedColumnViewProps> = ({ allChecks, allFlags }) => {
+    const { status } = useParams<{ status: CheckStatus }>();
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    if (!status || !Object.values(CheckStatus).includes(status)) {
+        navigate('/');
+        return null;
+    }
+
+    const checks = allChecks.filter(c => c.status === status);
+    const flags = allFlags;
     const colors = statusColors[status] || statusColors[CheckStatus.ARCHIVED];
 
     return (
@@ -30,7 +39,7 @@ const ExpandedColumnView: React.FC<ExpandedColumnViewProps> = ({ status, checks,
                         <p className="text-slate-500">{checks.length} checks in this stage</p>
                     </div>
                     <button 
-                        onClick={onClose}
+                        onClick={() => navigate('/')}
                         className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-semibold rounded-md shadow-sm transition-colors duration-200"
                     >
                         <ArrowUturnLeftIcon className="h-5 w-5" />
@@ -45,7 +54,7 @@ const ExpandedColumnView: React.FC<ExpandedColumnViewProps> = ({ status, checks,
                             return (
                                 <li 
                                     key={check.id} 
-                                    onClick={() => onSelectCheck(check)} 
+                                    onClick={() => navigate(`/check/${check.id}`, { state: { backgroundLocation: location } })}
                                     className="p-4 bg-white rounded-lg shadow-sm border border-slate-200 hover:shadow-md hover:border-sky-400 cursor-pointer transition-all duration-200 grid grid-cols-1 md:grid-cols-12 gap-4 items-center"
                                 >
                                     <div className="md:col-span-3">

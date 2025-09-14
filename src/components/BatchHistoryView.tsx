@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Batch, Check } from '../types';
 import { CubeIcon } from './icons';
 import BatchChecksModal from './BatchChecksModal';
@@ -6,12 +7,11 @@ import BatchChecksModal from './BatchChecksModal';
 interface BatchHistoryViewProps {
     batches: Batch[];
     checks: Check[];
-    onSelectCheck: (check: Check) => void;
-    onBack: () => void;
 }
 
-const BatchHistoryView: React.FC<BatchHistoryViewProps> = ({ batches, checks, onSelectCheck, onBack }) => {
+const BatchHistoryView: React.FC<BatchHistoryViewProps> = ({ batches, checks }) => {
     const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
+    const navigate = useNavigate();
 
     return (
         <>
@@ -23,7 +23,7 @@ const BatchHistoryView: React.FC<BatchHistoryViewProps> = ({ batches, checks, on
                             <p className="text-slate-500">{batches.length} batches processed</p>
                         </div>
                         <button 
-                            onClick={onBack}
+                            onClick={() => navigate('/')}
                             className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-semibold rounded-md shadow-sm transition-colors duration-200"
                         >
                             Back to Board
@@ -67,7 +67,6 @@ const BatchHistoryView: React.FC<BatchHistoryViewProps> = ({ batches, checks, on
                 batch={selectedBatch}
                 checks={checks}
                 onClose={() => setSelectedBatch(null)}
-                onSelectCheck={onSelectCheck}
             />
         </>
     );
