@@ -1,16 +1,19 @@
+import firebase from 'firebase/compat/app';
+
+// Enums from original file
 export enum CheckCategory {
-  HOMEOWNER_LOCKBOX = "Homeowner Lockbox",
-  MISC_HOMEOWNER_INCOME = "Miscellaneous Homeowner Income",
-  MISC_NON_HOMEOWNER_INCOME = "Miscellaneous Non-homeowner Income",
-  COMMUNITY_ARCHIVES = "Community Archives",
+    HOMEOWNER_LOCKBOX = "Homeowner Lockbox",
+    MISC_HOMEOWNER_INCOME = "Miscellaneous Homeowner Income",
+    MISC_NON_HOMEOWNER_INCOME = "Miscellaneous Non-homeowner Income",
+    COMMUNITY_ARCHIVES = "Community Archives",
 }
 
 export enum CheckStatus {
-  RECEIVED = "Received",
-  CONFIRMING_DETAILS = "Confirming Details",
-  QUEUED = "Queued",
-  COMPLETE = "Complete",
-  ARCHIVED = "Archived",
+    RECEIVED = "Received",
+    CONFIRMING_DETAILS = "Confirming Details",
+    QUEUED = "Queued",
+    COMPLETE = "Complete",
+    ARCHIVED = "Archived",
 }
 
 export type CheckField = keyof Check | 'lastComment';
@@ -25,23 +28,23 @@ export interface Flag {
 }
 
 export interface Comment {
-  id: string;
-  author: string;
-  text: string;
+    id: string;
+    author: string;
+    text: string;
   timestamp: string;
 }
 
 export interface AuditLog {
-  id: string;
-  user: string;
-  field: string;
-  oldValue: string;
-  newValue: string;
-  timestamp: string;
+    id: string;
+    user: string;
+    field: string;
+    oldValue: string | number;
+    newValue: string | number;
+    timestamp: string; // ISO string
 }
 
 export interface Check {
-  id: string;
+    id: string;
   category: CheckCategory;
   status: CheckStatus;
   
@@ -73,6 +76,7 @@ export interface Check {
   auditTrail: AuditLog[];
   flags: string[]; // array of flag ids
   createdAt: string;
+  boardOrder?: number;
 }
 
 export interface Batch {
@@ -80,6 +84,11 @@ export interface Batch {
     checkIds: string[];
     createdAt: string;
     trackingNumber: string;
+}
+
+export interface CurrentUser {
+    name: string;
+    uid: string;
 }
 
 export interface Theme {

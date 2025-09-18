@@ -15,18 +15,21 @@
     "@atlaskit/pragmatic-drag-and-drop-hitbox": "^1.1.0",
     "@google/genai": "^1.17.0",
     "exceljs": "^4.4.0",
-    "firebase": "^12.2.1",
+    "firebase": "^10.12.2",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "react-router-dom": "^6.24.1",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
+    "@types/node": "^20.14.9",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.19",
     "postcss": "^8.4.39",
     "tailwindcss": "^3.4.4",
-    "typescript": "^5.5.3",
+    "typescript": "^5.9.2",
     "vite": "^5.3.1"
   }
 }

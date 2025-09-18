@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Check, Comment, AuditLog, Flag, CheckStatus } from '../types';
-import { XMarkIcon, FlagIcon, PencilIcon, ArrowsPointingOutIcon, ArrowsPointingInIcon, TrashIcon, ExclamationTriangleIcon } from './icons';
+import { XMarkIcon, FlagIcon, PencilIcon, TrashIcon, SendIcon } from './icons';
 
 interface CheckDetailModalProps {
     check: Check | null;
@@ -76,203 +76,207 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
     const availableFlags = flags.filter(f => !check.flags.includes(f.id));
 
     return (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity z-40" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-            <div className="flex items-start justify-center min-h-screen p-4 text-center overflow-y-auto">
-                <div className={`relative bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:w-full ${expandedView === 'NONE' ? 'sm:max-w-3xl' : 'sm:max-w-4xl'}`}>
-                    <div className="bg-white p-6">
-                        <div className="flex justify-between items-start">
-                             <div>
-                                <h3 className="text-2xl font-bold text-slate-800" id="modal-title">Check Details</h3>
-                                <p className="text-sm text-slate-500 mt-1">From: {check.payor}</p>
-                             </div>
-                            <button onClick={onClose} className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"><XMarkIcon className="h-6 w-6" /></button>
-                        </div>
+        <div className="fixed inset-0 z-40 flex items-center justify-center p-4 sm:p-6">
+            <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
 
-                        {expandedView === 'NONE' && (
-                            <>
-                                {/* Main Details */}
-                                <div className="mt-4 border-t border-b border-slate-200 py-4 grid grid-cols-3 gap-4">
-                                    <div><label className="text-sm font-medium text-slate-500">Amount</label><p className="font-semibold text-lg text-slate-800">${editableCheck.amount.toFixed(2)}</p></div>
-                                    <div><label className="text-sm font-medium text-slate-500">Check #</label><p className="text-slate-700">{editableCheck.checkNumber}</p></div>
-                                    <div><label className="text-sm font-medium text-slate-500">Date</label><p className="text-slate-700">{new Date(editableCheck.date).toLocaleDateString()}</p></div>
-                                    <div className="col-span-3"><label className="text-sm font-medium text-slate-500">Memo</label><p className="text-slate-700">{editableCheck.memo || 'N/A'}</p></div>
-                                    <div>
-                                        <label htmlFor="status" className="text-sm font-medium text-slate-500">Status</label>
+            <div className="relative w-full max-w-4xl mx-auto bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90dvh]">
+                {/* Header */}
+                <div className="flex items-start justify-between gap-4 p-5 border-b border-slate-100">
+                    <div className="min-w-0">
+                        <h3 className="text-lg sm:text-2xl font-semibold text-slate-900 truncate">Check Details</h3>
+                        <p className="text-sm text-slate-500 truncate">{check.payor} • {check.checkNumber || 'No #'} • {new Date(check.date).toLocaleDateString()}</p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => { setIsEditing(p => !p); if (!isEditing) setEditableCheck(check); }} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50">
+                            <PencilIcon className="h-4 w-4" /> {isEditing ? 'Editing' : 'Edit'}
+                        </button>
+                        <button onClick={() => setIsDeleteConfirmOpen(true)} aria-label="Delete" className="inline-flex items-center px-3 py-1.5 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700">
+                            <TrashIcon className="h-4 w-4" />
+                        </button>
+                        <button onClick={onClose} aria-label="Close" className="ml-2 inline-flex items-center justify-center h-9 w-9 rounded-full bg-slate-50 hover:bg-slate-100">
+                            <XMarkIcon className="h-5 w-5 text-slate-700" />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Body */}
+                <div className="flex-1 overflow-y-auto p-5">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+                        {/* Left: Details + Flags */}
+                        <div className="lg:col-span-2 flex flex-col gap-4">
+
+                            <div className="bg-white border border-slate-100 rounded-md p-4 h-full details">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                    <div className="bg-slate-50 p-3 rounded-md">
+                                        <p className="text-xs text-slate-500">Amount</p>
                                         {isEditing ? (
-                                            <select id="status" name="status" value={editableCheck.status} onChange={handleInputChange} className="mt-1 block w-full bg-slate-50 border border-slate-300 text-slate-900 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-500 sm:text-sm">
+                                            <input aria-label="Amount" name="amount" type="number" step="0.01" value={editableCheck.amount} onChange={handleInputChange} className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-slate-900" />
+                                        ) : (
+                                            <p className="font-semibold text-lg text-slate-900">${editableCheck.amount.toFixed(2)}</p>
+                                        )}
+                                    </div>
+
+                                    <div className="bg-slate-50 p-3 rounded-md">
+                                        <p className="text-xs text-slate-500">Check #</p>
+                                        {isEditing ? (
+                                            <input aria-label="Check number" name="checkNumber" value={editableCheck.checkNumber} onChange={handleInputChange} className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-slate-900" />
+                                        ) : (
+                                            <p className="font-medium text-slate-800">{editableCheck.checkNumber || '—'}</p>
+                                        )}
+                                    </div>
+
+                                    <div className="bg-slate-50 p-3 rounded-md">
+                                        <p className="text-xs text-slate-500">Date</p>
+                                        {isEditing ? (
+                                            <input aria-label="Date" name="date" type="date" value={editableCheck.date} onChange={handleInputChange} className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-slate-900" />
+                                        ) : (
+                                            <p className="font-medium text-slate-800">{new Date(editableCheck.date).toLocaleDateString()}</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="bg-white border border-slate-100 rounded-md p-4">
+                                    <label className="text-sm text-slate-500">Memo</label>
+                                    {isEditing ? (
+                                        <input aria-label="Memo" name="memo" value={editableCheck.memo || ''} onChange={handleInputChange} className="mt-2 w-full rounded-md border border-slate-200 px-3 py-2 text-slate-900" />
+                                    ) : (
+                                        <p className="mt-2 text-slate-700">{editableCheck.memo || 'No memo provided.'}</p>
+                                    )}
+                                </div>
+
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                                    <div className="flex-1 bg-white border border-slate-100 rounded-md p-3">
+                                        <p className="text-xs text-slate-500">Status</p>
+                                        {isEditing ? (
+                                            <select aria-label="Status" name="status" value={editableCheck.status} onChange={handleInputChange} className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-slate-900">
                                                 {Object.values(CheckStatus).map(s => <option key={s} value={s}>{s}</option>)}
                                             </select>
                                         ) : (
-                                            <p className="text-slate-700">{editableCheck.status}</p>
+                                            <p className="mt-1 font-medium text-slate-800">{editableCheck.status}</p>
                                         )}
                                     </div>
-                                    <div>
-                                        <label htmlFor="glCode" className="text-sm font-medium text-slate-500">GL Code</label>
+
+                                    <div className="w-full sm:w-64 bg-white border border-slate-100 rounded-md p-3">
+                                        <p className="text-xs text-slate-500">GL Code</p>
                                         {isEditing ? (
-                                            <input type="text" id="glCode" name="glCode" value={editableCheck.glCode || ''} onChange={handleInputChange} className="mt-1 block w-full bg-slate-50 border border-slate-300 text-slate-900 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-500 sm:text-sm" />
+                                            <input aria-label="GL Code" name="glCode" value={editableCheck.glCode || ''} onChange={handleInputChange} className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-slate-900" />
                                         ) : (
-                                            <p className="text-slate-700">{editableCheck.glCode || 'Not set'}</p>
+                                            <p className="mt-1 text-slate-700">{editableCheck.glCode || 'Not set'}</p>
                                         )}
                                     </div>
-                                    <div>
-                                        <label htmlFor="accountNumber" className="text-sm font-medium text-slate-500">Account #</label>
-                                        {isEditing ? (
-                                            <input type="text" id="accountNumber" name="accountNumber" value={editableCheck.accountNumber || ''} onChange={handleInputChange} className="mt-1 block w-full bg-slate-50 border border-slate-300 text-slate-900 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-500 sm:text-sm" />
-                                        ) : (
-                                            <p className="text-slate-700">{editableCheck.accountNumber || 'Not set'}</p>
-                                        )}
-                                    </div>
-                                    <div className="col-span-3">
-                                        {isEditing ? (
-                                            <div className="flex justify-between items-center w-full">
-                                                <button
-                                                    onClick={() => setIsDeleteConfirmOpen(true)}
-                                                    className="flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md shadow-sm hover:bg-red-700">
-                                                    <TrashIcon className="h-4 w-4 mr-2" /> Delete
-                                                </button>
-                                                <div className="flex justify-end gap-2">
-                                                    <button onClick={() => { setIsEditing(false); setEditableCheck(check); }} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50">Cancel</button>
-                                                    <button onClick={handleSave} className="px-4 py-2 text-sm font-medium text-white bg-sky-600 border border-transparent rounded-md shadow-sm hover:bg-sky-700">Save Changes</button>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <button onClick={() => setIsEditing(true)} className="flex items-center px-4 py-2 text-sm font-medium text-white bg-slate-600 border border-transparent rounded-md shadow-sm hover:bg-slate-700"><PencilIcon className="h-4 w-4 mr-2" /> Edit</button>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Flags */}
-                                <div className="mt-4">
-                                    <h4 className="text-md font-semibold text-slate-700">Flags</h4>
-                                    <div className="flex flex-wrap items-center gap-2 mt-2">
-                                        {checkFlags.map(flag => (
-                                            <span key={flag.id} className={`flex items-center px-2 py-1 rounded-full text-sm font-medium ${flag.color} ${flag.textColor}`}>
-                                                {flag.name}
-                                                <button onClick={() => onToggleFlag(check.id, flag.id)} className="ml-2 opacity-75 hover:opacity-100"><XMarkIcon className="h-4 w-4" /></button>
-                                            </span>
-                                        ))}
-                                        <div className="relative">
-                                            <button onClick={() => setIsFlagDropdownOpen(prev => !prev)} className="flex items-center px-2 py-1 bg-slate-100 text-slate-600 rounded-full hover:bg-slate-200 text-sm">
-                                                <FlagIcon className="h-4 w-4 mr-1"/> Add Flag
-                                            </button>
-                                            {isFlagDropdownOpen && (
-                                                <div className="absolute left-0 bottom-full mb-2 w-48 bg-white border border-slate-200 rounded-md shadow-xl z-10">
-                                                    {availableFlags.map(flag => (
-                                                        <a href="#" key={flag.id} onClick={(e) => {
-                                                            e.preventDefault(); 
-                                                            onToggleFlag(check.id, flag.id);
-                                                            setIsFlagDropdownOpen(false);
-                                                        }} className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-slate-100">
-                                                            <span className={`w-3 h-3 rounded-full mr-3 ${flag.color}`}></span>
-                                                            {flag.name}
-                                                        </a>
-                                                    ))}
-                                                    {availableFlags.length > 0 && <div className="border-t my-1"></div>}
-                                                    <a href="#" onClick={(e) => { e.preventDefault(); onOpenFlagManager(); setIsFlagDropdownOpen(false); }} className="block px-4 py-2 text-sm text-gray-700 hover:bg-slate-100">Manage Flags...</a>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </>
-                        )}
-
-
-                        <div className={`mt-6 grid gap-6 ${expandedView === 'NONE' ? 'lg:grid-cols-2' : 'grid-cols-1'}`}>
-                            {/* Comments */}
-                            {(expandedView === 'NONE' || expandedView === 'COMMENTS') && (
-                                <div>
-                                    <h4 className="text-md font-semibold text-slate-700 flex justify-between items-center">
-                                        <span>Comments</span>
-                                        <button 
-                                            onClick={() => setExpandedView(prev => prev === 'COMMENTS' ? 'NONE' : 'COMMENTS')} 
-                                            className="p-1 rounded-full text-slate-500 hover:text-sky-600 hover:bg-slate-100"
-                                            title={expandedView === 'COMMENTS' ? 'Collapse' : 'Expand'}
-                                        >
-                                            {expandedView === 'COMMENTS' ? <ArrowsPointingInIcon className="h-5 w-5" /> : <ArrowsPointingOutIcon className="h-5 w-5" />}
-                                        </button>
-                                    </h4>
-                                    <div className={`mt-2 space-y-3 pr-2 overflow-y-auto ${expandedView === 'COMMENTS' ? 'max-h-[60vh]' : 'max-h-48'}`}>
-                                        {check.comments.length > 0 ? check.comments.map(c => (
-                                            <div key={c.id} className="bg-slate-50 p-2 rounded-md">
-                                                <p className="text-sm text-slate-800">{c.text}</p>
-                                                <p className="text-xs text-slate-400 text-right">-{c.author} on {new Date(c.timestamp).toLocaleDateString()}</p>
-                                            </div>
-                                        )) : <p className="text-sm text-slate-400">No comments yet.</p>}
-                                        <div ref={commentsEndRef} />
-                                    </div>
-                                    <form onSubmit={handleCommentSubmit} className="mt-3 flex gap-2">
-                                        <input type="text" value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Add a comment..." className="flex-grow bg-slate-50 border border-slate-300 text-slate-900 rounded-md shadow-sm py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-500"/>
-                                        <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-sky-600 rounded-md hover:bg-sky-700">Add</button>
-                                    </form>
-                                </div>
-                            )}
-                            
-                            {/* Audit Trail */}
-                            {(expandedView === 'NONE' || expandedView === 'AUDIT') && (
-                                <div>
-                                    <h4 className="text-md font-semibold text-slate-700 flex justify-between items-center">
-                                        <span>Audit Trail</span>
-                                        <button 
-                                            onClick={() => setExpandedView(prev => prev === 'AUDIT' ? 'NONE' : 'AUDIT')}
-                                            className="p-1 rounded-full text-slate-500 hover:text-sky-600 hover:bg-slate-100"
-                                            title={expandedView === 'AUDIT' ? 'Collapse' : 'Expand'}
-                                        >
-                                            {expandedView === 'AUDIT' ? <ArrowsPointingInIcon className="h-5 w-5" /> : <ArrowsPointingOutIcon className="h-5 w-5" />}
-                                        </button>
-                                    </h4>
-                                    <div className={`mt-2 space-y-2 pr-2 overflow-y-auto ${expandedView === 'AUDIT' ? 'max-h-[60vh]' : 'max-h-56'}`}>
-                                        {check.auditTrail.map(log => (
-                                            <div key={log.id} className="text-xs text-slate-500">
-                                                <p><span className="font-semibold">{log.user}</span> {log.field.startsWith('Flag') ? '' : 'updated '}<span className="font-semibold">{log.field}</span> from "{log.oldValue}" to "{log.newValue}"</p>
-                                                <p className="text-slate-400">{new Date(log.timestamp).toLocaleString()}</p>
-                                            </div>
-                                        ))}
-                                        {check.auditTrail.length === 0 && <p className="text-sm text-slate-400">No changes recorded.</p>}
-                                        <div ref={auditTrailEndRef} />
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Delete Confirmation Modal */}
-                    {isDeleteConfirmOpen && (
-                        <div className="absolute inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center z-50 rounded-lg">
-                            <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full mx-4">
-                                <div className="sm:flex sm:items-start">
-                                    <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
-                                        <ExclamationTriangleIcon className="h-6 w-6 text-red-600" aria-hidden="true" />
-                                    </div>
-                                    <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                                        <h3 className="text-lg leading-6 font-medium text-gray-900">Delete Check</h3>
-                                        <div className="mt-2">
-                                            <p className="text-sm text-gray-500">
-                                                Are you sure you want to delete this check? This action is irreversible.
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
-                                    <button
-                                        type="button"
-                                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 sm:ml-3 sm:w-auto sm:text-sm"
-                                        onClick={() => onDeleteCheck(check.id)}
-                                    >
-                                        Confirm Delete
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm"
-                                        onClick={() => setIsDeleteConfirmOpen(false)}
-                                    >
-                                        Cancel
-                                    </button>
                                 </div>
                             </div>
+
+                            <div className="bg-white border border-slate-100 rounded-md p-4 flags">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-sm font-semibold text-slate-800">Flags</h4>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={() => setIsFlagDropdownOpen(p => !p)} className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-slate-50 text-sm text-slate-700 border border-slate-200 hover:bg-slate-100">
+                                            <FlagIcon className="h-4 w-4" /> Add
+                                        </button>
+                                        <button onClick={onOpenFlagManager} className="inline-flex items-center px-2 py-1 rounded-md text-sm text-slate-500 hover:bg-slate-50">Manage</button>
+                                    </div>
+                                </div>
+
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    {checkFlags.map(flag => (
+                                        <span key={flag.id} className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${flag.color} ${flag.textColor}`}>
+                                            {flag.name}
+                                            <button aria-label={`Remove flag ${flag.name}`} onClick={() => onToggleFlag(check.id, flag.id)} className="inline-flex items-center p-1 rounded-full bg-white/30 hover:bg-white/50"><XMarkIcon className="h-3 w-3" /></button>
+                                        </span>
+                                    ))}
+                                    
+                                    {isFlagDropdownOpen && (
+                                        <div className="relative px-3 py-1 ">
+                                            <div className="absolute -top-2 left-0 bg-white border border-slate-200 rounded-md shadow-lg z-10 flex flex-col flex-start flag-dropdown p-2 gap-2">
+                                                {availableFlags.length > 0 ? availableFlags.map(flag => (
+                                                    <button key={flag.id} onClick={() => { onToggleFlag(check.id, flag.id); setIsFlagDropdownOpen(false); }} className={`items-center gap-2 px-3 py-1 rounded-full min-w-24 max-w-40 text-sm font-medium truncate ${flag.color} ${flag.textColor}`}>{flag.name}</button>
+                                                    )) : <p className="text-sm text-slate-400">No flags available</p>}
+                                            </div>
+                                        </div>
+                                    )}
+
+
+                                </div>
+
+                                
+                            </div>
                         </div>
+
+                        {/* Right: Comments & Audit */}
+                        <div className="flex flex-col gap-4">
+
+                            <div className="bg-white border border-slate-100 rounded-md p-4 overflow-hidden flex flex-col max-h-1/2 audit">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-sm font-semibold text-slate-800">Audit Trail</h4>
+                                    <button onClick={() => setExpandedView(prev => prev === 'AUDIT' ? 'NONE' : 'AUDIT')} className="text-sm text-slate-500 hover:text-slate-700">{expandedView === 'AUDIT' ? 'Collapse' : 'Expand'}</button>
+                                </div>
+
+                                <div className={`mt-3 overflow-y-auto ${expandedView === 'AUDIT' ? 'max-h-[50vh]' : 'max-h-40'}`}>
+                                    {check.auditTrail.length > 0 ? check.auditTrail.map(log => (
+                                        <div key={log.id} className="mb-2 text-sm text-slate-700">
+                                            <p><span className="font-semibold">{log.user}</span> {log.field.startsWith('Flag') ? '' : 'updated '}<span className="font-semibold">{log.field}</span></p>
+                                            <p className="text-xs text-slate-400">{new Date(log.timestamp).toLocaleString()}</p>
+                                        </div>
+                                    )) : <p className="text-sm text-slate-400">No changes recorded.</p>}
+                                    <div ref={auditTrailEndRef} />
+                                </div>
+                            </div>
+
+                            <div className="flex-1 bg-white border border-slate-100 rounded-md p-4 overflow-hidden flex flex-col max-h-1/2 comments">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-sm font-semibold text-slate-800">Comments</h4>
+                                    <button onClick={() => setExpandedView(prev => prev === 'COMMENTS' ? 'NONE' : 'COMMENTS')} className="text-sm text-slate-500 hover:text-slate-700">{expandedView === 'COMMENTS' ? 'Collapse' : 'Expand'}</button>
+                                </div>
+
+                                <div className={`mt-3 overflow-y-auto ${expandedView === 'COMMENTS' ? 'max-h-[50vh]' : 'max-h-40'}`}>
+                                    {check.comments.length > 0 ? check.comments.map(c => (
+                                        <div key={c.id} className="mb-3">
+                                            <p className="text-sm text-slate-800">{c.text}</p>
+                                            <p className="text-xs text-slate-400">{c.author} • {new Date(c.timestamp).toLocaleString()}</p>
+                                        </div>
+                                    )) : <p className="text-sm text-slate-400">No comments yet.</p>}
+                                    <div ref={commentsEndRef} />
+                                </div>
+
+                                <form onSubmit={handleCommentSubmit} className="mt-3 flex gap-2">
+                                    <input type="text" value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Add a comment..." className="flex-1 rounded-md border border-slate-200 px-3 py-2 text-sm" />
+                                    <button type="submit" className="inline-flex items-center px-3 py-2 text-sky-600 rounded-md text-sm border border-sky-600 hover:bg-sky-100 disabled:opacity-50" disabled={!commentText.trim()}>
+                                        <SendIcon className="h-4 w-4" />
+                                    </button>
+                                </form>
+                            </div>
+                        
+                        </div>
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="border-t border-slate-100 p-4 flex items-center justify-end gap-3">
+                    {isEditing ? (
+                        <>
+                            <button onClick={() => { setIsEditing(false); setEditableCheck(check); }} className="px-4 py-2 rounded-md border border-slate-200 bg-white">Cancel</button>
+                            <button onClick={handleSave} className="px-4 py-2 rounded-md bg-sky-600 text-white">Save Changes</button>
+                        </>
+                    ) : (
+                        <button onClick={onClose} className="px-4 py-2 rounded-md border border-slate-200 bg-white">Close</button>
                     )}
                 </div>
+
+                {/* Delete Confirmation Modal */}
+                {isDeleteConfirmOpen && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                        <div className="bg-white p-5 rounded-lg shadow-lg w-full max-w-sm">
+                            <h3 className="text-lg font-semibold text-slate-900">Delete Check</h3>
+                            <p className="text-sm text-slate-500 mt-2">Are you sure? This action cannot be undone.</p>
+                            <div className="mt-4 flex justify-end gap-2">
+                                <button onClick={() => setIsDeleteConfirmOpen(false)} className="px-3 py-1 rounded-md border border-slate-200">Cancel</button>
+                                <button onClick={() => onDeleteCheck(check.id)} className="px-3 py-1 rounded-md bg-red-600 text-white">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

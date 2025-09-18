@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { Check, CheckStatus, CheckField, Flag, Theme, CardLayoutZone } from '../types';
+import { Check, CheckStatus, CheckField, Flag, Theme, CardLayoutZone, CheckCategory } from '../types';
 import { FlagIcon, DocumentTextIcon, EllipsisVerticalIcon, ChevronUpDownIcon, ArrowSmallUpIcon, ArrowSmallDownIcon, CheckBadgeIcon, PaintBrushIcon, CurrencyDollarIcon, EyeIcon, EyeSlashIcon, ArrowsPointingOutIcon, XMarkIcon } from './icons';
 import {
   draggable,
@@ -8,6 +8,7 @@ import {
 } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine';
 import { ALL_CHECK_FIELDS } from '../constants';
+// FIX: Removed unused import of `categoryConfig` which was causing a module resolution error.
 
 const statusColors: Record<CheckStatus, { border: string, bg: string, text: string }> = {
     [CheckStatus.RECEIVED]: { border: 'border-sky-500', bg: 'bg-sky-50', text: 'text-sky-800' },
@@ -23,6 +24,8 @@ type DragState =
   | { type: 'preview'; checkId: string; dragTo: { status: CheckStatus, index: number } };
 
 const DropIndicator = () => <li className="drop-indicator" aria-hidden="true"></li>;
+
+const USDollar = new Intl.NumberFormat('en-US', {style: 'currency',currency: 'USD',});
 
 const CheckCard = React.memo(({ check, flags, onSelectCheck, isDragging, isSelected, onToggleSelection, isMultiSelectMode, theme, cardLayout }: { 
     check: Check; 
@@ -56,11 +59,12 @@ const CheckCard = React.memo(({ check, flags, onSelectCheck, isDragging, isSelec
     };
     
     const themeBorderColor = theme?.colors.border || statusColors[check.status].border;
-    const glowClasses = isSelected && isMultiSelectMode && theme?.colors.glow ? `border-transparent ${theme.colors.glow}` : '';
+    const glowClasses = isSelected && isMultiSelectMode && theme?.colors.glow ? `select-glow` : '';
+    const glowColor = isSelected && isMultiSelectMode && theme?.colors.glow ? theme.colors.glow : '';
 
     const formatValue = (value: any, key: CheckField): string | null => {
         if (value === undefined || value === null || value === '') return null;
-        if (key === 'amount') return `$${(value as number).toFixed(2)}`;
+        if (key === 'amount') return USDollar.format(value);
         if (key === 'date' || key === 'createdAt') return new Date(value as string).toLocaleDateString();
         return String(value);
     };
@@ -114,6 +118,7 @@ const CheckCard = React.memo(({ check, flags, onSelectCheck, isDragging, isSelec
                 ${isDragging ? 'dragging-card' : ''}
                 ${isSelected && isMultiSelectMode ? `bg-sky-50 ${glowClasses}` : 'border-slate-200 hover:border-sky-400'}`
             }
+            style={{ ['--glow-color' as string]: glowColor } as React.CSSProperties}
         >
             <div className="flex flex-col flex-grow space-y-1">
                 {(fields.title || fields.topRight) && (
@@ -163,7 +168,7 @@ const getDestinationIndex = (
 };
 
 
-const KanbanColumn = ({ status, checks, flags, onSelectCheck, onExpand, dragState, isOver, sortConfig, onSort, onSelectAllInColumn, selectedCheckIds, onToggleSelection, displayOptions, themeId, themes, onToggleDisplayOption, onOpenThemePicker, multiSelectColumns, onToggleColumnMultiSelect, cardLayout }: { 
+const KanbanColumn = ({ status, checks, flags, onSelectCheck, onExpand, dragState, isOver, sortConfig, onSort, onSelectAllInColumn, selectedCheckIds, onToggleSelection, displayOptions, themeId, themes, onToggleDisplayOption, onOpenThemePicker, isMultiSelectMode, cardLayout }: { 
     status: CheckStatus;
     checks: Check[]; 
     flags: Flag[]; 
@@ -181,8 +186,7 @@ const KanbanColumn = ({ status, checks, flags, onSelectCheck, onExpand, dragStat
     themes: Theme[];
     onToggleDisplayOption: (status: CheckStatus, option: 'showCount' | 'showTotal') => void;
     onOpenThemePicker: (status: CheckStatus) => void;
-    multiSelectColumns: CheckStatus[];
-    onToggleColumnMultiSelect: (status: CheckStatus) => void;
+    isMultiSelectMode: boolean;
     cardLayout: Partial<Record<CardLayoutZone, CheckField>>;
 }) => {
     const ref = useRef<HTMLUListElement>(null);
@@ -191,7 +195,6 @@ const KanbanColumn = ({ status, checks, flags, onSelectCheck, onExpand, dragStat
     
     const theme = themes.find(t => t.id === themeId) || themes.find(t => t.id === 'default');
     const colors = theme && theme.id !== 'default' ? theme.colors : statusColors[status];
-    const isThisColumnMultiSelect = multiSelectColumns.includes(status);
 
     const columnTotal = useMemo(() => checks.reduce((sum, check) => sum + check.amount, 0), [checks]);
 
@@ -229,7 +232,7 @@ const KanbanColumn = ({ status, checks, flags, onSelectCheck, onExpand, dragStat
                     <h2 className={`text-lg font-bold ${colors.text} transition-colors duration-200 truncate`}>
                         {status}
                         {displayOptions.showCount && <span className="text-sm font-normal text-slate-500 ml-2">({checks.length})</span>}
-                        {displayOptions.showTotal && <span className="text-sm font-semibold text-slate-600 ml-2 bg-slate-200 px-2 py-0.5 rounded-full">${columnTotal.toFixed(2)}</span>}
+                        {displayOptions.showTotal && <span className="text-sm font-semibold text-slate-600 ml-2 bg-slate-200 px-2 py-0.5 rounded-full">{USDollar.format(columnTotal)}</span>}
                     </h2>
                 </div>
                 <div className="relative" ref={menuRef}>
@@ -251,11 +254,7 @@ const KanbanColumn = ({ status, checks, flags, onSelectCheck, onExpand, dragStat
                             ))}
                             <div className="border-t my-1"></div>
                              <p className="px-4 pt-2 pb-1 text-xs text-gray-500 uppercase">Actions</p>
-                             <button onClick={() => { onToggleColumnMultiSelect(status); setIsMenuOpen(false); }} className="w-full text-left flex justify-between items-center px-4 py-2 text-sm text-gray-700 hover:bg-slate-100">
-                                <span>{isThisColumnMultiSelect ? 'Done Selecting' : 'Select Checks'}</span>
-                                {isThisColumnMultiSelect ? <XMarkIcon className="h-5 w-5"/> : <CheckBadgeIcon className="h-5 w-5"/>}
-                            </button>
-                            {isThisColumnMultiSelect && (
+                             {isMultiSelectMode && (
                                 <button onClick={() => { onSelectAllInColumn(status); setIsMenuOpen(false); }} className="w-full text-left flex justify-between items-center px-4 py-2 text-sm text-gray-700 hover:bg-slate-100">
                                     <span>Select All in Column</span>
                                 </button>
@@ -282,9 +281,16 @@ const KanbanColumn = ({ status, checks, flags, onSelectCheck, onExpand, dragStat
                     )}
                 </div>
             </div>
-            <ul ref={ref} className="space-y-3 flex-grow overflow-y-auto pr-1 list-none p-0 m-0">
+            <ul ref={ref} className="space-y-3 flex-grow h-full pr-1 list-none p-0 m-0">
                 {checks.length === 0 && dropIndex !== null ? (
-                    <DropIndicator />
+                    <>
+                        <DropIndicator />
+                        <div className="opacity-0 text-center py-8 px-4 border-2 border-dashed border-slate-200 rounded-lg flex-grow flex flex-col justify-center h-full">
+                        <DocumentTextIcon className="mx-auto h-12 w-12 text-slate-300" />
+                        <p className="mt-2 text-sm font-medium text-slate-500">All clear!</p>
+                        <p className="mt-1 text-sm text-slate-400">Drag a check here to get started.</p>
+                    </div>
+                    </>
                 ) : checks.length > 0 ? (
                     <>
                         {dropIndex === 0 && <DropIndicator />}
@@ -297,7 +303,7 @@ const KanbanColumn = ({ status, checks, flags, onSelectCheck, onExpand, dragStat
                                     isDragging={dragState.type !== 'idle' && dragState.checkId === check.id}
                                     isSelected={selectedCheckIds.includes(check.id)}
                                     onToggleSelection={onToggleSelection}
-                                    isMultiSelectMode={isThisColumnMultiSelect}
+                                    isMultiSelectMode={isMultiSelectMode}
                                     theme={theme}
                                     cardLayout={cardLayout}
                                 />
@@ -311,7 +317,7 @@ const KanbanColumn = ({ status, checks, flags, onSelectCheck, onExpand, dragStat
                         <p className="mt-2 text-sm font-medium text-slate-500">All clear!</p>
                         <p className="mt-1 text-sm text-slate-400">Drag a check here to get started.</p>
                     </div>
-                )}
+                        )}
             </ul>
         </div>
     );
@@ -328,13 +334,12 @@ interface KanbanBoardProps {
     onSort: (status: CheckStatus, key: keyof Check) => void;
     onSelectAllInColumn: (status: CheckStatus) => void;
     selectedCheckIds: string[];
+    isMultiSelectMode: boolean;
     onToggleSelection: (checkId: string) => void;
     columnDisplayOptions: Record<CheckStatus, { showCount: boolean; showTotal: boolean }>;
     columnThemes: Record<CheckStatus, string>;
     onToggleDisplayOption: (status: CheckStatus, option: 'showCount' | 'showTotal') => void;
     onOpenThemePicker: (status: CheckStatus) => void;
-    multiSelectColumns: CheckStatus[];
-    onToggleColumnMultiSelect: (status: CheckStatus) => void;
     cardLayout: Partial<Record<CardLayoutZone, CheckField>>;
 }
 
@@ -342,7 +347,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = (props) => {
     const { 
         checks, flags, themes, onSelectCheck, onMoveCheck, onExpandColumn, sortConfig, onSort, 
         onSelectAllInColumn, selectedCheckIds, onToggleSelection, columnDisplayOptions, 
-        columnThemes, onToggleDisplayOption, onOpenThemePicker, multiSelectColumns, onToggleColumnMultiSelect,
+        columnThemes, onToggleDisplayOption, onOpenThemePicker, isMultiSelectMode,
         cardLayout
     } = props;
 
@@ -354,14 +359,18 @@ const KanbanBoard: React.FC<KanbanBoardProps> = (props) => {
             return acc;
         }, {} as Record<CheckStatus, Check[]>);
 
+        // Apply sorting for each column
         for (const status of boardStatuses) {
             const config = sortConfig[status];
             if (config) {
+                // Manual sort is active
                 grouped[status].sort((a, b) => {
                     const valA = a[config.key];
                     const valB = b[config.key];
                     
                     if (valA === undefined || valB === undefined) return 0;
+                    if (valA === null) return 1;
+                    if (valB === null) return -1;
 
                     if (typeof valA === 'string' && typeof valB === 'string') {
                         return config.direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
@@ -374,6 +383,9 @@ const KanbanBoard: React.FC<KanbanBoardProps> = (props) => {
                     }
                     return 0;
                 });
+            } else {
+                // Default sort by boardOrder
+                grouped[status].sort((a, b) => (a.boardOrder || 0) - (b.boardOrder || 0));
             }
         }
         return grouped;
@@ -455,8 +467,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = (props) => {
                         themes={themes}
                         onToggleDisplayOption={onToggleDisplayOption}
                         onOpenThemePicker={onOpenThemePicker}
-                        multiSelectColumns={multiSelectColumns}
-                        onToggleColumnMultiSelect={onToggleColumnMultiSelect}
+                        isMultiSelectMode={isMultiSelectMode}
                         cardLayout={cardLayout}
                     />
                 ))}

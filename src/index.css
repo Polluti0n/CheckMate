@@ -6,10 +6,38 @@
     overflow:hidden;
   }
 
+  .comments, .audit, .details, .flags, .flag-dropdown {
+    border: solid .5px lightblue;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+  }
+
+  .select-glow {
+    transition: all 0.5s ease-in-out;
+    box-shadow: 0 0 4px 2px rgba(var(--glow-color), .6); /* Default to blue glow */
+    border: solid 2px rgba(var(--glow-color), 1); /* Border to match glow */
+    border-left: solid 1.5rem rgba(var(--glow-color), 1); /* Space for checkmark */
+    position: relative;
+  }
+
+  .select-glow:before {
+      content: '✓';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 1.5rem;
+      bottom: 0;
+      pointer-events: none;
+      color: white;
+      transform: translate(-1.5rem);
+      text-align: center;
+      align-content: center;
+  }
+
 @layer components {
     /* Styles for @atlaskit/pragmatic-drag-and-drop */
     .dragging-card {
-        opacity: 0.6;
+        display: none !important;
+        opacity: 0;
         transform: rotate(2deg);
     }
     .drop-indicator {

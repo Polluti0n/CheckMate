@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { PlusIcon, ArchiveBoxIcon, CheckMateLogo, CubeIcon, SearchIcon, AdjustmentsHorizontalIcon, UserCircleIcon, Cog6ToothIcon } from './icons';
+// FIX: Import `CheckMateLogo` to resolve reference error.
+import { PlusIcon, SearchIcon, AdjustmentsHorizontalIcon, UserCircleIcon, Cog6ToothIcon, Bars3Icon, CheckMateLogo } from './icons';
 import { CheckCategory } from '../types';
 import { auth } from '../services/firebase';
 
 interface HeaderProps {
+    onOpenMainMenu: () => void;
     onAddCheck: () => void;
     onBatching: () => void;
-    onViewArchive: () => void;
-    onViewBatchHistory: () => void;
     searchTerm: string;
     onSearchChange: (term: string) => void;
     activeCategory: CheckCategory | null;
@@ -17,10 +17,9 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ 
+    onOpenMainMenu,
     onAddCheck, 
     onBatching, 
-    onViewArchive, 
-    onViewBatchHistory, 
     searchTerm, 
     onSearchChange,
     activeCategory,
@@ -56,8 +55,13 @@ const Header: React.FC<HeaderProps> = ({
                 <div className="flex items-center justify-between h-16">
                     {/* Left Side */}
                     <div className="flex items-center">
-                        <CheckMateLogo className="h-8 w-8" />
-                        <h1 className="text-2xl font-bold text-slate-800 ml-2 hidden sm:block">CheckMate</h1>
+                        <button onClick={onOpenMainMenu} className="p-2 -ml-2 mr-2 rounded-full text-slate-600 hover:bg-slate-100">
+                           <Bars3Icon className="h-6 w-6" />
+                        </button>
+                        <div className="flex items-center">
+                            <CheckMateLogo className="h-12 w-12" />
+                            <h1 className="text-2xl font-bold text-slate-800 ml-2 hidden sm:block">CheckMate</h1>
+                        </div>
                     </div>
 
                     {/* Center: Search & Filter */}
@@ -79,7 +83,7 @@ const Header: React.FC<HeaderProps> = ({
                                 />
                             </div>
                         </div>
-                         <div ref={filterMenuRef} className="relative ml-2">
+                         <div ref={filterMenuRef} className="relative ml-2 hidden sm:block">
                             <button
                                 onClick={() => setFilterMenuOpen(prev => !prev)}
                                 className="p-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-600 rounded-md"
@@ -102,34 +106,22 @@ const Header: React.FC<HeaderProps> = ({
                     
                     {/* Right Side */}
                     <div className="flex items-center space-x-2">
-                         <button
-                            onClick={onViewArchive}
-                            title="View Archive"
-                            className="p-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-600 rounded-md shadow-sm transition-colors duration-200"
-                        >
-                            <ArchiveBoxIcon className="h-5 w-5" />
-                        </button>
-                        <button
-                            onClick={onViewBatchHistory}
-                            title="Batch History"
-                            className="p-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-600 rounded-md shadow-sm transition-colors duration-200"
-                        >
-                            <CubeIcon className="h-5 w-5" />
-                        </button>
-                         <button
-                            onClick={onBatching}
-                            className="hidden sm:flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors duration-200"
-                        >
-                            <span>Batch</span>
-                        </button>
+                        <div className="hidden sm:flex items-center space-x-2">
+                            <button
+                                onClick={onBatching}
+                                className="flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors duration-200"
+                            >
+                                <span>Batch</span>
+                            </button>
+                        </div>
                         <button
                             onClick={onAddCheck}
                             className="flex items-center justify-center bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors duration-200"
                         >
                             <PlusIcon className="h-5 w-5 sm:mr-2" />
-                            <span className="hidden sm:block">Add Check</span>
+                            <span className="hidden sm:block whitespace-nowrap">Add Check</span>
                         </button>
-                        <div ref={profileMenuRef} className="relative">
+                        <div ref={profileMenuRef} className="relative hidden sm:block">
                              <button onClick={() => setProfileMenuOpen(prev => !prev)} className="p-1.5 bg-slate-100 text-slate-600 rounded-full hover:bg-slate-200">
                                 <UserCircleIcon className="h-6 w-6" />
                              </button>
