@@ -26,5 +26,30 @@ export const db = app.firestore();
 export const storage = app.storage();
 export const functions = app.functions();
 
+if (typeof window !== 'undefined') {
+    window.firebaseApp = app;
+    window.firebaseAuth = auth;
+    window.firebaseDb = db;
+    window.firebaseStorage = storage;
+    window.firebaseFunctions = functions;
+    window.firebase = firebase;
+    // You can also expose the core firebase module itself if you imported it as 'firebase'
+    // window.firebase = firebase;
+};
+
+// FIX: Enable Firestore persistence to improve offline capabilities and connection
+// stability, especially on mobile devices that may aggressively manage connections.
+db.enablePersistence({ synchronizeTabs: true })
+  .catch((err) => {
+    if (err.code == 'failed-precondition') {
+      // This can happen if the app is open in multiple tabs.
+      console.warn('Firestore persistence failed: Multiple tabs open.');
+    } else if (err.code == 'unimplemented') {
+      // The browser may not support all features needed for persistence.
+      console.warn('Firestore persistence not supported in this browser.');
+    }
+  });
+
+
 // Create a callable function reference for the backend Gemini API call
 export const extractCheckInfoFn = functions.httpsCallable('extractCheckInfo');

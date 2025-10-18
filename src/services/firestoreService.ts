@@ -1,13 +1,13 @@
-// FIX: Import firebase compat for namespaced access to Firestore methods and types.
 import firebase from 'firebase/compat/app';
 import { storage, db } from './firebase';
-import { Check, Flag, Comment, AuditLog, Batch, CheckStatus } from '../types';
+import { Check, Flag, Comment, AuditLog, Batch, CheckStatus, UserProfile, Notification, CurrentUser } from '../types';
 
 const CHECKS_COLLECTION = 'checks';
 const FLAGS_COLLECTION = 'flags';
 const BATCHES_COLLECTION = 'batches';
+const USERS_COLLECTION = 'users';
+const NOTIFICATIONS_COLLECTION = 'notifications';
 
-// FIX: Use compat version of Timestamp for instanceof checks
 const TimestampCompat = firebase.firestore.Timestamp;
 
 // --- Helper to convert Firestore Timestamps to ISO strings recursively ---
@@ -29,7 +29,6 @@ const processDocTimestamps = (data: any) => {
 // --- Real-time Listeners ---
 
 export const onChecksSnapshot = (callback: (checks: Check[]) => void) => {
-  // FIX: Use v8 compat syntax for collection, query, and onSnapshot
   const q = db.collection(CHECKS_COLLECTION).orderBy('createdAt', 'desc');
   return q.onSnapshot((snapshot) => {
     const checks = snapshot.docs.map((doc) => {
@@ -43,7 +42,6 @@ export const onChecksSnapshot = (callback: (checks: Check[]) => void) => {
 };
 
 export const onFlagsSnapshot = (callback: (flags: Flag[]) => void) => {
-  // FIX: Use v8 compat syntax for collection and onSnapshot
   const q = db.collection(FLAGS_COLLECTION);
   return q.onSnapshot((snapshot) => {
     const flags = snapshot.docs.map((doc) => ({
@@ -55,7 +53,6 @@ export const onFlagsSnapshot = (callback: (flags: Flag[]) => void) => {
 };
 
 export const onBatchesSnapshot = (callback: (batches: Batch[]) => void) => {
-  // FIX: Use v8 compat syntax for collection, query, and onSnapshot
   const q = db.collection(BATCHES_COLLECTION).orderBy('createdAt', 'desc');
   return q.onSnapshot((snapshot) => {
     const batches = snapshot.docs.map((doc) => {
@@ -68,109 +65,282 @@ export const onBatchesSnapshot = (callback: (batches: Batch[]) => void) => {
   });
 };
 
+// --- User Profile ---
+export const onUsersSnapshot = (callback: (users: UserProfile[]) => void) => {
+    return db.collection(USERS_COLLECTION).onSnapshot((snapshot) => {
+        const users = snapshot.docs.map((doc) => doc.data() as UserProfile);
+        callback(users);
+    });
+};
+
+export const getOrCreateUserProfile = async (uid: string, email: string) => {
+    const userRef = db.collection(USERS_COLLECTION).doc(uid);
+    const doc = await userRef.get();
+    if (!doc.exists) {
+        // Create a user document so they can be notified.
+        // User can fill out profile details in preferences later.
+        return userRef.set({
+            uid,
+            email,
+            firstName: '',
+            lastName: '',
+            phone: '',
+            profilePictureUrl: '',
+        });
+    }
+};
+
+export const updateUserProfile = (uid: string, updates: Partial<UserProfile>) => {
+    return db.collection(USERS_COLLECTION).doc(uid).update(updates);
+};
+
+export const onUserProfileSnapshot = (uid: string, callback: (profile: UserProfile | null) => void) => {
+    const userRef = db.collection(USERS_COLLECTION).doc(uid);
+    return userRef.onSnapshot((doc) => {
+        if (doc.exists) {
+            callback(doc.data() as UserProfile);
+        } else {
+            callback(null);
+        }
+    });
+};
+
+export const onNotificationsSnapshot = (userId: string, callback: (notifications: Notification[]) => void) => {
+  const q = db.collection(NOTIFICATIONS_COLLECTION)
+    .where('userId', '==', userId)
+    .orderBy('timestamp', 'desc');
+  
+  return q.onSnapshot((snapshot) => {
+    const notifications = snapshot.docs.map((doc) => ({
+      id: doc.id, ...processDocTimestamps(doc.data()),
+    } as Notification));
+    callback(notifications);
+  });
+};
+
+// --- Notification Management (Client-side) ---
+
+export const markNotificationsAsRead = (notificationIds: string[]) => {
+    const batch = db.batch();
+    notificationIds.forEach(id => {
+        const docRef = db.collection(NOTIFICATIONS_COLLECTION).doc(id);
+        batch.update(docRef, { read: true });
+    });
+    return batch.commit();
+};
+
+export const deleteReadNotifications = async (userId: string) => {
+    const notificationsRef = db.collection(NOTIFICATIONS_COLLECTION);
+    const q = notificationsRef.where('userId', '==', userId).where('read', '==', true);
+    
+    const snapshot = await q.get();
+
+    if (snapshot.empty) {
+        return; // No read notifications to delete
+    }
+
+    const batch = db.batch();
+    snapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+    });
+
+    return batch.commit();
+};
+
+
 // --- Check Operations ---
 
-export const addCheck = (checkData: Omit<Check, 'id'>, initialLog: Omit<AuditLog, 'id' | 'timestamp'>) => {
-  const { auditTrail, ...rest } = checkData;
-  // FIX: Use client-side ISO string instead of serverTimestamp to avoid array creation error.
-  const newLog = { ...initialLog, id: `log-${Date.now()}`, timestamp: new Date().toISOString() };
-  // FIX: Use v8 compat syntax for addDoc
+export const addCheck = (checkData: Omit<Check, 'id' | 'createdAt' | 'comments' | 'auditTrail' | 'flags' | 'statusUpdatedAt' | 'batchId'>, currentUser: CurrentUser) => {
+  const newLog: AuditLog = {
+    id: `log-${Date.now()}`,
+    uid: currentUser.uid,
+    user: currentUser.name,
+    field: 'Check Created',
+    oldValue: 'N/A',
+    newValue: `Amount: $${checkData.amount.toFixed(2)}`,
+    timestamp: new Date().toISOString(),
+  };
+  
   return db.collection(CHECKS_COLLECTION).add({
-    ...rest,
+    ...checkData,
+    comments: [],
+    flags: [],
     auditTrail: [newLog],
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
   });
 };
 
-export const updateCheck = (checkId: string, updates: Record<string, any>, log: Omit<AuditLog, 'id' | 'timestamp'>) => {
-  // FIX: Use v8 compat syntax for doc
+export const updateCheck = (checkId: string, updates: Record<string, any>, logDetails: Omit<AuditLog, 'id' | 'timestamp'>, currentUser: CurrentUser) => {
   const checkRef = db.collection(CHECKS_COLLECTION).doc(checkId);
-  const { auditTrail, ...finalUpdates } = updates;
-
-  // Automatically set statusUpdatedAt when status changes to a terminal state
-  if (finalUpdates.status && (finalUpdates.status === CheckStatus.COMPLETE || finalUpdates.status === CheckStatus.ARCHIVED)) {
-    // FIX: Use v8 compat syntax for serverTimestamp
-    finalUpdates.statusUpdatedAt = firebase.firestore.FieldValue.serverTimestamp();
+  
+  if (updates.status && (updates.status === CheckStatus.COMPLETE || updates.status === CheckStatus.ARCHIVED)) {
+    updates.statusUpdatedAt = firebase.firestore.FieldValue.serverTimestamp();
   }
   
-  const newLog = {
-      ...log,
+  const newLog: AuditLog = {
+      ...logDetails,
       id: `log-${Date.now()}`,
-      // FIX: Replace serverTimestamp with a client-side ISO string to avoid crash with arrayUnion.
       timestamp: new Date().toISOString(),
   };
 
   const updatePayload = {
-      ...finalUpdates,
-      // FIX: Use v8 compat syntax for arrayUnion
+      ...updates,
       auditTrail: firebase.firestore.FieldValue.arrayUnion(newLog),
   };
 
-  // FIX: Use v8 compat syntax for updateDoc
   return checkRef.update(updatePayload);
 };
 
-export const deleteCheck = (checkId: string) => {
-  // FIX: Use v8 compat syntax for deleteDoc
+export const deleteCheckImage = async (imageUrl: string) => {
+  if (!imageUrl) return;
+  try {
+    // Create a reference to the file to delete
+    const imageRef = storage.refFromURL(imageUrl);
+    // Delete the file
+    await imageRef.delete();
+  } catch (error: any) {
+    // We don't want to block the user from deleting a check if the image deletion fails
+    if (error.code === 'storage/object-not-found') {
+        console.warn(`Image not found for deletion, but proceeding with check deletion: ${imageUrl}`);
+    } else {
+        console.error("Error deleting image from storage:", error);
+    }
+  }
+};
+
+export const deleteCheck = async (checkId: string, imageUrl?: string) => {
+  if (imageUrl) {
+    await deleteCheckImage(imageUrl);
+  }
   return db.collection(CHECKS_COLLECTION).doc(checkId).delete();
 };
 
-export const addComment = (checkId: string, comment: Omit<Comment, 'id' | 'timestamp'>) => {
-  // FIX: Use v8 compat syntax for doc
-  const checkRef = db.collection(CHECKS_COLLECTION).doc(checkId);
-  const newComment = {
-      ...comment,
-      id: `com-${Date.now()}`,
-      // FIX: Replace serverTimestamp with a client-side ISO string to avoid crash with arrayUnion.
-      timestamp: new Date().toISOString(),
-  };
-  // FIX: Use v8 compat syntax for updateDoc and arrayUnion
-  return checkRef.update({
-    comments: firebase.firestore.FieldValue.arrayUnion(newComment),
-  });
+export const bulkDeleteChecks = (checks: Check[], currentUser: CurrentUser) => {
+    const batch = db.batch();
+    const imageUrls: string[] = [];
+
+    checks.forEach(check => {
+        const checkRef = db.collection(CHECKS_COLLECTION).doc(check.id);
+        batch.delete(checkRef);
+        if (check.imageUrl) {
+            imageUrls.push(check.imageUrl);
+        }
+    });
+
+    // Delete all images from storage
+    const imageDeletionPromises = imageUrls.map(url => deleteCheckImage(url));
+    
+    // We will wait for all image deletions to complete, but we won't block the firestore deletion
+    Promise.all(imageDeletionPromises).catch(error => {
+        console.error("One or more image deletions failed:", error);
+    });
+
+    return batch.commit();
 };
 
-export const toggleFlag = (checkId: string, flagId: string, isAdding: boolean, log: Omit<AuditLog, 'id' | 'timestamp'>) => {
-  // FIX: Use v8 compat syntax for doc
+
+export const addComment = (checkId: string, commentText: string, currentUser: CurrentUser) => {
   const checkRef = db.collection(CHECKS_COLLECTION).doc(checkId);
-  const newLog = {
-      ...log,
-      id: `log-${Date.now()}`,
-      // FIX: Replace serverTimestamp with a client-side ISO string to avoid crash with arrayUnion.
+  const newComment: Comment = {
+      id: `com-${Date.now()}`,
+      author: currentUser.name,
+      authorUid: currentUser.uid,
+      text: commentText,
       timestamp: new Date().toISOString(),
   };
-  // FIX: Use v8 compat syntax for updateDoc, arrayUnion, and arrayRemove
+
+  const newLog: AuditLog = {
+      id: `log-comment-${Date.now()}`,
+      uid: currentUser.uid,
+      user: currentUser.name,
+      field: 'Comment',
+      oldValue: '',
+      newValue: commentText,
+      timestamp: new Date().toISOString(),
+  };
+
   return checkRef.update({
-    flags: isAdding ? firebase.firestore.FieldValue.arrayUnion(flagId) : firebase.firestore.FieldValue.arrayRemove(flagId),
+    comments: firebase.firestore.FieldValue.arrayUnion(newComment),
     auditTrail: firebase.firestore.FieldValue.arrayUnion(newLog),
   });
 };
 
+export const toggleFlag = (checkId: string, flag: Flag, isAdding: boolean, currentUser: CurrentUser) => {
+  const checkRef = db.collection(CHECKS_COLLECTION).doc(checkId);
+  const newLog: AuditLog = {
+      id: `log-${Date.now()}`,
+      uid: currentUser.uid,
+      user: currentUser.name,
+      field: isAdding ? 'Flag Added' : 'Flag Removed',
+      oldValue: isAdding ? 'N/A' : flag.name,
+      newValue: isAdding ? flag.name : 'N/A',
+      timestamp: new Date().toISOString(),
+  };
+  
+  return checkRef.update({
+    flags: isAdding ? firebase.firestore.FieldValue.arrayUnion(flag.id) : firebase.firestore.FieldValue.arrayRemove(flag.id),
+    auditTrail: firebase.firestore.FieldValue.arrayUnion(newLog),
+  });
+};
+
+export const bulkUpdateChecksStatus = (checks: Check[], newStatus: CheckStatus, currentUser: CurrentUser) => {
+    const batch = db.batch();
+    checks.forEach(check => {
+        if (check.status === newStatus) return; // No change needed
+        const checkRef = db.collection(CHECKS_COLLECTION).doc(check.id);
+        const log: AuditLog = {
+            id: `log-${Date.now()}-${check.id}`,
+            uid: currentUser.uid,
+            user: currentUser.name,
+            field: 'status',
+            oldValue: check.status,
+            newValue: newStatus,
+            timestamp: new Date().toISOString(),
+        };
+        const updates: any = {
+            status: newStatus,
+            auditTrail: firebase.firestore.FieldValue.arrayUnion(log),
+        };
+        if (newStatus === CheckStatus.COMPLETE || newStatus === CheckStatus.ARCHIVED) {
+            updates.statusUpdatedAt = firebase.firestore.FieldValue.serverTimestamp();
+        }
+        batch.update(checkRef, updates);
+    });
+    return batch.commit();
+};
+
 // --- Batch Operations ---
 
-export const processBatch = (checkIds: string[], trackingNumber: string) => {
-  // FIX: Use v8 compat syntax for writeBatch
+export const processBatch = (checkIds: string[], trackingNumber: string, currentUser: CurrentUser) => {
   const batchOp = db.batch();
-
-  // FIX: Use v8 compat syntax for creating a new doc ref
   const newBatchRef = db.collection(BATCHES_COLLECTION).doc();
+  
   batchOp.set(newBatchRef, {
     checkIds,
     trackingNumber,
-    // FIX: Use v8 compat syntax for serverTimestamp
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    processedByUid: currentUser.uid,
+    processedByName: currentUser.name,
   });
 
   const batchId = newBatchRef.id;
   checkIds.forEach(checkId => {
-    // FIX: Use v8 compat syntax for doc
     const checkRef = db.collection(CHECKS_COLLECTION).doc(checkId);
+    const log: AuditLog = {
+        id: `log-${Date.now()}-${checkId}`,
+        uid: currentUser.uid,
+        user: currentUser.name,
+        field: 'Batch Processed',
+        oldValue: CheckStatus.QUEUED,
+        newValue: CheckStatus.COMPLETE,
+        timestamp: new Date().toISOString(),
+    };
     batchOp.update(checkRef, {
       status: CheckStatus.COMPLETE,
-      // FIX: Use v8 compat syntax for serverTimestamp
       statusUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       trackingNumber,
       batchId,
+      auditTrail: firebase.firestore.FieldValue.arrayUnion(log),
     });
   });
 
@@ -179,39 +349,31 @@ export const processBatch = (checkIds: string[], trackingNumber: string) => {
 
 
 // --- Flag Management ---
-export const syncFlags = async (localFlags: Flag[]) => {
-    // FIX: Use v8 compat syntax for writeBatch and collection
-    const batch = db.batch();
-    const flagsCollectionRef = db.collection(FLAGS_COLLECTION);
-    // FIX: Use v8 compat syntax for getDocs
-    const firestoreFlagsSnapshot = await flagsCollectionRef.get();
-    const firestoreFlags = firestoreFlagsSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as Flag));
+export const addFlag = (flagData: Omit<Flag, 'id'>) => {
+    return db.collection(FLAGS_COLLECTION).add(flagData);
+};
 
-    // Add or update flags
-    for (const localFlag of localFlags) {
-        // FIX: Use v8 compat syntax for doc
-        const docRef = db.collection(FLAGS_COLLECTION).doc(localFlag.id);
-        batch.set(docRef, { name: localFlag.name, color: localFlag.color, textColor: localFlag.textColor });
-    }
+export const updateFlag = (flagId: string, updates: Partial<Omit<Flag, 'id'>>) => {
+    return db.collection(FLAGS_COLLECTION).doc(flagId).update(updates);
+};
 
-    // Delete flags that are in Firestore but not locally
-    for (const firestoreFlag of firestoreFlags) {
-        if (!localFlags.some(f => f.id === firestoreFlag.id)) {
-            // FIX: Use v8 compat syntax for doc
-            const docRef = db.collection(FLAGS_COLLECTION).doc(firestoreFlag.id);
-            batch.delete(docRef);
-        }
-    }
+export const deleteFlag = (flagId: string) => {
+    return db.collection(FLAGS_COLLECTION).doc(flagId).delete();
+};
 
-    await batch.commit();
-}
 
 // --- Storage Operations ---
 
-export const uploadCheckImage = async (file: Blob, fileName: string): Promise<string> => {
-  const imagePath = `check-images/${Date.now()}-${fileName}`;
-  const storageRef = storage.ref(imagePath);
+export const uploadCheckImage = async (file: Blob, path: string): Promise<string> => {
+  const storageRef = storage.ref(`check-images/${path}`);
+  const snapshot = await storageRef.put(file);
+  const downloadURL = await snapshot.ref.getDownloadURL();
+  return downloadURL;
+};
 
+export const uploadProfilePicture = async (file: Blob, userId: string): Promise<string> => {
+  const imagePath = `profile-pictures/${userId}/profile.jpg`;
+  const storageRef = storage.ref(imagePath);
   const snapshot = await storageRef.put(file);
   const downloadURL = await snapshot.ref.getDownloadURL();
   return downloadURL;

@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-// FIX: Import `CheckMateLogo` to resolve reference error.
-import { PlusIcon, SearchIcon, AdjustmentsHorizontalIcon, UserCircleIcon, Cog6ToothIcon, Bars3Icon, CheckMateLogo } from './icons';
-import { CheckCategory } from '../types';
+import { PlusIcon, SearchIcon, AdjustmentsHorizontalIcon, UserCircleIcon, Cog6ToothIcon, Bars3Icon, CheckMateLogo, BellIcon } from './icons';
+import { CheckCategory, Notification, CurrentUser } from '../types';
 import { auth } from '../services/firebase';
+import * as firestoreService from '../services/firestoreService';
+import { useNavigate } from 'react-router-dom';
 
 interface HeaderProps {
     onOpenMainMenu: () => void;
@@ -13,7 +14,11 @@ interface HeaderProps {
     activeCategory: CheckCategory | null;
     onCategoryFilterChange: (category: CheckCategory | null) => void;
     userEmail: string | null;
+    currentUser: CurrentUser | null;
     onOpenPreferences: () => void;
+    notificationCount: number;
+    notifications: Notification[];
+    profilePictureUrl: string;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -25,12 +30,53 @@ const Header: React.FC<HeaderProps> = ({
     activeCategory,
     onCategoryFilterChange,
     userEmail,
-    onOpenPreferences
+    currentUser,
+    onOpenPreferences,
+    notificationCount,
+    notifications,
+    profilePictureUrl
 }) => {
     const [isProfileMenuOpen, setProfileMenuOpen] = useState(false);
     const [isFilterMenuOpen, setFilterMenuOpen] = useState(false);
+    const [isNotificationMenuOpen, setNotificationMenuOpen] = useState(false);
+    const navigate = useNavigate();
+
     const profileMenuRef = useRef<HTMLDivElement>(null);
     const filterMenuRef = useRef<HTMLDivElement>(null);
+    const notificationMenuRef = useRef<HTMLDivElement>(null);
+    const prevIsNotificationMenuOpen = useRef(isNotificationMenuOpen);
+    
+    // 1. Create a ref to attach to the search input element
+    const searchInputRef = useRef<HTMLInputElement>(null);
+
+    // 2. Use useEffect to add a global event listener for keydown events
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            // Check for Ctrl+K on Windows/Linux or Cmd+K on macOS
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+                event.preventDefault(); // Prevent default browser actions
+                searchInputRef.current?.focus(); // Focus the search input
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+
+        // Cleanup: remove the event listener when the component unmounts
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, []); // The empty dependency array ensures this runs only once on mount
+
+    useEffect(() => {
+        // Effect to automatically clear read notifications when the dropdown is closed.
+        // This is more robust than checking the notifications array on the client,
+        // as it avoids race conditions if the prop hasn't updated from Firestore yet.
+        if (prevIsNotificationMenuOpen.current && !isNotificationMenuOpen && currentUser) {
+            firestoreService.deleteReadNotifications(currentUser.uid);
+        }
+        // Update the ref for the next render cycle.
+        prevIsNotificationMenuOpen.current = isNotificationMenuOpen;
+    }, [isNotificationMenuOpen, currentUser]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -40,14 +86,31 @@ const Header: React.FC<HeaderProps> = ({
             if (filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
                 setFilterMenuOpen(false);
             }
+            if (notificationMenuRef.current && !notificationMenuRef.current.contains(event.target as Node)) {
+                setNotificationMenuOpen(false);
+            }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const handleLogout = () => {
-        auth.signOut();
+    const handleLogout = () => auth.signOut();
+    
+    const handleMarkAllAsRead = () => {
+        const unreadIds = notifications.filter(n => !n.read).map(n => n.id);
+        if (unreadIds.length > 0) {
+            firestoreService.markNotificationsAsRead(unreadIds);
+        }
+        setNotificationMenuOpen(false);
     };
+
+    const handleNotificationClick = (notification: Notification) => {
+        if (!notification.read) {
+            firestoreService.markNotificationsAsRead([notification.id]);
+        }
+        navigate(notification.link);
+        setNotificationMenuOpen(false);
+    }
 
     return (
         <header className="bg-white shadow-sm sticky top-0 z-20">
@@ -73,10 +136,12 @@ const Header: React.FC<HeaderProps> = ({
                                     <SearchIcon className="h-5 w-5 text-gray-400" />
                                 </div>
                                 <input
+                                    // 3. Attach the ref to the input element
+                                    ref={searchInputRef}
                                     id="search"
                                     name="search"
                                     className="block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-md leading-5 bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-500 sm:text-sm"
-                                    placeholder="Search payor, memo..."
+                                    placeholder="Search (Ctrl+K)"
                                     type="search"
                                     value={searchTerm}
                                     onChange={(e) => onSearchChange(e.target.value)}
@@ -121,12 +186,60 @@ const Header: React.FC<HeaderProps> = ({
                             <PlusIcon className="h-5 w-5 sm:mr-2" />
                             <span className="hidden sm:block whitespace-nowrap">Add Check</span>
                         </button>
+                        {/* Notification Bell */}
+                    
+                        <div ref={notificationMenuRef} className="relative">
+                            <div className="flex justify-center items-center flex-wrap">
+                            <button onClick={() => setNotificationMenuOpen(p => !p)} className="group h-8 rounded-md text-slate-500">
+                                <BellIcon className="h-9 w-9 group-hover:fill-yellow-500 transition-colors duration-200" />
+                            </button>
+                            
+                            {notificationCount > 0 && (
+                                notificationCount < 100 ? (
+                                    <span className="inline-flex items-center justify-center -ml-4 -mt-4 px-2 py-1 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                                        {notificationCount}
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex items-center justify-center -ml-4 -mt-4 px-2 py-1 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                                        99+
+                                    </span>
+                                )
+                            )}
+                            
+                            </div>
+                            {isNotificationMenuOpen && (
+                                <div className="origin-top-right absolute right-0 mt-2 w-80 rounded-md shadow-xl bg-white ring-1 ring-black ring-opacity-5 focus:outline-none border border-slate-200 z-30">
+                                    <div className="flex justify-between items-center px-4 py-2 border-b">
+                                        <p className="text-sm font-semibold text-slate-700">Notifications</p>
+                                        {notificationCount > 0 && (
+                                            <button onClick={handleMarkAllAsRead} className="text-xs text-sky-600 hover:underline">
+                                                Mark all as read
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="py-1 max-h-80 overflow-y-auto">
+                                        {notifications.length > 0 ? notifications.map(n => (
+                                            <button key={n.id} onClick={() => handleNotificationClick(n)} className={`w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-slate-50 ${!n.read ? 'font-semibold' : ''}`}>
+                                                <p>{n.message}</p>
+                                                <p className={`text-xs mt-1 ${!n.read ? 'text-sky-600' : 'text-slate-400'}`}>{new Date(n.timestamp).toLocaleString()}</p>
+                                            </button>
+                                        )) : (
+                                            <p className="px-4 py-3 text-sm text-center text-slate-500">No new notifications</p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                         <div ref={profileMenuRef} className="relative hidden sm:block">
-                             <button onClick={() => setProfileMenuOpen(prev => !prev)} className="p-1.5 bg-slate-100 text-slate-600 rounded-full hover:bg-slate-200">
-                                <UserCircleIcon className="h-6 w-6" />
+                             <button onClick={() => setProfileMenuOpen(prev => !prev)} className="h-9 w-9 bg-slate-100 text-slate-600 rounded-full hover:bg-slate-200 flex items-center justify-center overflow-hidden">
+                                {profilePictureUrl ? (
+                                    <img src={profilePictureUrl} alt="Profile" className="h-full w-full object-cover"/>
+                                ) : (
+                                    <UserCircleIcon className="h-7 w-7" />
+                                )}
                              </button>
                              {isProfileMenuOpen && (
-                                <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-xl py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none border border-slate-200">
+                                <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-xl py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none border border-slate-200 z-30">
                                     <div className="px-4 py-2 text-sm text-gray-500">
                                         <p>Signed in as</p>
                                         <p className="font-medium text-gray-700 truncate" title={userEmail || ''}>{userEmail}</p>

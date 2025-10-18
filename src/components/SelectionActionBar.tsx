@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { CheckStatus } from '../types';
 import { XMarkIcon, ArchiveBoxIcon } from './icons';
+import useMediaQuery from '../hooks/useMediaQuery';
 
 interface SelectionActionBarProps {
     selectedCount: number;
@@ -10,7 +11,7 @@ interface SelectionActionBarProps {
 
 const SelectionActionBar: React.FC<SelectionActionBarProps> = ({ selectedCount, onCancel, onMove }) => {
     const [targetStatus, setTargetStatus] = useState<CheckStatus | ''>('');
-    const boardStatuses = Object.values(CheckStatus);
+    const isMobile = useMediaQuery('(max-width: 640px)');
 
     const handleMove = () => {
         if (targetStatus) {
@@ -18,9 +19,13 @@ const SelectionActionBar: React.FC<SelectionActionBarProps> = ({ selectedCount, 
         }
     };
 
-    const availableStatuses = useMemo(() => 
-        boardStatuses.filter(s => s !== CheckStatus.ARCHIVED),
-    [boardStatuses]);
+    const availableStatuses = useMemo(() => {
+        const allStatuses = Object.values(CheckStatus);
+        if (isMobile) {
+            return allStatuses;
+        }
+        return allStatuses.filter(s => s !== CheckStatus.ARCHIVED);
+    }, [isMobile]);
 
     return (
         <div className="fixed bottom-0 left-0 right-0 bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.1)] z-30 transition-transform duration-300 ease-in-out transform translate-y-0">
@@ -49,14 +54,16 @@ const SelectionActionBar: React.FC<SelectionActionBarProps> = ({ selectedCount, 
                         >
                             Move
                         </button>
-                         <button
-                            onClick={() => onMove(CheckStatus.ARCHIVED)}
-                            disabled={selectedCount === 0}
-                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 disabled:bg-slate-200 disabled:cursor-not-allowed"
-                        >
-                            <ArchiveBoxIcon className="h-5 w-5" />
-                            <span>Archive</span>
-                        </button>
+                        {!isMobile && (
+                            <button
+                                onClick={() => onMove(CheckStatus.ARCHIVED)}
+                                disabled={selectedCount === 0}
+                                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 disabled:bg-slate-200 disabled:cursor-not-allowed"
+                            >
+                                <ArchiveBoxIcon className="h-5 w-5" />
+                                <span>Archive</span>
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>

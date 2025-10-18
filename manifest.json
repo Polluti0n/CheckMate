@@ -2,7 +2,7 @@
   "name": "CheckMate",
   "short_name": "CheckMate",
   "description": "A web application for tracking payment checks with a drag-and-drop Kanban board.",
-  "start_url": ".",
+  "start_url": "/",
   "display": "fullscreen",
   "background_color": "#f8fafc",
   "theme_color": "#0ea5e9",

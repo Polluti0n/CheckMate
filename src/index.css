@@ -12,7 +12,7 @@
   }
 
   .select-glow {
-    transition: all 0.5s ease-in-out;
+    transition: all 0.3s ease-in-out;
     box-shadow: 0 0 4px 2px rgba(var(--glow-color), .6); /* Default to blue glow */
     border: solid 2px rgba(var(--glow-color), 1); /* Border to match glow */
     border-left: solid 1.5rem rgba(var(--glow-color), 1); /* Space for checkmark */
@@ -36,13 +36,13 @@
 @layer components {
     /* Styles for @atlaskit/pragmatic-drag-and-drop */
     .dragging-card {
+        height: 0px !important;
+        opacity: 0 !important;
+        padding: 0 !important;
         display: none !important;
-        opacity: 0;
-        transform: rotate(2deg);
     }
     .drop-indicator {
-        @apply h-1 bg-sky-400 rounded-full my-1;
-        
+        transition: all .3s ease;        
     }
     .column-is-over {
         @apply bg-sky-100;
@@ -60,5 +60,5 @@
 }
 
 .pdd-post-move-flash {
-  animation: post-move-flash 0.5s ease-in-out;
+  animation: post-move-flash 0.3s ease-in-out;
 }

@@ -1,0 +1,171 @@
+/* KanbanBoard.css */
+
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Babylonica&family=Just+Me+Again+Down+Here&family=Whisper&family=Miss+Fajardose&family=Mrs+Saint+Delafield&family=Ms+Madi&family=Zeyada&family=Cutive+Mono&family=Kalam&family=Libre+Baskerville:ital@0;1&family=Marck+Script&family=Mr+De+Haviland&family=Roboto+Mono&family=Shadows+Into+Light&family=Special+Elite&display=swap');
+
+/* Style for the check itself to enforce aspect ratio and add a subtle background */
+.check-aspect-ratio {
+    aspect-ratio: 2 / 1;
+    container-type: inline-size;
+}
+
+/* Background Styles */
+.check-bg-classic {
+    background-image:
+        linear-gradient(to right, #f0f4f8, #f0f4f8),
+        linear-gradient(to right, #e0e8f0, #e0e8f0);
+    background-size: 100% 2px, 100% 2px;
+    background-position: top, bottom;
+    background-repeat: no-repeat;
+    background-color:#006782; /* slate-50 */
+}
+.check-bg-modern {
+    background:
+    radial-gradient(rgba(255,255,255,0) 0, rgba(255,255,255,.15) 30%, rgba(255,255,255,.3) 32%, rgba(255,255,255,0) 33%) 0 0,
+    radial-gradient(rgba(255,255,255,0) 0, rgba(255,255,255,.1) 11%, rgba(255,255,255,.3) 13%, rgba(255,255,255,0) 14%) 0 0,
+    radial-gradient(rgba(255,255,255,0) 0, rgba(255,255,255,.2) 17%, rgba(255,255,255,.43) 19%, rgba(255,255,255,0) 20%) 0 110px,
+    radial-gradient(rgba(255,255,255,0) 0, rgba(255,255,255,.2) 11%, rgba(255,255,255,.4) 13%, rgba(255,255,255,0) 14%) -130px -170px,
+    radial-gradient(rgba(255,255,255,0) 0, rgba(255,255,255,.2) 11%, rgba(255,255,255,.4) 13%, rgba(255,255,255,0) 14%) 130px 370px,
+    radial-gradient(rgba(255,255,255,0) 0, rgba(255,255,255,.1) 11%, rgba(255,255,255,.2) 13%, rgba(255,255,255,0) 14%) 0 0,
+    linear-gradient(45deg, #343702 0%, #184500 20%, #187546 30%, #006782 40%, #0b1284 50%, #760ea1 60%, #83096e 70%, #840b2a 80%, #b13e12 90%, #e27412 100%);
+    background-size: 470px 470px, 970px 970px, 410px 410px, 610px 610px, 530px 530px, 730px 730px, 100% 100%;
+    background-color: #840b2a;
+}
+.check-bg-secure {
+    --bg-color-one: white;;
+    --bg-color-two: cornflowerblue;
+    background-color:transparent;
+    background-image:
+    radial-gradient(circle at 100% 145%, var(--bg-color-one) 24%, var(--bg-color-two) 24%, var(--bg-color-two) 28%, var(--bg-color-one) 28%, var(--bg-color-one) 36%, var(--bg-color-two) 36%, var(--bg-color-two) 40%, transparent 40%, transparent),
+    radial-gradient(circle at 0    150%, var(--bg-color-one) 24%, var(--bg-color-two) 24%, var(--bg-color-two) 28%, var(--bg-color-one) 28%, var(--bg-color-one) 36%, var(--bg-color-two) 36%, var(--bg-color-two) 40%, transparent 40%, transparent),
+    radial-gradient(circle at 50%  100%, var(--bg-color-two) 10%, var(--bg-color-one) 10%, var(--bg-color-one) 23%, var(--bg-color-two) 23%, var(--bg-color-two) 30%, var(--bg-color-one) 30%, var(--bg-color-one) 43%, var(--bg-color-two) 43%, var(--bg-color-two) 50%, var(--bg-color-one) 50%, var(--bg-color-one) 63%, var(--bg-color-two) 63%, var(--bg-color-two) 71%, transparent 71%, transparent),
+    radial-gradient(circle at 100% 50%, var(--bg-color-two) 5%, var(--bg-color-one) 5%, var(--bg-color-one) 15%, var(--bg-color-two) 15%, var(--bg-color-two) 20%, var(--bg-color-one) 20%, var(--bg-color-one) 29%, var(--bg-color-two) 29%, var(--bg-color-two) 34%, var(--bg-color-one) 34%, var(--bg-color-one) 44%, var(--bg-color-two) 44%, var(--bg-color-two) 49%, transparent 49%, transparent),
+    radial-gradient(circle at 0    50%, var(--bg-color-two) 5%, var(--bg-color-one) 5%, var(--bg-color-one) 15%, var(--bg-color-two) 15%, var(--bg-color-two) 20%, var(--bg-color-one) 20%, var(--bg-color-one) 29%, var(--bg-color-two) 29%, var(--bg-color-two) 34%, var(--bg-color-one) 34%, var(--bg-color-one) 44%, var(--bg-color-two) 44%, var(--bg-color-two) 49%, transparent 49%, transparent);
+background-size: 100px 50px;
+}
+
+.check-card-bg {
+    background: rgba(255, 255, 255, 0.85)
+}
+/* MICR font style */
+.font-micr {
+    font-family: 'Special Elite', monospace;
+}
+
+/* --- Font Themes --- */
+
+/* Cursive Theme */
+/*.font-cursive-printed { font-family: 'Libre Baskerville', serif; } */
+.font-cursive-printed { font-family: 'Libre Baskerville', serif; } 
+.font-cursive-handwritten { font-family: 'Ms Madi', cursive; }
+.font-cursive-signature { font-family: 'Ms Madi', cursive; }
+
+/* Block Theme */
+.font-block-printed { font-family: 'Roboto Mono', monospace; }
+.font-block-handwritten { font-family: 'Just Me Again Down Here', cursive; }
+.font-block-signature { font-family: 'Babylonica', cursive; }
+
+/* Typed Theme */
+.font-typed-printed { font-family: 'Cutive Mono', monospace; }
+.font-typed-handwritten { font-family: 'Verdana'; }
+.font-typed-signature { font-family: 'Whisper', cursive; }
+
+.first-letter-large::first-letter {
+  transform: scale(2); /* Adjust as needed */
+}
+
+/* DEPRECATED - Kept for backwards compatibility during transition */
+.font-signature { font-family: "Mr De Haviland", cursive; font-weight: 600; }
+.font-signature-kalam { font-family: "Kalam", cursive; }
+.font-written { font-family: "Shadows Into Light", cursive; font-weight: 100; }
+.font-written-kalam { font-family: "Kalam", cursive; }
+.font-typewriter { font-family: 'Cutive Mono', monospace; }
+
+
+/* --- Overlay Styles --- */
+.check-overlay {
+    position: absolute;
+    background-color: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(2px);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 0.375rem;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.65rem;
+    line-height: 1;
+    max-width: 45%;
+}
+
+/* HTML: <div class="ribbon">Your text content</div> */
+.ribbon {
+  font-weight: bold;
+  color: #fff;
+}
+.ribbon {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  --r: .4em; /* control the cutout */
+  border-block-start: calc(var(--r) + .25em) solid #0000;
+  border-block-end: 0 solid #0000;
+  clip-path: polygon(100% 0,0 0,0 100%,100% 100%,calc(100% - var(--r)) 100%,100% calc(calc(var(--r)) + 50%),calc(100% - var(--r)) .25em);
+  background:radial-gradient(.2em 110% at bottom left,#000a,#0000) border-box,
+   radial-gradient(110% .2em at bottom left,#000a,#0000) border-box,
+   #45ADA8 padding-box;
+  width: fit-content;
+}
+
+.top-badge {
+position: absolute;
+  top: 0;
+  right: 0;
+  --r: .4em; /* control the cutout */
+  width: fit-content;
+}
+
+
+.bottom-badge {
+position: absolute;
+  bottom: 0;
+  left: 0;
+  --r: .4em; /* control the cutout */
+  width: fit-content;
+}
+
+
+/*
+
+[class^=ribbon-] {
+  position: relative;
+  margin-bottom: 1rem;
+}
+[class^=ribbon-]:before, [class^=ribbon-]:after {
+  content: "";
+  position: absolute;
+}
+
+.ribbon-2 {
+    position: absolute;
+  display: flex;
+  height: 1.5rem;
+  background: theme('colors.slate.400');
+  top: -34px;
+  left: -8px;
+  z-index: 10;
+  align-items: center;
+}
+.ribbon-2:before {
+  height: 0;
+  width: 0;
+  border-bottom: 8px solid theme('colors.slate.600');
+  border-left: 8px solid transparent;
+  top: -8px;
+}
+.ribbon-2:after {
+  height: 0;
+  width: 0;
+  border-top: .75rem solid transparent;
+  border-bottom: .75rem solid transparent;
+  border-left: 5px solid theme('colors.slate.400');
+  right: -5px;
+}
+  */

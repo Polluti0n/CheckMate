@@ -6,7 +6,7 @@ import { Check, CheckCategory, CheckStatus } from '../types';
 import { extractCheckInfoFromImage } from '../services/geminiService';
 import * as firestoreService from '../services/firestoreService';
 import { XMarkIcon, CheckCircleIcon, ProcessingLoaderIcon, CheckPlaceholderIcon } from './icons';
-import { processCheckImage } from '../utils/imageProcessor';
+import { processCheckImage, transformImageWithPoints } from '../utils/imageProcessor';
 import { categoryConfig, formConfig } from '../formConfig';
 
 // Define the shape of the context that the wizard layout provides to its step components.
@@ -18,7 +18,9 @@ type WizardContextType = {
     setError: React.Dispatch<React.SetStateAction<string | null>>;
     imagePreview: string | null;
     handleImageUpload: (event: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
-    handleSubmit: (e: React.FormEvent) => void;
+    handleSubmit: (e: React.FormEvent) => Promise<void>;
+    imageToCrop: string | null;
+    handleManualCrop: (image: HTMLImageElement, canvas: HTMLCanvasElement, points: { x: number; y: number }[]) => Promise<void>; // This signature is correct, the implementation will change
 };
 
 // A helper hook to easily access the typed context in child components.
@@ -81,7 +83,7 @@ export const UploadStep = () => {
                         <div className="space-y-1 text-center">
                             {isLoading ? (<div className="py-4"><ProcessingLoaderIcon className="mx-auto h-12 w-12" /><p className="mt-4 text-sm font-medium text-slate-600">Processing image...</p></div>)
                             : imagePreview ? (<img src={imagePreview} alt="Check preview" className="mx-auto h-32 object-contain rounded-md shadow-sm" />)
-                            : (<><CheckPlaceholderIcon className="mx-auto h-16 w-auto text-slate-400" /><div className="mt-2 flex text-sm text-gray-600"><span>Upload a file</span><input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleImageUpload} accept="image/*" capture /></div><p className="text-xs text-gray-500">PNG, JPG, or use camera</p></>)}
+                            : (<><CheckPlaceholderIcon className="mx-auto h-16 w-auto text-slate-400" /><div className="mt-2 flex text-sm text-gray-600"><span>Upload a file</span><input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleImageUpload} accept="image/*" /></div><p className="text-xs text-gray-500">PNG, JPG, or use camera</p></>)}
                         </div>
                     </div>
                 </label>
@@ -90,6 +92,312 @@ export const UploadStep = () => {
             <div className="p-6 flex-shrink-0 border-t flex justify-between items-center">
                 <button onClick={() => navigate(-1)} type="button" className="text-sm font-medium text-slate-600 hover:text-slate-900">Back</button>
                 <button onClick={() => navigate('/add-check/details')} type="button" className="rounded-md border border-slate-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-slate-700 hover:bg-slate-50">Skip & Enter Manually</button>
+            </div>
+        </>
+    );
+};
+
+// --- Step 2.5: Manual Crop Component ---
+export const CropStep = () => {
+    const { imageToCrop, handleManualCrop, error, isLoading } = useWizardContext();
+    const navigate = useNavigate();
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const imageRef = useRef<HTMLImageElement | null>(null);
+    const containerRef = useRef<HTMLDivElement>(null); // For sizing
+    const magnifierCanvasRef = useRef<HTMLCanvasElement>(null); // For loupe
+
+    const [points, setPoints] = useState<{ x: number; y: number }[]>([]);
+    const [draggingPointIndex, setDraggingPointIndex] = useState<number | null>(null);
+    const [magnifier, setMagnifier] = useState({ visible: false, x: 0, y: 0, point: { x: 0, y: 0 } });
+
+    const POINT_SIZE = 10; // Size of the draggable handles
+    const LOUPE_SIZE = 150;
+    const LOUPE_ZOOM = 2;
+
+    // Effect to draw image and initialize points
+    useEffect(() => {
+        if (!imageToCrop) {
+            navigate('/add-check/upload', { replace: true });
+            return;
+        }
+
+        const canvas = canvasRef.current;
+        const ctx = canvas?.getContext('2d');
+        const container = containerRef.current;
+        if (!canvas || !ctx || !container) return;
+
+        const img = new Image();
+        img.crossOrigin = 'anonymous'; // This is the crucial fix!
+        img.src = imageToCrop;
+        img.onload = () => {
+            imageRef.current = img;
+            
+            // Scale canvas to fit container while maintaining aspect ratio
+            const containerWidth = container.clientWidth;
+            const containerHeight = container.clientHeight;
+            const imageAspectRatio = img.width / img.height;
+            const containerAspectRatio = containerWidth / containerHeight;
+
+            let canvasWidth, canvasHeight;
+            if (imageAspectRatio > containerAspectRatio) {
+                canvasWidth = containerWidth;
+                canvasHeight = containerWidth / imageAspectRatio;
+            } else {
+                canvasHeight = containerHeight;
+                canvasWidth = containerHeight * imageAspectRatio;
+            }
+
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+
+            // Initialize points at corners
+            const initialPoints = [
+                { x: canvas.width * 0.2, y: canvas.height * 0.2 },
+                { x: canvas.width * 0.8, y: canvas.height * 0.2 },
+                { x: canvas.width * 0.8, y: canvas.height * 0.8 },
+                { x: canvas.width * 0.2, y: canvas.height * 0.8 },
+            ];
+            setPoints(initialPoints);
+        };
+    }, [imageToCrop, navigate]);
+
+    const getCanvasCoordinates = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return { x: 0, y: 0 };
+        const rect = canvas.getBoundingClientRect();
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+        return {
+            x: clientX - rect.left,
+            y: clientY - rect.top,
+        };
+    }, []);
+
+    const getPageCoordinates = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+        const clientX = 'touches' in e ? e.touches[0].pageX : e.pageX;
+        const clientY = 'touches' in e ? e.touches[0].pageY : e.pageY;
+        return { x: clientX, y: clientY };
+    }, []);
+
+    const handleMouseDown = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+        e.preventDefault();
+        const coords = getCanvasCoordinates(e);
+        for (let i = 0; i < points.length; i++) {
+            const p = points[i];
+            const distance = Math.hypot(p.x - coords.x, p.y - coords.y);
+            if (distance < POINT_SIZE * 1.5) { // Increased hit area
+                setDraggingPointIndex(i);
+                return;
+            }
+        }
+    }, [getCanvasCoordinates, points]);
+
+    const handleMouseMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+        if (draggingPointIndex === null) return;
+        e.preventDefault();
+        const coords = getCanvasCoordinates(e);
+        
+        // Clamp coordinates to be within the canvas
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const clampedCoords = {
+            x: Math.max(0, Math.min(canvas.width, coords.x)),
+            y: Math.max(0, Math.min(canvas.height, coords.y)),
+        };
+
+        setPoints(prevPoints =>
+            prevPoints.map((p, i) => (i === draggingPointIndex ? clampedCoords : p))
+        );
+
+        const pageCoords = getPageCoordinates(e);
+        setMagnifier({
+            visible: true,
+            x: pageCoords.x - LOUPE_SIZE / 2,
+            y: pageCoords.y - LOUPE_SIZE - 30, // Position above cursor
+            point: clampedCoords
+        });
+    }, [draggingPointIndex, getCanvasCoordinates, getPageCoordinates]);
+
+    const handleMouseUp = useCallback(() => {
+        setDraggingPointIndex(null);
+        setMagnifier(prev => ({ ...prev, visible: false }));
+    }, []);
+
+    // Effect to handle global mouse/touch events for dragging
+    useEffect(() => {
+        const handleMove = (e: MouseEvent | TouchEvent) => {
+            // We prevent default on touchmove to prevent scrolling on mobile.
+            if (draggingPointIndex !== null) {
+                e.preventDefault();
+                handleMouseMove(e as any);
+            }
+        };
+
+        const handleUp = () => {
+            if (draggingPointIndex !== null) {
+                handleMouseUp();
+            }
+        };
+
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('touchmove', handleMove, { passive: false });
+        window.addEventListener('mouseup', handleUp);
+        window.addEventListener('touchend', handleUp);
+
+        return () => {
+            window.removeEventListener('mousemove', handleMove);
+            window.removeEventListener('touchmove', handleMove);
+            window.removeEventListener('mouseup', handleUp);
+            window.removeEventListener('touchend', handleUp);
+        };
+    }, [draggingPointIndex, handleMouseMove, handleMouseUp]); // Dependencies ensure we have the latest handlers
+
+    // Effect to redraw canvas when points change
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        const ctx = canvas?.getContext('2d');
+        const img = imageRef.current;
+        if (!canvas || !ctx || !img || points.length !== 4) return;
+
+        // Clear canvas and draw the image
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        // --- Start: Overlay logic that avoids tainting the canvas ---
+        // Save the context state
+        ctx.save();
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'; // A semi-transparent dark overlay
+
+        // Create a path for the inner rectangle (the selection)
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        ctx.lineTo(points[1].x, points[1].y);
+        ctx.lineTo(points[2].x, points[2].y);
+        ctx.lineTo(points[3].x, points[3].y);
+        ctx.closePath();
+        
+        // Invert the clipping area by defining a rectangle with negative width
+        // This creates a "hole" where the selection is.
+        ctx.rect(canvas.width, 0, -canvas.width, canvas.height);
+
+        // Fill the area outside the selection
+        ctx.fill();
+
+        // Restore the context to draw the border and handles normally
+        ctx.restore();
+        // --- End: Overlay logic ---
+
+        // Draw the border of the quadrilateral
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        for (let i = 1; i < points.length; i++) {
+            ctx.lineTo(points[i].x, points[i].y);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = 'rgba(0, 255, 0, 0.7)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // Draw draggable handles
+        points.forEach(p => {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, POINT_SIZE, 0, 2 * Math.PI);
+            ctx.fillStyle = 'rgba(0, 255, 0, 0.9)';
+            ctx.fill();
+        });
+    }, [points, imageToCrop]);
+
+    // Effect to draw magnifier
+    useEffect(() => {
+        if (!magnifier.visible || !magnifier.point || !imageRef.current) return;
+
+        const loupeCanvas = magnifierCanvasRef.current;
+        const loupeCtx = loupeCanvas?.getContext('2d');
+        const mainCanvas = canvasRef.current;
+
+        if (!loupeCtx || !mainCanvas) return;
+
+        const sourceSize = LOUPE_SIZE / LOUPE_ZOOM;
+        const sourceX = (magnifier.point.x / mainCanvas.width) * imageRef.current.naturalWidth - sourceSize / 2;
+        const sourceY = (magnifier.point.y / mainCanvas.height) * imageRef.current.naturalHeight - sourceSize / 2;
+
+        loupeCtx.clearRect(0, 0, LOUPE_SIZE, LOUPE_SIZE);
+        loupeCtx.fillStyle = 'white';
+        loupeCtx.fillRect(0, 0, LOUPE_SIZE, LOUPE_SIZE);
+        loupeCtx.drawImage(
+            imageRef.current,
+            sourceX, sourceY, sourceSize, sourceSize,
+            0, 0, LOUPE_SIZE, LOUPE_SIZE
+        );
+
+        // Draw crosshairs
+        loupeCtx.beginPath();
+        loupeCtx.moveTo(0, LOUPE_SIZE / 2);
+        loupeCtx.lineTo(LOUPE_SIZE, LOUPE_SIZE / 2);
+        loupeCtx.moveTo(LOUPE_SIZE / 2, 0);
+        loupeCtx.lineTo(LOUPE_SIZE / 2, LOUPE_SIZE);
+        loupeCtx.strokeStyle = 'rgba(255, 122, 0, 1)';
+        loupeCtx.lineWidth = 2;
+        loupeCtx.stroke();
+
+    }, [magnifier]);
+
+    const handleCrop = useCallback(() => {
+        const canvas = canvasRef.current;
+        const image = imageRef.current;
+        if (points.length !== 4 || !canvas || !image) {
+            // This case should ideally not be reachable if the button is enabled.
+            return;
+        }
+        // We pass the original image element, the display canvas, and the points
+        handleManualCrop(image, canvas, points);
+    }, [points, handleManualCrop, canvasRef, imageRef]);
+
+    return (
+        <>
+            <div className="p-6 flex-shrink-0 border-b">
+                <h3 className="text-lg font-medium leading-6 text-gray-900">Manual Crop</h3>
+                <p className="mt-1 text-sm text-gray-500">Automatic detection failed. Please drag the corners to align with the check.</p>
+            </div>
+            <div ref={containerRef} className="relative flex-grow p-4 bg-gray-100 flex justify-center h-[60dvh] items-center overflow-hidden">
+                 {isLoading ? (
+                    <div className="text-center">
+                        <ProcessingLoaderIcon className="mx-auto h-12 w-12" />
+                        <p className="mt-4 text-sm font-medium text-slate-600">Processing cropped image...</p>
+                    </div>
+                ) : (
+                    <>
+                        <canvas
+                            ref={canvasRef}
+                            onMouseDown={handleMouseDown} // Only mouse down is needed on the canvas
+                            onTouchStart={handleMouseDown} // and touch start
+                            className={`cursor-crosshair rounded-lg shadow-m max-w-[${canvasRef.current?.width}px] max-h-[${canvasRef.current?.height}px]`}
+                        />
+                        {magnifier.visible && (
+                            <canvas
+                                ref={magnifierCanvasRef}
+                                width={LOUPE_SIZE}
+                                height={LOUPE_SIZE}
+                                style={{
+                                    position: 'fixed',
+                                    left: magnifier.x,
+                                    top: magnifier.y,
+                                    border: '3px solid #0ea5e9', // sky-500
+                                    borderRadius: '50%',
+                                    pointerEvents: 'none',
+                                    boxShadow: '0 5px 15px rgba(0, 0, 0, 0.3)',
+                                    display: 'block',
+                                    zIndex: 100,
+                                }}
+                            />
+                        )}
+                    </>
+                )}
+            </div>
+             {error && <p className="mt-2 text-sm text-red-600 text-center">{error}</p>}
+            <div className="p-6 flex-shrink-0 border-t flex justify-between items-center">
+                <button onClick={() => navigate(-1)} type="button" className="text-sm font-medium text-slate-600 hover:text-slate-900" disabled={isLoading}>Back</button>
+                <button onClick={handleCrop} type="button" className="rounded-md border border-transparent shadow-sm px-4 py-2 bg-sky-600 text-base font-medium text-white hover:bg-sky-700 disabled:bg-sky-300" disabled={isLoading}>Crop and Continue</button>
             </div>
         </>
     );
@@ -160,6 +468,7 @@ const DetailsForm = React.forwardRef<HTMLFormElement, {openDropdown: string | nu
             name: field.name,
             id: field.name,
             required: field.required,
+            autoComplete: field.autocomplete || 'off',
             value: value,
             onChange: handleDetailsChange,
             className: "mt-1 block w-full bg-slate-50 border border-slate-300 text-slate-900 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-500 sm:text-sm",
@@ -244,9 +553,15 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+    const originalFileName = useRef<string>('check.jpg');
 
     const resetWizard = useCallback(() => {
-        setNewCheck({}); setIsLoading(false); setError(null); setImagePreview(null);
+        setNewCheck({}); 
+        setIsLoading(false); 
+        setError(null); 
+        setImagePreview(null);
+        setImageToCrop(null);
     }, []);
 
     const handleClose = () => {
@@ -254,10 +569,66 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
         onClose();
     };
 
+    const resizeImage = (dataUrl: string, maxSize: number): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                let { width, height } = img;
+                if (width > height) {
+                    if (width > maxSize) {
+                        height = Math.round(height * (maxSize / width));
+                        width = maxSize;
+                    }
+                } else {
+                    if (height > maxSize) {
+                        width = Math.round(width * (maxSize / height));
+                        height = maxSize;
+                    }
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    return reject(new Error('Could not get canvas context'));
+                }
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', 0.9)); // Use JPEG for smaller size
+            };
+            img.onerror = (err) => {
+                reject(err);
+            };
+            img.src = dataUrl;
+        });
+    };
+
+    const continueWithProcessedImage = async (processedDataUrl: string, fileName: string) => {
+        setImagePreview(processedDataUrl); // Update preview with enhanced image
+
+        // const base64String = processedDataUrl.split(',')[1];
+        // Ensure we only get the base64 part of the data URL.
+        // The data URL might already be just the base64 string if coming from a different path.
+        const base64String = processedDataUrl.includes(',') ? processedDataUrl.split(',')[1] : processedDataUrl;
+        const fullDataUrl = `data:image/jpeg;base64,${base64String}`;
+
+        const extractedDataPromise = extractCheckInfoFromImage(base64String, 'image/jpeg');
+        
+        // Always use the full data URL for fetching the blob.
+        const imageBlob = await (await fetch(fullDataUrl)).blob();
+        const processedFileName = fileName.replace(/\.[^/.]+$/, ".jpg");
+        const imageUrlPromise = firestoreService.uploadCheckImage(imageBlob, processedFileName);
+
+        const [extractedData, imageUrl] = await Promise.all([extractedDataPromise, imageUrlPromise]);
+
+        setNewCheck(prev => ({ ...prev, ...extractedData, imageUrl }));
+    };
+
     const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
 
+        originalFileName.current = file.name;
         setIsLoading(true);
         setError(null);
         
@@ -265,51 +636,73 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
         reader.readAsDataURL(file);
         reader.onload = async () => {
             const dataUrl = reader.result as string;
-            setImagePreview(dataUrl); // Show original for a moment
-
+            
             try {
-                // New Preprocessing Step
-                const processedDataUrl = await processCheckImage(dataUrl);
+                const resizedDataUrl = await resizeImage(dataUrl, 1280);
+                setImagePreview(resizedDataUrl);
+
+                const processedDataUrl = await processCheckImage(resizedDataUrl);
                 
                 if (processedDataUrl === null) {
-                    setError("Could not automatically detect the check. Please enter details manually.");
-                    setImagePreview(dataUrl); // Show the original image so user knows what they uploaded
+                    // Automatic processing failed, move to manual crop step
+                    setError(null); // Clear any previous errors
+                    setImageToCrop(resizedDataUrl);
                     setIsLoading(false);
-                    navigate('/add-check/details');
-                    return; // Stop execution here
+                    navigate('/add-check/crop');
+                    return;
                 }
 
-                setImagePreview(processedDataUrl); // Update preview with enhanced image
-
-                const base64String = processedDataUrl.split(',')[1];
-                
-                const extractedDataPromise = extractCheckInfoFromImage(base64String, 'image/jpeg');
-                
-                const imageBlob = await (await fetch(processedDataUrl)).blob();
-                // Give the processed file a consistent extension
-                const processedFileName = file.name.replace(/\.[^/.]+$/, ".jpg");
-                const imageUrlPromise = firestoreService.uploadCheckImage(imageBlob, processedFileName);
-
-                const [extractedData, imageUrl] = await Promise.all([extractedDataPromise, imageUrlPromise]);
-
-                setNewCheck(prev => ({ ...prev, ...extractedData, imageUrl }));
+                await continueWithProcessedImage(processedDataUrl, file.name);
+                setIsLoading(false);
+                navigate('/add-check/details');
                 
             } catch (err: any) {
                 console.error("Image processing or extraction failed:", err);
                 setError(err.message || "Could not process image. Please try again or enter manually.");
-            } finally {
+                setImagePreview(dataUrl); // In case of error, show original uploaded image
                 setIsLoading(false);
-                navigate('/add-check/details');
             }
         };
         reader.onerror = () => {
             setError("Failed to read the image file.");
             setIsLoading(false);
-            navigate('/add-check/details');
         };
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleManualCrop = async (imageEl: HTMLImageElement, displayCanvas: HTMLCanvasElement, points: { x: number; y: number }[]) => {
+        if (!imageToCrop || !imageEl || !displayCanvas) {
+            setError("Image or canvas not available for cropping.");
+            return;
+        }
+        setIsLoading(true);
+        setError(null);
+
+        // Scale points from the on-screen display canvas to the full-resolution clean canvas.
+        const { naturalWidth, naturalHeight } = imageEl;
+        const { width, height } = displayCanvas;
+        const scaleX = naturalWidth / width;
+        const scaleY = naturalHeight / height;
+
+        const scaledPoints = points.map(p => ({
+            x: p.x * scaleX,
+            y: p.y * scaleY,
+        }));
+        try {
+            const processedDataUrl = await transformImageWithPoints(imageToCrop, scaledPoints);
+            if (processedDataUrl === null) {
+                throw new Error("Manual cropping failed to process the image.");
+            }
+            await continueWithProcessedImage(processedDataUrl, originalFileName.current);
+            setIsLoading(false);
+            navigate('/add-check/details');
+        } catch (err: any) {
+            console.error("Manual crop processing failed:", err);
+            setError(err.message || "Could not process cropped image.");
+            setIsLoading(false);
+        }
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
         
@@ -341,15 +734,21 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
 
     const context: WizardContextType = {
         newCheck, setNewCheck, isLoading, error, setError, imagePreview,
-        handleImageUpload, handleSubmit
+        handleImageUpload, handleSubmit, imageToCrop, handleManualCrop
     };
 
     return (
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 z-30">
             <div className="flex items-center justify-center min-h-screen p-4">
                 <div className="relative bg-white rounded-lg shadow-xl sm:my-8 sm:max-w-3xl sm:w-full max-h-[80dvh] flex flex-col">
-                    <button onClick={handleClose} className="absolute top-3 right-3 p-1 rounded-full text-slate-400 hover:bg-slate-100 z-10">
+                    <button
+                        onClick={handleClose}
+                        className="absolute top-3 right-3 p-1 rounded-full text-slate-400 hover:bg-slate-100 z-10"
+                        aria-label="Close"
+                        title="Close"
+                    >
                         <XMarkIcon className="h-6 w-6"/>
+                        <span className="sr-only">Close</span>
                     </button>
                     {/* The Outlet renders the active step component based on the URL */}
                     <Outlet context={context} />

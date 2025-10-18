@@ -1,4 +1,4 @@
-import { UserPreferences, CheckField, CheckStatus, Theme } from './types';
+import { UserPreferences, CheckField, CheckStatus, Theme, UserProfile, FlagColorVariant  } from './types';
 
 export const ALL_CHECK_FIELDS: { key: CheckField; label: string; isNumeric?: boolean }[] = [
     { key: 'payor', label: 'Payor' },
@@ -9,7 +9,8 @@ export const ALL_CHECK_FIELDS: { key: CheckField; label: string; isNumeric?: boo
     { key: 'memo', label: 'Memo' },
     { key: 'category', label: 'Category' },
     { key: 'associationName', label: 'Association' },
-    { key: 'accountNumber', label: 'Account #' },
+    { key: 'bankAccountNumber', label: 'Bank Acct #' },
+    { key: 'clientAccountNumber', label: 'Client Acct #' },
     { key: 'chargeType', label: 'Charge Type' },
     { key: 'department', label: 'Department' },
     { key: 'glCode', label: 'GL Code' },
@@ -29,6 +30,8 @@ export const AVAILABLE_CARD_FIELDS: { key: CheckField; label: string }[] = [
     { key: 'associationName', label: 'Association' },
     { key: 'lastComment', label: 'Last Comment' },
     { key: 'date', label: 'Date' },
+    { key: 'createdAt', label: 'Date Created' },
+    { key: 'statusUpdatedAt', label: 'Last Modified' },
 ];
 
 // FIX: Added THEMES export to resolve import error in App.tsx
@@ -103,6 +106,26 @@ export const THEMES: Theme[] = [
 
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
+   viewMode: 'card',
+   profile: {
+// FIX: Added missing 'uid' and 'email' properties to conform to UserProfile type.
+        uid: '',
+        email: '',
+        firstName: '',
+        lastName: '',
+        phone: '',
+        branch: '',
+        profilePictureUrl: '',
+    },
+    // New Notification Defaults
+    notifications: {
+        allUpdates: { inApp: true, email: false },
+        newComments: { inApp: true, email: true },
+        flagChanges: { inApp: true, email: false },
+        newChecks: { inApp: true, email: false },
+        statusChanges: { inApp: true, email: false },
+        newBatches: { inApp: true, email: true },
+    },
     columnThemes: {
         [CheckStatus.RECEIVED]: 'default',
         [CheckStatus.CONFIRMING_DETAILS]: 'default',
@@ -128,4 +151,62 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
     visibleArchiveColumns: ['payor', 'amount', 'checkNumber', 'date', 'category'],
     archiveColumnWidths: {},
     archiveTheme: 'default',
+    checkViewOptions: {
+        showPayorAddress: true,
+        showAmountInWords: true,
+        showMemo: true,
+        showSignature: true,
+        fontTheme: 'cursive',
+        background: 'classic',
+        overlays: {
+            overlayTopRight: 'category',
+            overlayBottomLeft: 'flags',
+        },
+        footer: {
+            footerLeft: 'date',
+        }
+    }
 };
+
+export const flagColorVariant: FlagColorVariant = {
+         "bg-red-500": {
+            hover: "hover:bg-red-500",
+            default: "bg-red-500/80",
+         },
+         "bg-yellow-500": {
+            hover: "hover:bg-yellow-500",
+            default: "bg-yellow-500/80",
+         },
+         "bg-green-500": {
+            hover: "hover:bg-green-500",
+            default: "bg-green-500/80",
+         },
+         "bg-indigo-500": {
+            hover: "hover:bg-indigo-500",
+            default: "bg-indigo-500/80",
+         },
+         "bg-purple-500": {
+            hover: "hover:bg-purple-500",
+            default: "bg-purple-500/80",
+         },
+         "bg-pink-500": {
+            hover: "hover:bg-pink-500",
+            default: "bg-pink-500/80",
+         },
+         "bg-amber-500": {
+            hover: "hover:bg-amber-500",
+            default: "bg-amber-500/80",
+         },
+         "bg-lime-500": {
+            hover: "hover:bg-lime-500",
+            default: "bg-lime-500/80",
+         },
+         "bg-teal-500": {
+            hover: "hover:bg-teal-500",
+            default: "bg-teal-500/80",
+         },
+         "bg-sky-500": {
+            hover: "hover:bg-sky-500",
+            default: "bg-sky-500/80",
+         }
+    }

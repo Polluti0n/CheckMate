@@ -25,21 +25,32 @@ export interface Flag {
   name: string;
   color: string; // Tailwind bg color class e.g., 'bg-red-500'
   textColor: string; // Tailwind text color class e.g., 'text-white'
+  uid?: string; // UID of the user who created the flag
 }
+
+export interface payorAddress {
+    street: string;
+    city: string;
+    state: string;
+    zip: string;
+}
+
 
 export interface Comment {
     id: string;
-    author: string;
+    author: string; // Author's name
+    authorUid: string; // Author's UID
     text: string;
-  timestamp: string;
+    timestamp: string;
 }
 
 export interface AuditLog {
     id: string;
-    user: string;
+    user: string; // User's name for display
+    uid: string; // User's unique ID for tracking
     field: string;
-    oldValue: string | number;
-    newValue: string | number;
+    oldValue: any;
+    newValue: any;
     timestamp: string; // ISO string
 }
 
@@ -50,17 +61,22 @@ export interface Check {
   
   // Core fields, renamed for clarity or from AI extraction
   payor: string; // Generic payor, used as "Homeowner Name" when applicable
+  payorAddress: payorAddress; // "Homeowner Address"
   payee: string; 
   amount: number;
   date: string; // "Date Received" YYYY-MM-DD
   checkNumber: string;
   memo: string; // Can be "Description for Comments Field" or generic memo
+  bankName: string;
+  routingNumber: string;
+  bankAccountNumber: string;
+  signature: boolean;
   
   // Common fields from user spec
   associationName?: string;
 
   // Category-specific fields
-  accountNumber?: string; // For Homeowner checks
+  clientAccountNumber?: string; // For Homeowner checks
   chargeType?: string; // For MISC_HOMEOWNER_INCOME
   department?: string; // For MISC_NON_HOMEOWNER_INCOME
   glCode?: string; // For MISC_NON_HOMEOWNER_INCOME
@@ -89,6 +105,7 @@ export interface Batch {
 export interface CurrentUser {
     name: string;
     uid: string;
+    email: string | null; // Added email
 }
 
 export interface Theme {
@@ -103,11 +120,67 @@ export interface Theme {
     };
 }
 
+export interface UserProfile {
+    uid: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    branch: string;
+    profilePictureUrl: string;
+}
+
+export interface NotificationSettings {
+    allUpdates: { inApp: boolean; email: boolean };
+    newComments: { inApp: boolean; email: boolean };
+    flagChanges: { inApp: boolean; email: boolean };
+    newChecks: { inApp: boolean; email: boolean };
+    statusChanges: { inApp: boolean; email: boolean };
+    newBatches: { inApp: boolean; email: boolean };
+}
+
+export interface Notification {
+    id: string;
+    userId: string;
+    message: string;
+    link: string;
+    read: boolean;
+    timestamp: string;
+}
+
+export type CheckFontTheme = 'cursive' | 'block' | 'typed';
+export type CheckBackground = 'classic' | 'modern' | 'secure';
+export type CheckOverlayZone = 'overlayTopRight' | 'overlayBottomLeft';
+export type CheckFooterZone = 'footerLeft' | 'footerRight';
+export type CheckViewLayoutZone = CheckOverlayZone | CheckFooterZone;
+
+export interface CheckViewOptions {
+  showPayorAddress: boolean;
+  showAmountInWords: boolean;
+  showMemo: boolean;
+  showSignature: boolean;
+  fontTheme: CheckFontTheme;
+  background: CheckBackground;
+  overlays: Partial<Record<CheckOverlayZone, CheckField | 'flags' | 'category' | 'none'>>;
+  footer: Partial<Record<CheckFooterZone, CheckField | 'flags' | 'category' | 'none'>>;
+}
+
 export interface UserPreferences {
+  viewMode: 'card' | 'check';
+  profile: UserProfile;
+  notifications: NotificationSettings;
   columnThemes: Record<CheckStatus, string>;
   columnDisplayOptions: Record<CheckStatus, { showCount: boolean; showTotal: boolean }>;
   cardLayout: Partial<Record<CardLayoutZone, CheckField>>;
   visibleArchiveColumns: CheckField[];
   archiveColumnWidths: Record<string, number>;
   archiveTheme: string;
+  checkViewOptions: CheckViewOptions;
+}
+
+export interface FlagColorVariant {
+  [key: string]: {
+    hover: string;
+    default: string;
+  };
 }
