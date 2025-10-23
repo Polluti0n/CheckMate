@@ -3,7 +3,7 @@ import { useSwipeable } from 'react-swipeable';
 import { Check, Comment, AuditLog, Flag, CheckStatus, UserProfile, CurrentUser, CheckCategory, CheckField } from '../types';
 import { XMarkIcon, FlagIcon, PencilIcon, TrashIcon, SendIcon, UserCircleIcon, CalendarDaysIcon, BuildingOfficeIcon, DocumentTextIcon, BanknotesIcon, HashtagIcon, LockClosedIcon, BankBuildingIcon, MapLocationIcon, ImageIcon, ExclamationTriangleIcon, ArrowDownTrayIcon, ClipboardDocumentIcon, ChevronLeftIcon, ChevronRightIcon, SignatureIcon, UsDollarIcon, CategoryIcon } from './icons'; // Added Chevron icons
 import { stringify } from 'querystring';
-import { flagColorVariant } from '@/constants';
+import { flagColorVariant, CHECK_TYPE_COLORS } from '@/constants';
 import { formConfig } from '@/formConfig';
 import './CheckDetailsModal.css'
 
@@ -29,13 +29,7 @@ const statusColors: { [key in CheckStatus]: string } = {
     [CheckStatus.ARCHIVED]: 'bg-slate-100 text-slate-800 border-slate-500',
 };
 
-const typeColors: { [key in CheckCategory]: string } = {
-    [CheckCategory.HOMEOWNER_LOCKBOX]: 'bg-sky-100 border-blue-500',
-    [CheckCategory.MISC_HOMEOWNER_INCOME]: 'bg-green-100 border-green-500',
-    [CheckCategory.MISC_NON_HOMEOWNER_INCOME]: 'bg-purple-100 border-purple-500',
-    [CheckCategory.COMMUNITY_ARCHIVES]: 'bg-slate-100 border-slate-500',
 
-};
 
 const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClose, onUpdateCheck, onAddComment, onToggleFlag, onOpenFlagManager, onDeleteCheck, currentUser, allUsers, onNavigateToBatch }) => {
     const [isEditing, setIsEditing] = useState(false);
@@ -227,9 +221,9 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
         return (
             <button
                 onClick={() => handleTabChange(tabIndex)}
-                className={`flex items-center justify-center whitespace-nowrap py-3 px-4 font-medium text-center text-sm w-full transition-colors duration-200 bg-slate-200 ${
+                className={`flex items-center group justify-center gap-2 whitespace-nowrap py-3 px-4 font-medium text-center tab-background text-sm w-full transition-all duration-200 ${
                     activeTabIndex === tabIndex 
-                        ? `rounded-tab bg-white ${tabIndex === 0 ? 'left' : tabIndex === tabs.length - 1 ? 'right' : ''}` : ''}`}>
+                        ? `selected bg-white` : 'hover:text-sky-600'}`}>
                 {children}
             </button>
         )};
@@ -471,7 +465,7 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
                             {/* --- NEW CHECK DETAILS CARD --- */}
                             <div className="flex-1 bg-white border border-slate-200 rounded-md flex flex-col overflow-hidden details">
                                 {/* Card Header */}
-                                <div className={`flex flex-row justify-between items-start p-4 rounded-t-md ${typeColors[editableCheck.category] || 'bg-slate-100 border-slate-500'} border-b-2`}>
+                                <div className={`flex flex-row justify-between items-start p-4 rounded-t-md ${CHECK_TYPE_COLORS[editableCheck.category] || 'bg-slate-100 border-slate-500'} shadow-lg`}>
                                     <div>
                                         <div className="flex items-center">
                                            {isEditing ? <input name="payor" value={editableCheck.payor} onChange={handleInputChange} className="text-xl font-bold text-slate-800 border border-sky-400 rounded-md min-w-0" /> : <h2 className="text-xl font-bold text-slate-800">{editableCheck.payor}</h2>}
@@ -501,14 +495,14 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
                                 {/* Tab Navigation */}
                                 <div className={``}>
                                     {/* Desktop Tabs */}
-                                    <nav className="hidden sm:flex justify-around bg-slate-200 border-slate-200 border-t-4" aria-label="Tabs">
+                                    <nav className={`hidden sm:flex justify-around tabrow ${CHECK_TYPE_COLORS[editableCheck.category]}`} aria-label="Tabs">
                                         <TabButton className="" tabName="payment"><BanknotesIcon className="h-5 w-5"/>Payment</TabButton>
                                         <TabButton tabName="accounting"><PencilIcon className="h-5 w-5"/>Accounting</TabButton>
                                         <TabButton tabName="banking"><BankBuildingIcon className="h-5 w-5"/>Banking</TabButton>
                                         <TabButton tabName="image"><ImageIcon className="h-5 w-5"/>Image</TabButton>
                                     </nav>
                                     {/* Mobile Tabs */}
-                                    <nav className="sm:hidden flex items-center justify-between p-2 bg-slate-200" aria-label="Tabs">
+                                    <nav className="sm:hidden flex items-center justify-between p-2 tab-background" aria-label="Tabs">
                                         <button onClick={() => handleTabChange(activeTabIndex - 1)} disabled={activeTabIndex === 0} className="p-2 rounded-full hover:bg-slate-100 disabled:opacity-50">
                                             <ChevronLeftIcon className="h-5 w-5" />
                                         </button>

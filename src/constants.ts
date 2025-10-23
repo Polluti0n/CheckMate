@@ -1,4 +1,12 @@
-import { UserPreferences, CheckField, CheckStatus, Theme, UserProfile, FlagColorVariant  } from './types';
+import { UserPreferences, CheckField, CheckStatus, Theme, UserProfile, CheckCategory,FlagColorVariant  } from './types';
+
+export const CHECK_TYPE_COLORS: { [key in CheckCategory]: string } = {
+    [CheckCategory.HOMEOWNER_LOCKBOX]: 'bg-sky-100 border-blue-500',
+    [CheckCategory.MISC_HOMEOWNER_INCOME]: 'bg-green-100 border-green-500',
+    [CheckCategory.MISC_NON_HOMEOWNER_INCOME]: 'bg-purple-100 border-purple-500',
+    [CheckCategory.COMMUNITY_ARCHIVES]: 'bg-slate-100 border-slate-500',
+
+};
 
 export const ALL_CHECK_FIELDS: { key: CheckField; label: string; isNumeric?: boolean }[] = [
     { key: 'payor', label: 'Payor' },

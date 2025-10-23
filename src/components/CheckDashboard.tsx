@@ -7,7 +7,7 @@ import {
   monitorForElements,
 } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine';
-import { ALL_CHECK_FIELDS } from '../constants';
+import { ALL_CHECK_FIELDS, CHECK_TYPE_COLORS } from '../constants';
 import { categoryConfig } from '../formConfig';
 import './CheckDashboard.css'; // <-- IMPORT THE NEW CSS FILE
 
@@ -19,6 +19,13 @@ const statusColors: Record<CheckStatus, { border: string, bg: string, text: stri
     [CheckStatus.COMPLETE]: { border: 'border-green-500', bg: 'bg-green-50', text: 'text-green-800' },
     [CheckStatus.ARCHIVED]: { border: 'border-slate-500', bg: 'bg-slate-50', text: 'text-slate-800' },
 };
+
+    // Helper function to get CHECK_TYPE_COLORS based on the CheckCategory then extract the base color and use it to create a light border.
+    const cardBorder = (category: CheckCategory) => {
+        const baseColor = CHECK_TYPE_COLORS[category]?.split('-')[1];
+        if (!baseColor) return 'border-slate-500';
+        return baseColor ? `border-${baseColor}-500` : 'border-slate-500';
+    };
 
 type DragState =
   | { type: 'idle' }
@@ -59,6 +66,8 @@ export const CheckCardAsCheck = React.memo(({
         // For simplicity, we'll just return the number as a string for this example
         return num.toLocaleString('en-US');
     };
+
+
     
     const amountInWords = `${numberToWords(Math.floor(check.amount))} and ${String((check.amount % 1).toFixed(2)).substring(2)}/100`;
 
@@ -249,7 +258,9 @@ const CheckCardContent = ({ check, flags, theme, cardLayout, isSelected }: {
     isSelected: boolean;
 }) => {
     const checkFlags = flags.filter(f => check.flags.includes(f.id));
-    const themeBorderColor = theme?.colors.border || statusColors[check.status].border;
+   // const themeBorderColor = theme?.colors.border || statusColors[check.status].border;
+   const checkBorder = cardBorder(check.category);
+
 
     const formatValue = (value: any, key: CheckField): string | null => {
         if (value === undefined || value === null || value === '') return null;
@@ -302,7 +313,7 @@ const CheckCardContent = ({ check, flags, theme, cardLayout, isSelected }: {
     };
     
     return (
-        <div className={`bg-white p-2 rounded-md shadow-sm ${isSelected ? '' : 'border border-l-4' } hover:shadow-md cursor-pointer active:cursor-grabbing transition-all duration-200 flex flex-col justify-between ${themeBorderColor} border-slate-200 hover:border-sky-400`}>
+        <div className={`bg-white p-2 rounded-md shadow-sm ${isSelected ? '' : 'border border-l-4' } hover:shadow- cursor-pointer active:cursor-grabbing transition-all duration-200 flex flex-col justify-between ${checkBorder} hover:border-sky-500 hover:scale-105`}>
              <div className="flex flex-col flex-grow space-y-1">
                 {(fields.title || fields.topRight) && (
                     <div className="flex justify-between items-start">
