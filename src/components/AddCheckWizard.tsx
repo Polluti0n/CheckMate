@@ -83,7 +83,7 @@ export const UploadStep = () => {
                         <div className="space-y-1 text-center">
                             {isLoading ? (<div className="py-4"><ProcessingLoaderIcon className="mx-auto h-12 w-12" /><p className="mt-4 text-sm font-medium text-slate-600">Processing image...</p></div>)
                             : imagePreview ? (<img src={imagePreview} alt="Check preview" className="mx-auto h-32 object-contain rounded-md shadow-sm" />)
-                            : (<><CheckPlaceholderIcon className="mx-auto h-16 w-auto text-slate-400" /><div className="mt-2 flex text-sm text-gray-600"><span>Upload a file</span><input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleImageUpload} accept="image/*" /></div><p className="text-xs text-gray-500">PNG, JPG, or use camera</p></>)}
+                            : (<><CheckPlaceholderIcon className="mx-auto h-16 w-auto text-slate-400" /><div className="mt-2 flex text-sm text-gray-600"><span>Upload a file</span><input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleImageUpload} accept="image/*;capture=camera" /></div><p className="text-xs text-gray-500">PNG, JPG, or use camera</p></>)}
                         </div>
                     </div>
                 </label>
@@ -544,17 +544,48 @@ const DetailsForm = React.forwardRef<HTMLFormElement, {openDropdown: string | nu
     );
 });
 
+// --- Custom Hook for Session State ---
+const useSessionState = <T,>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
+    const [storedValue, setStoredValue] = useState<T>(() => {
+        try {
+            const item = window.sessionStorage.getItem(key);
+            return item ? JSON.parse(item) : initialValue;
+        } catch (error) {
+            console.error(`Error reading sessionStorage key “${key}”:`, error);
+            return initialValue;
+        }
+    });
+
+    const setValue: React.Dispatch<React.SetStateAction<T>> = (value) => {
+        try {
+            const valueToStore = value instanceof Function ? value(storedValue) : value;
+            setStoredValue(valueToStore);
+            if (valueToStore === undefined || valueToStore === null) {
+                window.sessionStorage.removeItem(key);
+            } else {
+                window.sessionStorage.setItem(key, JSON.stringify(valueToStore));
+            }
+        } catch (error) {
+            console.error(`Error setting sessionStorage key “${key}”:`, error);
+        }
+    };
+
+    return [storedValue, setValue];
+};
+
 
 // --- Main Wizard Layout Component ---
 // FIX: Changed to a named export to resolve module resolution issues.
 export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; onAddCheck: (check: any) => void; }> = ({ isOpen, onClose, onAddCheck }) => {
     const navigate = useNavigate();
-    const [newCheck, setNewCheck] = useState<Partial<Check>>({});
+    // FIX: Persist the main check object to survive mobile page reloads.
+    const [newCheck, setNewCheck] = useSessionState<Partial<Check>>('addCheckWizard.newCheck', {});
     const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [imagePreview, setImagePreview] = useState<string | null>(null);
-    const [imageToCrop, setImageToCrop] = useState<string | null>(null);
-    const originalFileName = useRef<string>('check.jpg');
+    // FIX: Persist state across page reloads on mobile using sessionStorage.
+    const [error, setError] = useSessionState<string | null>('addCheckWizard.error', null);
+    const [imagePreview, setImagePreview] = useSessionState<string | null>('addCheckWizard.imagePreview', null);
+    const [imageToCrop, setImageToCrop] = useSessionState<string | null>('addCheckWizard.imageToCrop', null);
+    const [originalFileName, setOriginalFileName] = useSessionState<string>('addCheckWizard.originalFileName', 'check.jpg');
 
     const resetWizard = useCallback(() => {
         setNewCheck({}); 
@@ -562,7 +593,10 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
         setError(null); 
         setImagePreview(null);
         setImageToCrop(null);
-    }, []);
+        setOriginalFileName('check.jpg');
+        // FIX: Clear all session storage for this wizard, including the newCheck object.
+        Object.keys(window.sessionStorage).filter(k => k.startsWith('addCheckWizard.')).forEach(k => window.sessionStorage.removeItem(k));
+    }, [setNewCheck, setError, setImagePreview, setImageToCrop, setOriginalFileName]);
 
     const handleClose = () => {
         resetWizard();
@@ -606,21 +640,18 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
     const continueWithProcessedImage = async (processedDataUrl: string, fileName: string) => {
         setImagePreview(processedDataUrl); // Update preview with enhanced image
 
-        // const base64String = processedDataUrl.split(',')[1];
-        // Ensure we only get the base64 part of the data URL.
-        // The data URL might already be just the base64 string if coming from a different path.
         const base64String = processedDataUrl.includes(',') ? processedDataUrl.split(',')[1] : processedDataUrl;
         const fullDataUrl = `data:image/jpeg;base64,${base64String}`;
 
         const extractedDataPromise = extractCheckInfoFromImage(base64String, 'image/jpeg');
         
-        // Always use the full data URL for fetching the blob.
         const imageBlob = await (await fetch(fullDataUrl)).blob();
         const processedFileName = fileName.replace(/\.[^/.]+$/, ".jpg");
         const imageUrlPromise = firestoreService.uploadCheckImage(imageBlob, processedFileName);
 
         const [extractedData, imageUrl] = await Promise.all([extractedDataPromise, imageUrlPromise]);
 
+        // Set all the new data. The useEffect hook will handle navigation.
         setNewCheck(prev => ({ ...prev, ...extractedData, imageUrl }));
     };
 
@@ -628,7 +659,7 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
         const file = event.target.files?.[0];
         if (!file) return;
 
-        originalFileName.current = file.name;
+        setOriginalFileName(file.name);
         setIsLoading(true);
         setError(null);
         
@@ -653,9 +684,7 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
                 }
 
                 await continueWithProcessedImage(processedDataUrl, file.name);
-                setIsLoading(false);
-                navigate('/add-check/details');
-                
+                // State will be set, and useEffect will navigate.
             } catch (err: any) {
                 console.error("Image processing or extraction failed:", err);
                 setError(err.message || "Could not process image. Please try again or enter manually.");
@@ -669,7 +698,7 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
         };
     };
 
-    const handleManualCrop = async (imageEl: HTMLImageElement, displayCanvas: HTMLCanvasElement, points: { x: number; y: number }[]) => {
+    const handleManualCrop = async (imageEl: HTMLImageElement, displayCanvas: HTMLCanvasElement, points: { x: number; y: number }[]) => { // This signature is correct, the implementation will change
         if (!imageToCrop || !imageEl || !displayCanvas) {
             setError("Image or canvas not available for cropping.");
             return;
@@ -692,9 +721,8 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
             if (processedDataUrl === null) {
                 throw new Error("Manual cropping failed to process the image.");
             }
-            await continueWithProcessedImage(processedDataUrl, originalFileName.current);
-            setIsLoading(false);
-            navigate('/add-check/details');
+            await continueWithProcessedImage(processedDataUrl, originalFileName);
+            // State will be set, and useEffect will navigate.
         } catch (err: any) {
             console.error("Manual crop processing failed:", err);
             setError(err.message || "Could not process cropped image.");
@@ -702,7 +730,7 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
         }
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => { // This signature is correct, the implementation will change
         e.preventDefault();
         setError(null);
         
@@ -730,11 +758,25 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
         handleClose();
     };
 
+    // This effect will run whenever `newCheck` is updated with an `imageUrl`.
+    // This is the correct place to handle navigation after image processing.
+    useEffect(() => {
+        // We only want to navigate if we have an image URL and a category.
+        // This indicates that the image processing and data extraction is complete.
+        if (newCheck.imageUrl && newCheck.category) {
+            // Ensure we are on the correct path before navigating away.
+            if (location.pathname.startsWith('/add-check/upload') || location.pathname.startsWith('/add-check/crop')) {
+                setIsLoading(false);
+                navigate('/add-check/details');
+            }
+        }
+    }, [newCheck.imageUrl, newCheck.category, navigate, location.pathname]);
+
     if (!isOpen) return null;
 
     const context: WizardContextType = {
         newCheck, setNewCheck, isLoading, error, setError, imagePreview,
-        handleImageUpload, handleSubmit, imageToCrop, handleManualCrop
+        handleImageUpload, handleSubmit, imageToCrop, handleManualCrop // This signature is correct, the implementation will change
     };
 
     return (

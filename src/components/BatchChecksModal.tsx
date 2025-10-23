@@ -16,7 +16,6 @@ const BatchChecksModal: React.FC<BatchChecksModalProps> = ({ isOpen, batch, chec
     const checksInBatch = checks.filter(check => batch.checkIds.includes(check.id));
 
     const handleCheckClick = (check: Check) => {
-        onClose(); // Close this modal before opening the next one
         onSelectCheck(check);
     };
 

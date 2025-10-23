@@ -125,9 +125,9 @@ async function standardizeOutputImage(src) {
         standardized = resized;
 
         // --- Convert to grayscale ---
-        if (standardized.channels() !== 1) {
-            cv.cvtColor(standardized, standardized, cv.COLOR_RGBA2GRAY, 0);
-        }
+        //if (standardized.channels() !== 1) {
+        //    cv.cvtColor(standardized, standardized, cv.COLOR_RGBA2GRAY, 0);
+        //}
 
         return standardized;
 

@@ -13,25 +13,8 @@ import AppRoutes from './AppRoutes';
 const App: React.FC = () => {
     const { user, loading } = useAuth();
     const navigate = useNavigate();
-
-    // Custom hooks for data
-    const { checks, flags, batches, filteredChecks, searchTerm, setSearchTerm, activeCategoryFilter, setActiveCategoryFilter } = useCheckData(user);
-    const [preferences, savePreferences, clearPreferences] = usePreferences(user?.uid || null);
-    
-    // State for notifications and users
-    const [notifications, setNotifications] = useState<Notification[]>([]);
-    const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
-
-    // UI State
-    const [sortConfig, setSortConfig] = useState<any>({});
-    const [selectedCheckIds, setSelectedCheckIds] = useState<string[]>([]);
-    const [lastSelectedCheckId, setLastSelectedCheckId] = useState<string | null>(null);
-    const [isMultiSelectMode, setIsMultiSelectMode] = useState(false); // Re-added state
-    const [isMainMenuOpen, setIsMainMenuOpen] = useState(false);
-    const [expandedStatus, setExpandedStatus] = useState<CheckStatus | null>(null);
-    const [viewingBatchId, setViewingBatchId] = useState<string | null>(null);
-
-    useEffect(() => {
+     const [preferences, savePreferences, clearPreferences] = usePreferences(user?.uid || null);
+   useEffect(() => {
         if (user) {
             firestoreService.getOrCreateUserProfile(user.uid, user.email || 'new.user@checkmate.com');
 
@@ -57,6 +40,24 @@ const App: React.FC = () => {
             email: user.email,
         };
     }, [user, preferences.profile]);
+    // Custom hooks for data
+    const { checks, flags, batches, filteredChecks, searchTerm, setSearchTerm, activeCategoryFilter, setActiveCategoryFilter } = useCheckData(user, currentUser);
+   
+    
+    // State for notifications and users
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+
+    // UI State
+    const [sortConfig, setSortConfig] = useState<any>({});
+    const [selectedCheckIds, setSelectedCheckIds] = useState<string[]>([]);
+    const [lastSelectedCheckId, setLastSelectedCheckId] = useState<string | null>(null);
+    const [isMultiSelectMode, setIsMultiSelectMode] = useState(false); // Re-added state
+    const [isMainMenuOpen, setIsMainMenuOpen] = useState(false);
+    const [expandedStatus, setExpandedStatus] = useState<CheckStatus | null>(null);
+    const [viewingBatchId, setViewingBatchId] = useState<string | null>(null);
+
+ 
 
     const actions = useCheckActions(currentUser, checks, flags);
     

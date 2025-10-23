@@ -151,19 +151,42 @@ export const extractCheckInfo = onCall({secrets: ["GEMINI_KEY"]}, async (request
     });
     console.log("Gemini response:", JSON.stringify(response, null, 2));
 
-    // Correctly access the JSON string from the Gemini response
-    const jsonString = response?.candidates?.[0]?.content?.parts?.[0]?.text || JSON.stringify(response?.candidates?.[0]?.content?.parts?.[0]?.functionCall?.args || {});
+    // The Gemini API can return the JSON in two different places.
+    // 1. As a parsed object in `functionCall.args`.
+    // 2. As a string in `text`.
+    const part = response?.candidates?.[0]?.content?.parts?.[0];
+    const finishReason = response?.candidates?.[0]?.finishReason;
+    let extractedData: Record<string, unknown> | null = null;
 
-    if (!jsonString) {
-      throw new functions.https.HttpsError(
-          "internal",
-          "The AI model returned an empty or invalid response. Please try again.",
-          `The response contained: ${response?.toString() || "nothing"}. Full response: ${JSON.stringify(response, null, 2)}`,
-      );
+    // Handle cases where the API stops for safety or other reasons.
+    if (finishReason && finishReason !== "STOP") {
+        console.error(`Gemini API call finished with reason: ${finishReason}. Full response:`, JSON.stringify(response, null, 2));
+        throw new functions.https.HttpsError(
+            "internal",
+            `The AI model stopped generating content for the following reason: ${finishReason}. This may be due to safety settings.`,
+            `The Gemini response was: ${JSON.stringify(response, null, 2)}`
+        );
     }
 
-    const parsedJson = JSON.parse(jsonString);
-    return parsedJson;
+    if (part?.functionCall?.args) {
+        extractedData = part.functionCall.args;
+    } else if (part?.text) {
+      try {
+        extractedData = JSON.parse(part.text);
+      } catch (e) {
+        console.error("Failed to parse JSON from Gemini 'text' response:", part.text, e);
+      }
+    }
+
+    if (!extractedData || Object.keys(extractedData).length === 0) {
+      console.error("Gemini response did not contain valid structured data.", JSON.stringify(response, null, 2));
+      throw new functions.https.HttpsError(
+          "internal",
+          "The AI model returned an empty or invalid structured response. Please try again.",
+          `The Gemini response was: ${JSON.stringify(response, null, 2)}`
+      );
+    }
+    return extractedData;
   } catch (error) {
     console.error("Error calling Gemini API:", error);
     throw new functions.https.HttpsError(
@@ -184,6 +207,7 @@ export const extractCheckInfo = onCall({secrets: ["GEMINI_KEY"]}, async (request
  * @return {Promise<string[]>} A list of user UIDs to be notified.
  */
 const getUsersToNotify = async (actorUid: string): Promise<string[]> => {
+    console.log(`[Cloud Function] getUsersToNotify called with actorUid: ${actorUid}`);
     const usersSnapshot = await db.collection("users").get();
     if (usersSnapshot.empty) {
         return [];
@@ -195,11 +219,13 @@ const getUsersToNotify = async (actorUid: string): Promise<string[]> => {
 
 
 const getActor = (docData: admin.firestore.DocumentData | undefined): { uid: string, name: string } | null => {
+    console.log("[Cloud Function] getActor called.");
     if (!docData || !Array.isArray(docData.auditTrail) || docData.auditTrail.length === 0) {
         console.log("No actor UID found in audit trail. Cannot send notifications.");
         return null;
     }
     const lastLog = docData.auditTrail[docData.auditTrail.length - 1];
+    console.log("Last audit log entry:", lastLog);
     if (!lastLog.uid) {
         console.log("Audit log found, but is missing 'uid' field.", lastLog);
         return null;
@@ -214,6 +240,12 @@ export const onCheckCreate = onDocumentCreated("checks/{checkId}", async (event)
 
   const actor = getActor(snap.data());
   if (!actor) return null;
+
+  // If the actor is the system-auto-archive, skip all notification logic.
+  if (actor.uid === "system-auto-archive") {
+    console.log(`[Cloud Function] System auto-archive action on check ${event.params.checkId}. Skipping notifications.`);
+    return null;
+  }
 
   const newCheck = snap.data();
   const userIds = await getUsersToNotify(actor.uid);
@@ -242,6 +274,19 @@ export const onCheckUpdate = onDocumentUpdated("checks/{checkId}", async (event)
 
   const actor = getActor(after);
   if (!actor) return null;
+
+  // If the actor is the system-auto-archive, skip all notification logic.
+  if (actor.uid === "system-auto-archive") {
+    console.log(`[Cloud Function] System auto-archive action on check ${event.params.checkId}. Skipping notifications.`);
+    return null;
+  }
+
+  // Check if the last audit log entry was a system action.
+  const lastLog = after.auditTrail[after.auditTrail.length - 1];
+  if (lastLog?.isSystemAction) {
+    console.log(`System action on check ${event.params.checkId}. Skipping notifications.`);
+    return null;
+  }
 
   const userIds = await getUsersToNotify(actor.uid);
   let message = "";
@@ -295,6 +340,12 @@ export const onBatchCreate = onDocumentCreated("batches/{batchId}", async (event
 
   if (!actorUid) {
     console.log("No actor UID found in batch document. Cannot send notifications.");
+    return null;
+  }
+
+  // If the actor is the system-auto-archive, skip all notification logic.
+  if (actorUid === "system-auto-archive") {
+    console.log(`[Cloud Function] System auto-archive action on batch ${event.params.batchId}. Skipping notifications.`);
     return null;
   }
 

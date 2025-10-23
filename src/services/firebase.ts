@@ -26,17 +26,6 @@ export const db = app.firestore();
 export const storage = app.storage();
 export const functions = app.functions();
 
-if (typeof window !== 'undefined') {
-    window.firebaseApp = app;
-    window.firebaseAuth = auth;
-    window.firebaseDb = db;
-    window.firebaseStorage = storage;
-    window.firebaseFunctions = functions;
-    window.firebase = firebase;
-    // You can also expose the core firebase module itself if you imported it as 'firebase'
-    // window.firebase = firebase;
-};
-
 // FIX: Enable Firestore persistence to improve offline capabilities and connection
 // stability, especially on mobile devices that may aggressively manage connections.
 db.enablePersistence({ synchronizeTabs: true })

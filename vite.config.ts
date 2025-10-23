@@ -6,9 +6,9 @@ import { fileURLToPath, URL } from 'url'
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: {
+       alias: {
       // FIX: Replace __dirname with a URL-based resolution for ES module compatibility.
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
+        },
     },
-  },
 })

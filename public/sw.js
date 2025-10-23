@@ -1,4 +1,4 @@
-const CACHE_NAME = 'checkmate-cache-v10';
+const CACHE_NAME = 'checkmate-cache-v13';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -55,7 +55,7 @@ self.addEventListener('fetch', (event) => {
   if (event.request.url.includes('firebase')) {
     return;
   }
-    
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {

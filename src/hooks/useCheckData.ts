@@ -1,16 +1,17 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 // FIX: Use compat version of User type
 import firebase from 'firebase/compat/app';
 import * as firestoreService from '../services/firestoreService';
 // FIX: Added CurrentUser to imports for system user object.
 import { Check, Flag, Batch, CheckCategory, CheckStatus, CurrentUser } from '../types';
 
-export const useCheckData = (user: firebase.User | null) => {
+export const useCheckData = (user: firebase.User | null, currentUser: CurrentUser | null) => {
     const [checks, setChecks] = useState<Check[]>([]);
     const [flags, setFlags] = useState<Flag[]>([]);
     const [batches, setBatches] = useState<Batch[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [activeCategoryFilter, setActiveCategoryFilter] = useState<CheckCategory | null>(null);
+    const hasArchived = useRef(false); // Ref to prevent re-running the archive logic
 
     // Set up Firestore listeners when user is logged in
     useEffect(() => {
@@ -23,29 +24,33 @@ export const useCheckData = (user: firebase.User | null) => {
                 unsubscribeFlags();
                 unsubscribeBatches();
             };
+        } else {
+            // Reset when user logs out
+            hasArchived.current = false;
         }
     }, [user]);
 
     // Auto-archive logic
     useEffect(() => {
-        if (checks.length > 0) {
+        if (user && currentUser && checks.length > 0 && !hasArchived.current) {
             const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
-            // FIX: Create a system user object to pass to the update function.
-            const systemUser: CurrentUser = { name: 'System', uid: 'system-auto-archive', email: null };
-            checks.forEach(check => {
-                if (check.status === CheckStatus.COMPLETE && check.statusUpdatedAt && new Date(check.statusUpdatedAt) < tenDaysAgo) {
-                    // FIX: Pass all 4 required arguments to updateCheck, including the system user and a complete log object with a UID.
-                    firestoreService.updateCheck(check.id, { status: CheckStatus.ARCHIVED }, {
-                        user: 'System',
-                        uid: 'system-auto-archive',
-                        field: 'status',
-                        oldValue: CheckStatus.COMPLETE,
-                        newValue: CheckStatus.ARCHIVED,
-                    }, systemUser);
-                }
-            });
+            
+            const checksToArchive = checks.filter(check => 
+                check.status === CheckStatus.COMPLETE && 
+                check.statusUpdatedAt && 
+                new Date(check.statusUpdatedAt) < tenDaysAgo
+            );
+
+            if (checksToArchive.length > 0) {
+                console.log(`Auto-archiving ${checksToArchive.length} checks.`);
+                firestoreService.bulkUpdateChecksStatus(checksToArchive, CheckStatus.ARCHIVED, currentUser, true);
+            }
+
+            hasArchived.current = true; // Mark as run
         }
-    }, [checks]); // Depends on the full checks array
+    // This now depends on `checks`. The `useRef` flag prevents it from re-running
+    // and causing an infinite loop. It will run once when checks are loaded.
+    }, [user, currentUser, checks]);
 
     const filteredChecks = useMemo(() => {
         return checks.filter(check => {

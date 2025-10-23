@@ -355,7 +355,7 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
                                 <p className="text-sm text-slate-700 p-2 bg-slate-50 rounded-md border border-slate-200">{editableCheck.category}</p>
                             )}
                         </div>
-                        {editableCheck.batchId && renderDetailField("Batch", editableCheck.batchId, <HashtagIcon className="h-4 w-4" />, undefined, true, () => onNavigateToBatch(editableCheck.batchId!))}
+                        {editableCheck.batchId && renderDetailField("Batch", editableCheck.batchId, <HashtagIcon className="h-4 w-4" />, undefined, true, () => { if (editableCheck.batchId) onNavigateToBatch(editableCheck.batchId); })}
                         {editableCheck.trackingNumber && renderDetailField("Tracking #", editableCheck.trackingNumber, <HashtagIcon className="h-4 w-4" />)}
                         
                         {/* Category Specific Fields */}
@@ -471,7 +471,7 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
                             {/* --- NEW CHECK DETAILS CARD --- */}
                             <div className="flex-1 bg-white border border-slate-200 rounded-md flex flex-col overflow-hidden details">
                                 {/* Card Header */}
-                                <div className={`flex flex-col sm:flex-row justify-between items-start p-4 rounded-t-md ${typeColors[editableCheck.category] || 'bg-slate-100 border-slate-500'} border-b-2`}>
+                                <div className={`flex flex-row justify-between items-start p-4 rounded-t-md ${typeColors[editableCheck.category] || 'bg-slate-100 border-slate-500'} border-b-2`}>
                                     <div>
                                         <div className="flex items-center">
                                            {isEditing ? <input name="payor" value={editableCheck.payor} onChange={handleInputChange} className="text-xl font-bold text-slate-800 border border-sky-400 rounded-md min-w-0" /> : <h2 className="text-xl font-bold text-slate-800">{editableCheck.payor}</h2>}
@@ -587,12 +587,44 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
                                 </div>
 
                                 <div className={`p-4 space-y-3 flex-1 ${expandedView === 'AUDIT' ? 'overflow-y-auto' : 'overflow-y-hidden'}`}>
-                                    {check.auditTrail.length > 0 ? check.auditTrail.slice().reverse().map(log => (
-                                        <div key={log.id} className="text-xs">
-                                            <p className="text-slate-600"><span className="font-medium text-slate-800">{userProfilesMap.get(log.uid)?.name || log.user}</span> {log.field === 'Comment' ? 'added a comment' : `updated ${log.field}`}.</p>
-                                            <p className="text-slate-400">{new Date(log.timestamp).toLocaleString()}</p>
-                                        </div>
-                                    )) : <p className="text-sm text-slate-400">No changes recorded.</p>}
+                                    {check.auditTrail.length > 0 ? check.auditTrail.slice().map(log => {
+                                        const userDisplay = log.user.indexOf(' ') !== -1 ? log.user.slice(0, log.user.indexOf(' ')) : log.user;
+                                        let actionText: React.ReactNode = '';
+                                        switch (log.field) {
+                                            case 'Check Created':
+                                                actionText = 'created a new check';
+                                                break;
+                                            case 'Check Updated':
+                                                actionText = 'updated a check';
+                                                break;
+                                            case 'Flag Added':
+                                                actionText = `flagged check as "${log.newValue}"`;
+                                                break;
+                                            case 'Flag Removed':
+                                                actionText = `removed flag for "${log.oldValue}"`;
+                                                break;
+                                            case 'Status':
+                                                actionText = `changed status to "${log.newValue}"`;
+                                                break;
+                                            case 'Comment':
+                                                actionText = 'added a comment';
+                                                break;
+                                            case 'Batch Processed':
+                                                actionText = <>processed check with batch <button type="button" className="text-sky-600 hover:underline cursor-pointer" onClick={() => { if (editableCheck.batchId) onNavigateToBatch(editableCheck.batchId); }}>{editableCheck.batchId}</button></>;
+                                                break;
+                                            default:
+                                                actionText = `changed ${log.field} from "${log.oldValue}" to "${log.newValue}"`;
+                                        }
+                                        return (
+                                            <div key={log.id} className="text-xs">
+                                                <p className="text-slate-600">
+                                                    <span className="font-medium text-slate-800">{userDisplay}</span> {actionText}.
+                                                </p>
+                                                <p className="text-slate-400">{new Date(log.timestamp).toLocaleString()}</p>
+                                            </div>
+                                        )
+                                        })
+                                     : <p className="text-sm text-slate-400">No changes recorded.</p> }
                                     <div ref={auditTrailEndRef} />
                                 </div>
                             </div>
