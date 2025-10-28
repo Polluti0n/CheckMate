@@ -7,6 +7,7 @@ import {
   monitorForElements,
 } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine';
+import { autoScrollWindowForElements } from '@atlaskit/pragmatic-drag-and-drop-auto-scroll/element';
 import { ALL_CHECK_FIELDS, CHECK_TYPE_COLORS } from '../constants';
 import { categoryConfig } from '../formConfig';
 import './CheckDashboard.css'; // <-- IMPORT THE NEW CSS FILE
@@ -711,6 +712,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = (props) => {
     useEffect(() => {
         return combine(
             monitorForElements({
+                // The `onDragStart` and subsequent events are what we need to hook into.
                 onDragStart: ({ source }) => {
                     if (source.data.type !== 'check') return;
                     setDragState({ type: 'dragging', checkId: source.data.checkId as string });
@@ -757,7 +759,12 @@ const KanbanBoard: React.FC<KanbanBoardProps> = (props) => {
                     setDragState({ type: 'idle' });
                     setIsOverColumn(null);
                 }
-            })
+            }),
+            // This is the new part: it enables auto-scrolling of the window
+            // when a draggable element is near the top or bottom edge.
+            autoScrollWindowForElements({
+                // You can customize options here if needed, but the defaults are great for a start.
+            }),
         );
     }, [dragState, onMoveCheck]);
 

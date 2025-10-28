@@ -1,5 +1,6 @@
 // @ts-nocheck
 import Tesseract from 'tesseract.js';
+import MICRScanner from './MICRScanner.js';
 
 const onOpenCvReady = (): Promise<void> => {
     return new Promise((resolve) => {
@@ -35,21 +36,62 @@ const orderPoints = (pts: {x: number, y: number}[]) => {
 const scanConfigs = [
   // 1. Strict & fast, based on user example. Good for clear images.
   { name: 'Strict', blur: 5, blockSize: 21, C: 10, morph: 5, aspectRatio: [1.8, 2.8], minArea: 0.15 },
-  // 2. Relaxed aspect ratio for skewed checks.
+  // 2. Handles hard shadows by using a smaller, more local threshold area.
+  { name: 'Hard Shadow', blur: 5, blockSize: 11, C: 10, morph: 5, aspectRatio: [1.5, 3.5], minArea: 0.15 },
+  // 3. More tolerant of skewed checks that might not have a standard aspect ratio.
   { name: 'Relaxed Aspect', blur: 5, blockSize: 21, C: 10, morph: 5, aspectRatio: [1.5, 3.5], minArea: 0.15 },
-  // 3. More aggressive thresholding for low-contrast images.
+  // 4. For "washed out" or over-exposed images where edges are faint.
+  { name: 'Washed Out', blur: 5, blockSize: 31, C: 5, morph: 5, aspectRatio: [1.5, 3.5], minArea: 0.10 },
   { name: 'Low Contrast', blur: 5, blockSize: 31, C: 15, morph: 5, aspectRatio: [1.5, 3.5], minArea: 0.10 },
   // 4. More blur to handle noisy images.
   { name: 'Noisy Image', blur: 7, blockSize: 21, C: 10, morph: 7, aspectRatio: [1.5, 3.5], minArea: 0.10 },
   // 5. Last resort, very loose criteria.
-  { name: 'Very Relaxed', blur: 3, blockSize: 41, C: 5, morph: 3, aspectRatio: [1.2, 4.0], minArea: 0.08 },
+  { name: 'Very Relaxed', blur: 5, blockSize: 31, C: 2, morph: 5, aspectRatio: [1.0, 4.0], minArea: 0.08 },
 ];
 
-const MIN_IMAGE_SIZE_BYTES = 2048; // 2KB
+const PROCESSING_WIDTH = 1200; // Use a 1200px image for finding contours
 const FINAL_WIDTH = 800;
 
 /**
- * Standardizes an image Mat to a fixed width, landscape, grayscale format using OCR for orientation.
+ * Parses the output from the MICRScanner to find routing and account numbers.
+ * @param {string[]} micrStrings - An array of strings detected from the MICR line.
+ * @returns {{ routingNumber?: string, bankAccountNumber?: string }}
+ */
+const parseMICRStrings = (micrStrings: string[]) => {
+    const micrData = {
+        routingNumber: undefined, // Initialize as undefined
+        bankAccountNumber: undefined, // Initialize as undefined
+    };
+
+    if (!micrStrings || micrStrings.length === 0) {
+        return micrData;
+    }
+
+    const transitSymbol = 'T';
+    const onUsSymbol = 'U';
+    const amountSymbol = 'A';
+    const dashSymbol = 'D';
+
+    // Routing number is typically enclosed by 'T' symbols.
+    const strings = micrStrings.map(s => s.replace(/\s+/g, '').toUpperCase()); // Remove all whitespace and convert to uppercase for easier parsing
+    const routingString = strings.find(s => s.startsWith(transitSymbol) && s.endsWith(transitSymbol));
+
+    if (routingString) {
+        micrData.routingNumber = routingString.slice(1, -1).trim();
+        // Remove 'T' symbols from the routing number if found
+        micrData.routingNumber = micrData.routingNumber.replace(new RegExp(transitSymbol, 'g'), '');
+        } else { micrData.routingNumber = undefined; }
+    const accountString = strings.find(s => s.includes('U'));
+    if (accountString) {
+        micrData.bankAccountNumber = accountString.trim();
+        // Remove 'U' and 'T' symbols from the account number if found 
+        micrData.bankAccountNumber = micrData.bankAccountNumber.replace(new RegExp(onUsSymbol, 'g'), '').replace(new RegExp(transitSymbol, 'g'), ''); 
+    } else { micrData.bankAccountNumber = undefined; } 
+    return micrData;
+};
+
+/**
+ * Standardizes a cropped image Mat to a fixed width, landscape, grayscale format using OCR for orientation.
  * @param {cv.Mat} src - The source image Mat.
  * @returns {Promise<cv.Mat>} - A promise that resolves to the standardized Mat.
  */
@@ -60,12 +102,19 @@ async function standardizeOutputImage(src) {
     let resized = new cv.Mat();
 
     try {
-        // --- Orientation detection with Tesseract.js ---
+        // --- Pre-resize for Orientation Detection ---
+        // Tesseract works more reliably and faster on a standardized image size.
+        // We create a temporary resized version for Tesseract to analyze.
+        const preliminaryAspectRatio = src.rows / src.cols;
+        const preliminaryHeight = Math.round(FINAL_WIDTH * preliminaryAspectRatio);
+        const dsizePreliminary = new cv.Size(FINAL_WIDTH, preliminaryHeight);
+        cv.resize(src, resized, dsizePreliminary, 0, 0, cv.INTER_AREA);
+
         let rotationAngle = null;
         try {
-            const canvas = document.createElement('canvas');
-            cv.imshow(canvas, standardized);
-            const dataUrl = canvas.toDataURL('image/png');
+            const tempCanvas = document.createElement('canvas');
+            cv.imshow(tempCanvas, resized);
+            const dataUrl = tempCanvas.toDataURL('image/jpeg', 0.9);
             
             const worker = await Tesseract.createWorker(
                     'eng', 
@@ -77,7 +126,7 @@ async function standardizeOutputImage(src) {
             await worker.terminate();
             
             console.log(`Tesseract orientation: ${orientation_degrees} degrees, confidence: ${orientation_confidence}`);
-
+            
             // We only trust Tesseract if confidence is reasonably high
             if (orientation_confidence > 1) { 
                 switch (orientation_degrees) {
@@ -96,58 +145,63 @@ async function standardizeOutputImage(src) {
             }
         } catch (err) {
             console.error("Tesseract orientation detection failed, falling back to dimension check.", err);
+            if (!resized.isDeleted()) resized.delete(); // Ensure cleanup on error
         }
 
         // --- Apply rotation ---
         if (rotationAngle !== null) {
             console.log(`Rotating image based on Tesseract result.`);
             rotated = new cv.Mat();
-            cv.rotate(standardized, rotated, rotationAngle);
-            standardized.delete();
-            standardized = rotated;
-            rotated = null;
-        } else if (standardized.rows > standardized.cols) {
+            cv.rotate(src, rotated, rotationAngle); // Rotate the original high-res `src`
+            standardized = rotated; // `standardized` now points to the high-res rotated image
+        } else if (src.rows > src.cols) {
             // Fallback to simple dimension check
             console.log("Tesseract detection failed or had low confidence. Falling back to dimension-based rotation.");
             rotated = new cv.Mat();
-            cv.rotate(standardized, rotated, 2); // cv.ROTATE_90_COUNTER_CLOCKWISE
-            standardized.delete();
+            cv.rotate(src, rotated, 2); // cv.ROTATE_90_COUNTER_CLOCKWISE on the original `src`
             standardized = rotated;
-            rotated = null;
+        } else {
+            // No rotation needed, just use the original src
+            standardized = src.clone();
         }
+        
+        // --- Final Resize to fixed width ---
+        // Now that orientation is correct, we resize the high-quality (and potentially rotated)
+        // image to its final dimensions for the API.
+        const finalAspectRatio = standardized.rows / standardized.cols; // standardized can be deleted here if not cloned
+        const finalHeight = Math.round(FINAL_WIDTH * finalAspectRatio);
+        const finalDsize = new cv.Size(FINAL_WIDTH, finalHeight);
+        cv.resize(standardized, resized, finalDsize, 0, 0, cv.INTER_AREA);
+        const standardizedMat = resized.clone();
 
-        // --- Resize to fixed width ---
-        const aspectRatio = standardized.rows / standardized.cols;
-        const newHeight = Math.round(FINAL_WIDTH * aspectRatio);
-        const dsize = new cv.Size(FINAL_WIDTH, newHeight);
-        cv.resize(standardized, resized, dsize, 0, 0, cv.INTER_AREA);
-        standardized.delete();
-        standardized = resized;
+        // --- MICR Scanning ---
+        const scanner = new MICRScanner(cv);
+        const micrStrings = scanner.scanImage(standardizedMat);
+        const micrData = parseMICRStrings(micrStrings);
+        console.log("MICR Scan Results:", micrData);
 
-        // --- Convert to grayscale ---
-        //if (standardized.channels() !== 1) {
-        //    cv.cvtColor(standardized, standardized, cv.COLOR_RGBA2GRAY, 0);
-        //}
-
-        return standardized;
+        return { standardizedMat, micrData };
 
     } catch (e) {
         // Clean up in case of error
         if (standardized) standardized.delete();
         if (rotated) rotated.delete();
-        if (resized && resized !== standardized) resized.delete();
+        if (resized) resized.delete();
         throw e;
+    } finally {
+        if (resized && !resized.isDeleted()) resized.delete();
     }
 }
 
 
 /**
  * Tries to find the largest rectangular contour and transforms it.
- * @param {cv.Mat} src - The source image Mat.
+ * @param {cv.Mat} processingSrc - The ~1200px image Mat for finding contours.
+ * @param {cv.Mat} originalSrc - The full-resolution image Mat for the final crop.
  * @param {object} config - The configuration object for this attempt.
  * @returns {cv.Mat|null} - The transformed Mat, or null.
  */
-function findAndTransformContour(src, config) {
+function findAndTransformContour(processingSrc, config, originalSrc) {
     const cv = window.cv;
     let gray, blurred, thresh, closed, contours, hierarchy;
     let bestContourApprox = null;
@@ -161,7 +215,7 @@ function findAndTransformContour(src, config) {
         contours = new cv.MatVector();
         hierarchy = new cv.Mat();
 
-        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+        cv.cvtColor(processingSrc, gray, cv.COLOR_RGBA2GRAY);
         cv.GaussianBlur(gray, blurred, new cv.Size(config.blur, config.blur), 0);
         cv.adaptiveThreshold(blurred, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, config.blockSize, config.C);
 
@@ -171,7 +225,7 @@ function findAndTransformContour(src, config) {
 
         cv.findContours(closed, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-        const minContourArea = (src.rows * src.cols) * config.minArea;
+        const minContourArea = (processingSrc.rows * processingSrc.cols) * config.minArea;
 
         for (let i = 0; i < contours.size(); ++i) {
             const cnt = contours.get(i);
@@ -203,7 +257,13 @@ function findAndTransformContour(src, config) {
         if (bestContourApprox) {
             const points = [];
             for (let i = 0; i < bestContourApprox.rows; i++) {
-                points.push({ x: bestContourApprox.data32S[i * 2], y: bestContourApprox.data32S[i * 2 + 1] });
+                // Scale points from the processing image to the original full-res image
+                const scaleX = originalSrc.cols / processingSrc.cols;
+                const scaleY = originalSrc.rows / processingSrc.rows;
+                points.push({ 
+                    x: bestContourApprox.data32S[i * 2] * scaleX, 
+                    y: bestContourApprox.data32S[i * 2 + 1] * scaleY 
+                });
             }
             const orderedPoints = orderPoints(points);
             const [tl, tr, br, bl] = orderedPoints;
@@ -221,7 +281,7 @@ function findAndTransformContour(src, config) {
 
             const M = cv.getPerspectiveTransform(srcTri, dstTri);
             const resultMat = new cv.Mat();
-            cv.warpPerspective(src, resultMat, M, new cv.Size(maxWidth, maxHeight), cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
+            cv.warpPerspective(originalSrc, resultMat, M, new cv.Size(maxWidth, maxHeight), cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
             
             srcTri.delete();
             dstTri.delete();
@@ -241,45 +301,52 @@ function findAndTransformContour(src, config) {
     }
 }
 
-export const processCheckImage = async (imageUrl: string): Promise<string | null> => {
+export const processCheckImage = async (originalDataUrl: string, resizedDataUrl: string): Promise<{ dataUrl: string, micrData: any } | null> => {
     await onOpenCvReady();
     const cv = window.cv;
 
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const image = new Image();
-        image.crossOrigin = 'anonymous';
-        image.onload = () => resolve(image);
-        image.onerror = () => reject(new Error("Image could not be loaded for processing."));
-        image.src = imageUrl;
-    });
+    const [originalImg, resizedImg] = await Promise.all([
+        new Promise<HTMLImageElement>((resolve, reject) => {
+            const image = new Image();
+            image.crossOrigin = 'anonymous';
+            image.onload = () => resolve(image);
+            image.onerror = () => reject(new Error("Original image could not be loaded."));
+            image.src = originalDataUrl;
+        }),
+        new Promise<HTMLImageElement>((resolve, reject) => {
+            const image = new Image();
+            image.crossOrigin = 'anonymous';
+            image.onload = () => resolve(image);
+            image.onerror = () => reject(new Error("Resized image could not be loaded."));
+            image.src = resizedDataUrl;
+        }),
+    ]);
 
-    let src, resultMat, standardizedMat;
+    let originalSrc, resizedSrc, resultMat, standardizedMat, micrData;
     try {
-        src = cv.imread(img);
-        if (src.empty()) {
+        originalSrc = cv.imread(originalImg);
+        resizedSrc = cv.imread(resizedImg);
+        if (originalSrc.empty() || resizedSrc.empty()) {
             throw new Error("Failed to load image into OpenCV Mat.");
         }
 
         for (const config of scanConfigs) {
             console.log(`Attempting contour detection with config: ${config.name}`);
-            resultMat = findAndTransformContour(src, config);
+            resultMat = findAndTransformContour(resizedSrc, config, originalSrc);
 
             if (resultMat) {
-                standardizedMat = await standardizeOutputImage(resultMat);
+                const { standardizedMat: finalMat, micrData: finalMicrData } = await standardizeOutputImage(resultMat);
+                standardizedMat = finalMat;
+                micrData = finalMicrData;
+
                 const resultCanvas = document.createElement('canvas');
                 cv.imshow(resultCanvas, standardizedMat);
                 
                 const dataUrl = resultCanvas.toDataURL('image/jpeg', 0.92);
                 const base64Length = dataUrl.length - 'data:image/jpeg;base64,'.length;
                 const bytes = base64Length * 0.75;
-
-                if (bytes > MIN_IMAGE_SIZE_BYTES) {
-                    console.log(`Success with config "${config.name}". Image size: ${Math.round(bytes / 1024)}KB`);
-                    return dataUrl;
-                } else {
-                    console.log(`Config "${config.name}" found a contour, but result was too small (${Math.round(bytes)} bytes). Trying next config.`);
-                    resultMat.delete(); // Clean up small result before next attempt
-                }
+                console.log(`Success with config "${config.name}". Image size: ${Math.round(bytes / 1024)}KB`);
+                return { dataUrl, micrData };
             }
         }
 
@@ -290,8 +357,8 @@ export const processCheckImage = async (imageUrl: string): Promise<string | null
         console.error("OpenCV processing failed:", e);
         return null;
     } finally {
-        if (src) src.delete();
-        // resultMat is cleaned up inside the loop or here if it was the last one
+        if (originalSrc) originalSrc.delete();
+        if (resizedSrc) resizedSrc.delete();
         if (resultMat && !resultMat.isDeleted()) resultMat.delete();
         if (standardizedMat) standardizedMat.delete();
     }
@@ -309,7 +376,7 @@ export const transformImageWithPoints = async (imageUrl: string, points: {x: num
         image.src = imageUrl;
     });
 
-    let src, resultMat, standardizedMat;
+    let src, resultMat, standardizedMat, micrData;
     try {
         src = cv.imread(img);
         if (src.empty()) {
@@ -338,12 +405,14 @@ export const transformImageWithPoints = async (imageUrl: string, points: {x: num
         dstTri.delete();
         M.delete();
 
-        standardizedMat = await standardizeOutputImage(resultMat);
+        // Clone resultMat before passing to prevent premature deletion in the finally block
+        const { standardizedMat: finalMat, micrData: finalMicrData } = await standardizeOutputImage(resultMat.clone());
+        standardizedMat = finalMat;
 
         const resultCanvas = document.createElement('canvas');
         cv.imshow(resultCanvas, standardizedMat);
         const dataUrl = resultCanvas.toDataURL('image/jpeg', 0.92);
-        return dataUrl;
+        return { dataUrl, micrData: finalMicrData };
 
     } catch (e) {
         console.error("Manual crop processing failed:", e);

@@ -1,5 +1,5 @@
 import firebase from 'firebase/compat/app';
-import { storage, db, Timestamp } from './firebase';
+import { storage, db } from './firebase';
 import { Check, Flag, Comment, AuditLog, Batch, CheckStatus, UserProfile, Notification, CurrentUser } from '../types';
 
 const CHECKS_COLLECTION = 'checks';
@@ -74,12 +74,6 @@ export const onUsersSnapshot = (callback: (users: UserProfile[]) => void) => {
 };
 
 export const getOrCreateUserProfile = async (uid: string, email: string) => {
-    console.log(`[firestoreService] getOrCreateUserProfile called for UID: ${uid}, Email: ${email}`);
-    // Prevent creating a user profile for the system-auto-archive UID
-    if (uid === 'system-auto-archive') {
-        console.warn("[firestoreService] Attempted to get or create user profile for 'system-auto-archive'. This is not allowed.");
-        return; // Do not proceed with Firestore write
-    }
     const userRef = db.collection(USERS_COLLECTION).doc(uid);
     const doc = await userRef.get();
     if (!doc.exists) {
@@ -289,15 +283,15 @@ export const toggleFlag = (checkId: string, flag: Flag, isAdding: boolean, curre
   });
 };
 
-export const bulkUpdateChecksStatus = (checks: Check[], newStatus: CheckStatus, actor: CurrentUser, asSystem = false) => {
+export const bulkUpdateChecksStatus = (checks: Check[], newStatus: CheckStatus, currentUser: CurrentUser) => {
     const batch = db.batch();
     checks.forEach(check => {
         if (check.status === newStatus) return; // No change needed
         const checkRef = db.collection(CHECKS_COLLECTION).doc(check.id);
         const log: AuditLog = {
             id: `log-${Date.now()}-${check.id}`,
-            uid: actor.uid,
-            user: asSystem ? 'System' : actor.name,
+            uid: currentUser.uid,
+            user: currentUser.name,
             field: 'status',
             oldValue: check.status,
             newValue: newStatus,
@@ -309,11 +303,6 @@ export const bulkUpdateChecksStatus = (checks: Check[], newStatus: CheckStatus, 
         };
         if (newStatus === CheckStatus.COMPLETE || newStatus === CheckStatus.ARCHIVED) {
             updates.statusUpdatedAt = firebase.firestore.FieldValue.serverTimestamp();
-        }
-        // If this is a system action, add a flag to the log entry.
-        // The log is still created by the logged-in user, satisfying security rules.
-        if (asSystem) {
-            (log as any).isSystemAction = true;
         }
         batch.update(checkRef, updates);
     });
@@ -342,8 +331,8 @@ export const processBatch = (checkIds: string[], trackingNumber: string, current
         uid: currentUser.uid,
         user: currentUser.name,
         field: 'Batch Processed',
-        oldValue: 'N/A',
-        newValue: batchId,
+        oldValue: CheckStatus.QUEUED,
+        newValue: CheckStatus.COMPLETE,
         timestamp: new Date().toISOString(),
     };
     batchOp.update(checkRef, {

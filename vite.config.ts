@@ -4,6 +4,7 @@ import { fileURLToPath, URL } from 'url'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: '', // Add this line to ensure relative asset paths
   plugins: [react()],
   resolve: {
        alias: {

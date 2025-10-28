@@ -20,6 +20,7 @@ const App: React.FC = () => {
 
             const unsubscribeNotifications = firestoreService.onNotificationsSnapshot(user.uid, setNotifications);
             const unsubscribeUsers = firestoreService.onUsersSnapshot(setAllUsers);
+            console.log(preferences)
             
             return () => {
                 unsubscribeNotifications();

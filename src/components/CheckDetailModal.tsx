@@ -582,6 +582,7 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
 
                                 <div className={`p-4 space-y-3 flex-1 ${expandedView === 'AUDIT' ? 'overflow-y-auto' : 'overflow-y-hidden'}`}>
                                     {check.auditTrail.length > 0 ? check.auditTrail.slice().map(log => {
+                                        if (log.field === 'reordered') return null;
                                         const userDisplay = log.user.indexOf(' ') !== -1 ? log.user.slice(0, log.user.indexOf(' ')) : log.user;
                                         let actionText: React.ReactNode = '';
                                         switch (log.field) {
@@ -642,7 +643,7 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
                                                 )}
                                                 <div className={`flex flex-col gap-1 w-full max-w-xs ${isCurrentUser ? 'items-end' : ''}`}>
                                                     <div className="flex items-center space-x-2">
-                                                        <span className="text-sm font-semibold text-gray-900">{isCurrentUser ? 'You' : comment.author}</span>
+                                                        <span className="text-sm font-semibold text-gray-900">{isCurrentUser ? 'You' : (authorProfile?.firstName || comment.author.split(' ')[0] || 'Unknown')}</span>
                                                         <span className="text-xs font-normal text-gray-500">{new Date(comment.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
                                                     </div>
                                                     <div className={`leading-1.5 p-3 rounded-xl ${isCurrentUser ? 'bg-sky-100 rounded-br-none' : 'bg-gray-100 rounded-bl-none'}`}>

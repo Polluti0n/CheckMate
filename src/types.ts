@@ -58,6 +58,7 @@ export interface Check {
     id: string;
   category: CheckCategory;
   status: CheckStatus;
+  additionalInfo: string;
   
   // Core fields, renamed for clarity or from AI extraction
   payor: string; // Generic payor, used as "Homeowner Name" when applicable

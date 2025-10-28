@@ -2,10 +2,10 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate, Outlet, useOutletContext } from 'react-router-dom';
-import { Check, CheckCategory, CheckStatus } from '../types';
+import { Check, CheckCategory, CheckStatus, CheckField } from '../types';
 import { extractCheckInfoFromImage } from '../services/geminiService';
 import * as firestoreService from '../services/firestoreService';
-import { XMarkIcon, CheckCircleIcon, ProcessingLoaderIcon, CheckPlaceholderIcon } from './icons';
+import { XMarkIcon, CheckCircleIcon, ProcessingLoaderIcon, CheckPlaceholderIcon, InfoIcon, ExclamationTriangleIcon } from './icons';
 import { processCheckImage, transformImageWithPoints } from '../utils/imageProcessor';
 import { categoryConfig, formConfig } from '../formConfig';
 
@@ -17,10 +17,12 @@ type WizardContextType = {
     error: string | null;
     setError: React.Dispatch<React.SetStateAction<string | null>>;
     imagePreview: string | null;
+    toast: { message: string; type: 'info' | 'error' } | null;
+    setToast: React.Dispatch<React.SetStateAction<{ message: string; type: 'info' | 'error' } | null>>;
     handleImageUpload: (event: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
     handleSubmit: (e: React.FormEvent) => Promise<void>;
     imageToCrop: string | null;
-    handleManualCrop: (image: HTMLImageElement, canvas: HTMLCanvasElement, points: { x: number; y: number }[]) => Promise<void>; // This signature is correct, the implementation will change
+    handleManualCrop: (imageEl: HTMLImageElement, displayCanvas: HTMLCanvasElement, points: { x: number; y: number }[]) => Promise<void>;
 };
 
 // A helper hook to easily access the typed context in child components.
@@ -68,7 +70,7 @@ export const CategoryStep = () => {
 
 // --- Step 2: Image Upload Component ---
 export const UploadStep = () => {
-    const { isLoading, error, imagePreview, handleImageUpload } = useWizardContext();
+    const { isLoading, error, imagePreview, handleImageUpload, debugImages } = useWizardContext();
     const navigate = useNavigate();
 
     return (
@@ -88,6 +90,16 @@ export const UploadStep = () => {
                     </div>
                 </label>
                 {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+                {/* --- START: Temporary Debug View --- */}
+                {debugImages && debugImages.length > 0 && (
+                    <div className="mt-4 p-4 bg-slate-100 border rounded-lg">
+                        <h4 className="text-sm font-semibold text-slate-700 mb-2">Contour Detection Debug Output:</h4>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {debugImages.map((src, i) => <img key={i} src={src} alt={`Debug ${i}`} className="w-full h-auto rounded shadow-sm border" />)}
+                        </div>
+                    </div>
+                )}
+                {/* --- END: Temporary Debug View --- */}
             </div>
             <div className="p-6 flex-shrink-0 border-t flex justify-between items-center">
                 <button onClick={() => navigate(-1)} type="button" className="text-sm font-medium text-slate-600 hover:text-slate-900">Back</button>
@@ -99,7 +111,7 @@ export const UploadStep = () => {
 
 // --- Step 2.5: Manual Crop Component ---
 export const CropStep = () => {
-    const { imageToCrop, handleManualCrop, error, isLoading } = useWizardContext();
+    const { imageToCrop, handleManualCrop, error, setError, isLoading } = useWizardContext();
     const navigate = useNavigate();
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const imageRef = useRef<HTMLImageElement | null>(null);
@@ -127,7 +139,6 @@ export const CropStep = () => {
         if (!canvas || !ctx || !container) return;
 
         const img = new Image();
-        img.crossOrigin = 'anonymous'; // This is the crucial fix!
         img.src = imageToCrop;
         img.onload = () => {
             imageRef.current = img;
@@ -336,24 +347,23 @@ export const CropStep = () => {
         loupeCtx.lineTo(LOUPE_SIZE, LOUPE_SIZE / 2);
         loupeCtx.moveTo(LOUPE_SIZE / 2, 0);
         loupeCtx.lineTo(LOUPE_SIZE / 2, LOUPE_SIZE);
-        loupeCtx.strokeStyle = 'rgba(255, 122, 0, 1)';
+        loupeCtx.strokeStyle = 'rgba(255, 80, 0, 1)';
         loupeCtx.lineWidth = 2;
         loupeCtx.stroke();
 
     }, [magnifier]);
 
     const handleCrop = useCallback(() => {
-        const canvas = canvasRef.current;
-        const image = imageRef.current;
-        if (points.length !== 4 || !canvas || !image) {
-            // This case should ideally not be reachable if the button is enabled.
+        if (points.length !== 4 || !imageRef.current || !canvasRef.current) {
+            setError("Could not crop image. Please try again.");
             return;
         }
-        // We pass the original image element, the display canvas, and the points
-        handleManualCrop(image, canvas, points);
-    }, [points, handleManualCrop, canvasRef, imageRef]);
+        // Pass the raw points and the canvas element itself to the handler
+        handleManualCrop(imageRef.current, canvasRef.current, points);
+    }, [points, handleManualCrop, setError, imageRef, canvasRef]);
 
     return (
+
         <>
             <div className="p-6 flex-shrink-0 border-b">
                 <h3 className="text-lg font-medium leading-6 text-gray-900">Manual Crop</h3>
@@ -406,17 +416,22 @@ export const CropStep = () => {
 
 // --- Step 3: Details Form Component ---
 export const DetailsStep = () => {
-    const { newCheck, error, handleSubmit } = useWizardContext();
+    const { newCheck, toast, setToast, handleSubmit } = useWizardContext();
     const navigate = useNavigate();
     const [openDropdown, setOpenDropdown] = useState<string | null>(null);
     const detailsRef = useRef<HTMLFormElement>(null);
 
-    // This effect ensures a user cannot land on this page without a category.
+    // Show toast with additionalInfo when this step mounts
     useEffect(() => {
-        if (!newCheck.category) {
-            navigate('/add-check', { replace: true });
-        }
-    }, [newCheck.category, navigate]);
+        // Use a small timeout to ensure the toast appears with a transition
+        // if the user is navigated here from a failed processing step.
+        const timer = setTimeout(() => {
+            if (newCheck.additionalInfo) {
+                setToast({ message: newCheck.additionalInfo, type: 'info' });
+            }
+        }, 100);
+        return () => clearTimeout(timer);
+    }, [newCheck.additionalInfo, setToast]);
     
     // Close dropdown if clicked outside
     useEffect(() => {
@@ -429,6 +444,13 @@ export const DetailsStep = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // This effect ensures a user cannot land on this page without a category.
+    useEffect(() => {
+        if (!newCheck.category) {
+            navigate('/add-check', { replace: true });
+        }
+    }, [newCheck.category, navigate]);
+
     if (!newCheck.category) return null; // Render nothing while redirecting
 
     return (
@@ -439,6 +461,17 @@ export const DetailsStep = () => {
             </div>
             <div className="flex-grow overflow-y-auto px-6 py-4">
                 <DetailsForm ref={detailsRef} openDropdown={openDropdown} setOpenDropdown={setOpenDropdown} />
+                {/* Toast Notification */}
+                {toast && (
+                    <div
+                        className={`fixed bottom-10 left-1/2 -translate-x-1/2 px-4 py-3 rounded-md text-white text-sm font-medium shadow-lg transition-all duration-300 z-50 max-w-lg text-center flex items-center gap-3 ${
+                            toast.type === 'info' ? 'bg-sky-600' : 'bg-red-600'
+                        }`} role="alert">
+                        {toast.type === 'info' ? <InfoIcon className="h-5 w-5 flex-shrink-0" /> : <ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />}
+                        <span className="text-left">{toast.message}</span>
+                        <button onClick={() => setToast(null)} className="ml-auto -mr-1 p-1 rounded-full hover:bg-white/20"><XMarkIcon className="h-4 w-4"/></button>
+                    </div>
+                )}
             </div>
             <div className="p-6 flex-shrink-0 border-t flex justify-between items-center">
                  <button onClick={() => navigate(-1)} type="button" className="text-sm font-medium text-slate-600 hover:text-slate-900">Back</button>
@@ -544,48 +577,19 @@ const DetailsForm = React.forwardRef<HTMLFormElement, {openDropdown: string | nu
     );
 });
 
-// --- Custom Hook for Session State ---
-const useSessionState = <T,>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
-    const [storedValue, setStoredValue] = useState<T>(() => {
-        try {
-            const item = window.sessionStorage.getItem(key);
-            return item ? JSON.parse(item) : initialValue;
-        } catch (error) {
-            console.error(`Error reading sessionStorage key “${key}”:`, error);
-            return initialValue;
-        }
-    });
-
-    const setValue: React.Dispatch<React.SetStateAction<T>> = (value) => {
-        try {
-            const valueToStore = value instanceof Function ? value(storedValue) : value;
-            setStoredValue(valueToStore);
-            if (valueToStore === undefined || valueToStore === null) {
-                window.sessionStorage.removeItem(key);
-            } else {
-                window.sessionStorage.setItem(key, JSON.stringify(valueToStore));
-            }
-        } catch (error) {
-            console.error(`Error setting sessionStorage key “${key}”:`, error);
-        }
-    };
-
-    return [storedValue, setValue];
-};
-
 
 // --- Main Wizard Layout Component ---
 // FIX: Changed to a named export to resolve module resolution issues.
 export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; onAddCheck: (check: any) => void; }> = ({ isOpen, onClose, onAddCheck }) => {
     const navigate = useNavigate();
-    // FIX: Persist the main check object to survive mobile page reloads.
-    const [newCheck, setNewCheck] = useSessionState<Partial<Check>>('addCheckWizard.newCheck', {});
+    const [newCheck, setNewCheck] = useState<Partial<Check>>({});
     const [isLoading, setIsLoading] = useState(false);
-    // FIX: Persist state across page reloads on mobile using sessionStorage.
-    const [error, setError] = useSessionState<string | null>('addCheckWizard.error', null);
-    const [imagePreview, setImagePreview] = useSessionState<string | null>('addCheckWizard.imagePreview', null);
-    const [imageToCrop, setImageToCrop] = useSessionState<string | null>('addCheckWizard.imageToCrop', null);
-    const [originalFileName, setOriginalFileName] = useSessionState<string>('addCheckWizard.originalFileName', 'check.jpg');
+    const [error, setError] = useState<string | null>(null);
+    const [toast, setToast] = useState<{ message: string; type: 'info' | 'error' } | null>(null);
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+    const [debugImages, setDebugImages] = useState<string[]>([]); // Add state for debug images
+    const originalFileName = useRef<string>('check.jpg');
 
     const resetWizard = useCallback(() => {
         setNewCheck({}); 
@@ -593,10 +597,9 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
         setError(null); 
         setImagePreview(null);
         setImageToCrop(null);
-        setOriginalFileName('check.jpg');
-        // FIX: Clear all session storage for this wizard, including the newCheck object.
-        Object.keys(window.sessionStorage).filter(k => k.startsWith('addCheckWizard.')).forEach(k => window.sessionStorage.removeItem(k));
-    }, [setNewCheck, setError, setImagePreview, setImageToCrop, setOriginalFileName]);
+        setToast(null);
+        setDebugImages([]); // Reset debug images
+    }, []);
 
     const handleClose = () => {
         resetWizard();
@@ -637,31 +640,49 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
         });
     };
 
-    const continueWithProcessedImage = async (processedDataUrl: string, fileName: string) => {
-        setImagePreview(processedDataUrl); // Update preview with enhanced image
+    const continueWithProcessedImage = async (processingResult: { dataUrl: string, micrData: any }, fileName: string, isManualPath: boolean) => {
+        setImagePreview(processingResult.dataUrl); // Update preview with enhanced image
 
-        const base64String = processedDataUrl.includes(',') ? processedDataUrl.split(',')[1] : processedDataUrl;
-        const fullDataUrl = `data:image/jpeg;base64,${base64String}`;
+        // The data URL will always be in the format "data:[<mediatype>];base64,[<data>]"
+        // We need to extract just the base64 data for the API and use the full URL for the blob.
+        const { dataUrl, micrData } = processingResult;
+        const base64String = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
 
-        const extractedDataPromise = extractCheckInfoFromImage(base64String, 'image/jpeg');
-        
-        const imageBlob = await (await fetch(fullDataUrl)).blob();
-        const processedFileName = fileName.replace(/\.[^/.]+$/, ".jpg");
-        const imageUrlPromise = firestoreService.uploadCheckImage(imageBlob, processedFileName);
+        // Always use the full data URL for fetching the blob.
+        const imageBlob = await (await fetch(dataUrl)).blob();
+        // Create a unique filename using an ISO date string.
+        const uniqueFileName = `${new Date().toISOString()}-${fileName.replace(/\.[^/.]+$/, ".jpg")}`;
+
+        const imageUrlPromise = firestoreService.uploadCheckImage(imageBlob, uniqueFileName);
+        const validBase64String = base64String.replace(/^data:image\/\w+;base64,/, '');
+        const extractedDataPromise = extractCheckInfoFromImage(validBase64String, 'image/jpeg');
 
         const [extractedData, imageUrl] = await Promise.all([extractedDataPromise, imageUrlPromise]);
 
-        // Set all the new data. The useEffect hook will handle navigation.
-        setNewCheck(prev => ({ ...prev, ...extractedData, imageUrl }));
+        // Show toast if AI provides additional info
+        if (extractedData.additionalInfo) {
+            setToast({ message: extractedData.additionalInfo, type: 'info' });
+        }
+
+        // Merge AI data with the more reliable MICR data, giving MICR precedence.
+        const combineData = {
+            ...extractedData,
+            bankAccountNumber: String(micrData.bankAccountNumber || '') && String(micrData.bankAccountNumber || '') !== '' ? String(micrData.bankAccountNumber) : extractedData.bankAccountNumber,
+            routingNumber: String(micrData.routingNumber  || '') && String(micrData.routingNumber || '') !== '' ? String(micrData.routingNumber) : extractedData.routingNumber
+        }
+        setNewCheck(prev => ({ ...prev, ...combineData, imageUrl, amount: combineData.amount || 0 }));
+        setIsLoading(false);
+        navigate('/add-check/details');
     };
 
     const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
 
-        setOriginalFileName(file.name);
+        originalFileName.current = file.name;
         setIsLoading(true);
         setError(null);
+        setDebugImages([]); // Clear previous debug images
         
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -671,24 +692,26 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
             try {
                 const resizedDataUrl = await resizeImage(dataUrl, 1280);
                 setImagePreview(resizedDataUrl);
-
-                const processedDataUrl = await processCheckImage(resizedDataUrl);
+                const processingResult = await processCheckImage(dataUrl, resizedDataUrl);
                 
-                if (processedDataUrl === null) {
+                if (processingResult === null) {
                     // Automatic processing failed, move to manual crop step
                     setError(null); // Clear any previous errors
-                    setImageToCrop(resizedDataUrl);
+                    setImageToCrop(dataUrl); // Store the FULL-RES image for cropping
                     setIsLoading(false);
                     navigate('/add-check/crop');
                     return;
                 }
 
-                await continueWithProcessedImage(processedDataUrl, file.name);
-                // State will be set, and useEffect will navigate.
+                await continueWithProcessedImage(processingResult, file.name, false);
+                
             } catch (err: any) {
-                console.error("Image processing or extraction failed:", err);
-                setError(err.message || "Could not process image. Please try again or enter manually.");
-                setImagePreview(dataUrl); // In case of error, show original uploaded image
+                const errorMessage = "AI extraction failed. Please enter details manually or try a new image. Tips: Use a flat, well-lit surface with a dark background.";
+                setToast({ message: errorMessage, type: 'error' });
+                // Set a minimal check object so the user can proceed to manual entry
+                setNewCheck(prev => ({ ...prev, imageUrl: dataUrl }));
+                navigate('/add-check/details');
+            } finally {
                 setIsLoading(false);
             }
         };
@@ -698,9 +721,9 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
         };
     };
 
-    const handleManualCrop = async (imageEl: HTMLImageElement, displayCanvas: HTMLCanvasElement, points: { x: number; y: number }[]) => { // This signature is correct, the implementation will change
-        if (!imageToCrop || !imageEl || !displayCanvas) {
-            setError("Image or canvas not available for cropping.");
+    const handleManualCrop = async (imageEl: HTMLImageElement, displayCanvas: HTMLCanvasElement, points: { x: number; y: number }[],) => {
+        if (!imageToCrop) {
+            setError("No image available for cropping.");
             return;
         }
         setIsLoading(true);
@@ -711,28 +734,31 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
         const { width, height } = displayCanvas;
         const scaleX = naturalWidth / width;
         const scaleY = naturalHeight / height;
-
+        
         const scaledPoints = points.map(p => ({
             x: p.x * scaleX,
             y: p.y * scaleY,
         }));
         try {
-            const processedDataUrl = await transformImageWithPoints(imageToCrop, scaledPoints);
-            if (processedDataUrl === null) {
+            const processingResult = await transformImageWithPoints(imageToCrop, scaledPoints);
+            if (processingResult === null) {
                 throw new Error("Manual cropping failed to process the image.");
             }
-            await continueWithProcessedImage(processedDataUrl, originalFileName);
-            // State will be set, and useEffect will navigate.
+            await continueWithProcessedImage(processingResult, originalFileName.current, true);
         } catch (err: any) {
-            console.error("Manual crop processing failed:", err);
-            setError(err.message || "Could not process cropped image.");
+            const errorMessage = "AI extraction failed after cropping. Please enter details manually or try a new image. Tips: Use a flat, well-lit surface with a dark background.";
+            setToast({ message: errorMessage, type: 'error' });
+            // Set a minimal check object so the user can proceed to manual entry
+            setNewCheck(prev => ({ ...prev, imageUrl: imageToCrop || undefined }));
+            navigate('/add-check/details');
+        } finally {
             setIsLoading(false);
         }
     };
 
-    const handleSubmit = async (e: React.FormEvent) => { // This signature is correct, the implementation will change
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError(null);
+        setIsLoading(true);
         
         const fieldsForCategory = [
             ...formConfig.common,
@@ -742,6 +768,7 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
         for (const field of fieldsForCategory) {
             if (field.required && !newCheck[field.name as keyof Check]) {
                 setError(`Please fill in the required field: "${field.label}".`);
+                setIsLoading(false);
                 return;
             }
         }
@@ -754,30 +781,25 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
             ...newCheck
         };
 
-        onAddCheck(finalCheck as Omit<Check, 'id' | 'createdAt' | 'comments' | 'auditTrail' | 'flags' | 'statusUpdatedAt'>);
-        handleClose();
-    };
-
-    // This effect will run whenever `newCheck` is updated with an `imageUrl`.
-    // This is the correct place to handle navigation after image processing.
-    useEffect(() => {
-        // We only want to navigate if we have an image URL and a category.
-        // This indicates that the image processing and data extraction is complete.
-        if (newCheck.imageUrl && newCheck.category) {
-            // Ensure we are on the correct path before navigating away.
-            if (location.pathname.startsWith('/add-check/upload') || location.pathname.startsWith('/add-check/crop')) {
-                setIsLoading(false);
-                navigate('/add-check/details');
-            }
+        try {
+            await onAddCheck(finalCheck as Omit<Check, 'id' | 'createdAt' | 'comments' | 'auditTrail' | 'flags' | 'statusUpdatedAt'>);
+            handleClose();
+        } catch (err: any) {
+            setError(err.message || "Failed to save the check.");
+        } finally {
+            setIsLoading(false);
         }
-    }, [newCheck.imageUrl, newCheck.category, navigate, location.pathname]);
+    };
 
     if (!isOpen) return null;
 
-    const context: WizardContextType = {
-        newCheck, setNewCheck, isLoading, error, setError, imagePreview,
-        handleImageUpload, handleSubmit, imageToCrop, handleManualCrop // This signature is correct, the implementation will change
-    };
+    // This effect handles the toast timeout for the entire wizard
+    useEffect(() => {
+        if (toast && toast.type === 'info') { // Only auto-dismiss info toasts
+            const timer = setTimeout(() => setToast(null), 12000); // 12 seconds
+            return () => clearTimeout(timer);
+        }
+    }, [toast]);
 
     return (
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 z-30">
@@ -793,7 +815,7 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
                         <span className="sr-only">Close</span>
                     </button>
                     {/* The Outlet renders the active step component based on the URL */}
-                    <Outlet context={context} />
+                    <Outlet context={{ newCheck, setNewCheck, isLoading, error, setError, imagePreview, toast, setToast, handleImageUpload, handleSubmit, imageToCrop, handleManualCrop }} />
                 </div>
             </div>
         </div>

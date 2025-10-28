@@ -1,89 +1,12 @@
 import {onCall} from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
-import {GoogleGenAI, GenerateContentResponse, Type} from "@google/genai";
+import {GoogleGenAI, HarmBlockThreshold, HarmCategory, Type} from "@google/genai";
 import * as functions from "firebase-functions";
 import {onDocumentCreated, onDocumentUpdated} from "firebase-functions/v2/firestore";
 
+
 admin.initializeApp();
 const db = admin.firestore();
-
-const checkDetailsSchema = {
-  type: Type.OBJECT,
-  properties: {
-    payor: {
-      type: Type.STRING,
-      description: "The name of the person or entity who wrote the check. This is typically found in the upper-left corner.",
-    },
-    payorAddress: {
-      description: "The address of the payor, often located below the payor's name.",
-      type: Type.OBJECT,
-      properties: {
-        street: {
-          type: Type.STRING,
-          description: "The street address of the payor.",
-        },
-        city: {
-          type: Type.STRING,
-          description: "The city where the payor is located.",
-        },
-        state: {
-          type: Type.STRING,
-          description: "The state where the payor is located.",
-        },
-        zip: {
-          type: Type.STRING,
-          description: "The zip code where the payor is located.",
-        },
-      },
-      required: ["street", "city", "state", "zip"],
-    },
-    payee: {
-      type: Type.STRING,
-      description: "The name of the person or entity the check is written to, found on the 'Pay to the Order of' line.",
-    },
-    amount: {
-      type: Type.NUMBER,
-      description: "The numerical amount of the check, usually in the box on the right side.",
-    },
-    amountInWords: {
-      type: Type.STRING,
-      description: "The legal line of the check, where the amount is written out in words.",
-    },
-    date: {
-      type: Type.STRING,
-      description: "The date the check was written, in YYYY-MM-DD format.",
-    },
-    checkNumber: {
-      type: Type.STRING,
-      description: "The unique number for the check, usually found in the top-right corner and in the MICR line at the bottom.",
-    },
-    memo: {
-      type: Type.STRING,
-      description: "The text on the memo or 'For' line of the check.",
-    },
-    bankName: {
-      type: Type.STRING,
-      description: "The name of the bank on which the check is drawn.",
-    },
-    routingNumber: {
-      type: Type.STRING,
-      description: "The bank's ABA routing number, found at the bottom of the check in the MICR line.",
-    },
-    bankAccountNumber: {
-      type: Type.STRING,
-      description: "The payor's bank account number, also located in the MICR line at the bottom of the check.",
-    },
-    signature: {
-      type: Type.BOOLEAN,
-      description: "Indicates whether a signature is present on the signature line.",
-    },
-    fractionalRoutingNumber: {
-        type: Type.STRING,
-        description: "The bank's ABA routing number in a fractional format, sometimes located in the upper right of the check.",
-    }
-  },
-  required: ["payor", "payorAddress", "payee", "amount", "amountInWords", "date", "checkNumber", "bankName", "routingNumber", "bankAccountNumber", "signature"],
-};
 
 // Lazily initialized client to prevent cold starts on subsequent invocations.
 let ai: GoogleGenAI | undefined;
@@ -105,93 +28,164 @@ const initializeAiClient = () => {
     return ai;
 };
 
+const checkDetailsSchema = {
+  type: Type.OBJECT,
+  properties: {
+    payor: { type: Type.STRING },
+    payorAddress: {
+      type: Type.OBJECT,
+      properties: {
+        street: { type: Type.STRING },
+        city: { type: Type.STRING },
+        state: { type: Type.STRING },
+        zip: { type: Type.STRING },
+      },
+      required: ["street", "city", "state", "zip"],
+    },
+    payee: { type: Type.STRING },
+    amount: { type: Type.NUMBER },
+    amountInWords: { type: Type.STRING },
+    date: { type: Type.STRING },
+    checkNumber: { type: Type.STRING },
+    memo: { type: Type.STRING },
+    bankName: { type: Type.STRING },
+    routingNumber: { type: Type.STRING },
+    bankAccountNumber: { type: Type.STRING },
+    signature: { type: Type.BOOLEAN },
+    additionalInfo: { type: Type.STRING },
+  },
+  required: [
+    "payor",
+    "payorAddress",
+    "payee",
+    "amount",
+    "amountInWords",
+    "date",
+    "checkNumber",
+    "bankName",
+    "routingNumber",
+    "bankAccountNumber",
+    "signature",
+  ],
+};
 
-export const extractCheckInfo = onCall({secrets: ["GEMINI_KEY"]}, async (request) => {
-  // 1. Authentication Check
-  console.log(request.data)
+export const extractCheckInfo = onCall({ secrets: ["GEMINI_KEY"] }, async (request) => {
+  // Auth check
   if (!request.auth) {
     throw new functions.https.HttpsError(
-        "unauthenticated",
-        "The function must be called while authenticated.",
+      "unauthenticated",
+      "The function must be called while authenticated."
+    );
+  }
+
+  const { base64Image, mimeType } = request.data;
+
+  if (!base64Image || !mimeType) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Missing 'base64Image' or 'mimeType'."
     );
   }
 
   const genAI = initializeAiClient();
 
-  const {base64Image, mimeType} = request.data;
-
-  if (!base64Image || !mimeType) {
-    throw new functions.https.HttpsError(
-        "invalid-argument",
-        "The function must be called with 'base64Image' and 'mimeType'.",
-    );
-  }
-
   try {
-    const imagePart = {
-      inlineData: {
-        data: base64Image,
-        mimeType: mimeType,
+    const cleanedBase64 = base64Image.replace(/^data:[^;]+;base64,/, "");
+    const model = "gemini-2.5-flash";
+
+    const contents = [
+      {
+        role: "user",
+        parts: [
+          {
+            inlineData: {
+              data: cleanedBase64,
+              mimeType,
+            },
+          },
+          {
+            text: "Extract all available details from this financial check image and provide the data as a JSON object that strictly adheres to the provided schema. Ensure the date is in YYYY-MM-DD format and the amount is a number. If you encounter any errors, are not confident about the data for any field, or encounter any issues, very briefly describe them in the 'additionalInfo' field, otherwise leave the field empty. Respond only with the JSON object and no additional text.",
+          },
+        ],
       },
-    };
+    ];
 
-    const textPart = {
-      text: "Extract check details: payor, payor address, payee, amount, date, " +
-            "check number,  amount in words, bank name, routing " +
-            "number,  bank account number, signature, and memo. Always provide output in JSON format.",
-    };
-
-    const response: GenerateContentResponse = await genAI.models.generateContent({
-      model: "gemini-2.5-flash-lite",
-      contents: [{parts: [imagePart, textPart]}],
+    const response = await genAI.models.generateContent({
+      model,
+      contents,
       config: {
         responseMimeType: "application/json",
-        responseSchema: checkDetailsSchema
-      },
+        responseSchema: checkDetailsSchema,
+        safetySettings: [
+          { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        ],
+      }
     });
-    console.log("Gemini response:", JSON.stringify(response, null, 2));
 
-    // The Gemini API can return the JSON in two different places.
-    // 1. As a parsed object in `functionCall.args`.
-    // 2. As a string in `text`.
     const part = response?.candidates?.[0]?.content?.parts?.[0];
     const finishReason = response?.candidates?.[0]?.finishReason;
-    let extractedData: Record<string, unknown> | null = null;
+    let extractedData: any = null;
 
-    // Handle cases where the API stops for safety or other reasons.
+    // Handle retry for "OTHER" finish reason
     if (finishReason && finishReason !== "STOP") {
-        console.error(`Gemini API call finished with reason: ${finishReason}. Full response:`, JSON.stringify(response, null, 2));
-        throw new functions.https.HttpsError(
-            "internal",
-            `The AI model stopped generating content for the following reason: ${finishReason}. This may be due to safety settings.`,
-            `The Gemini response was: ${JSON.stringify(response, null, 2)}`
-        );
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        console.warn(`Retry attempt ${attempt} due to finishReason: ${finishReason}`);
+        const retryResponse = await genAI.models.generateContent({
+          model,
+          contents,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: checkDetailsSchema,
+          },
+        });
+        const retryPart = retryResponse?.candidates?.[0]?.content?.parts?.[0];
+        const retryFinishReason = retryResponse?.candidates?.[0]?.finishReason;
+
+        if (retryFinishReason === "STOP") {
+          if (retryPart?.functionCall?.args) extractedData = retryPart.functionCall.args;
+          else if (retryPart?.text)
+            try {
+              extractedData = JSON.parse(retryPart.text);
+            } catch (e) {
+              console.error("Failed to parse JSON from Gemini retry:", retryPart.text, e);
+            }
+          break;
+        }
+
+        await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
+      }
     }
 
-    if (part?.functionCall?.args) {
+    // Parse main response if not already handled
+    if (!extractedData) {
+      if (part?.functionCall?.args) {
         extractedData = part.functionCall.args;
-    } else if (part?.text) {
-      try {
-        extractedData = JSON.parse(part.text);
-      } catch (e) {
-        console.error("Failed to parse JSON from Gemini 'text' response:", part.text, e);
+      } else if (part?.text) {
+        try {
+          extractedData = JSON.parse(part.text);
+        } catch (e) {
+          console.error("Failed to parse JSON from Gemini text response:", part.text, e);
+        }
       }
     }
 
     if (!extractedData || Object.keys(extractedData).length === 0) {
-      console.error("Gemini response did not contain valid structured data.", JSON.stringify(response, null, 2));
+      console.error("Gemini response missing structured data:", JSON.stringify(response, null, 2));
       throw new functions.https.HttpsError(
-          "internal",
-          "The AI model returned an empty or invalid structured response. Please try again.",
-          `The Gemini response was: ${JSON.stringify(response, null, 2)}`
+        "internal",
+        "Gemini returned an empty or invalid structured response."
       );
     }
+
     return extractedData;
-  } catch (error) {
-    console.error("Error calling Gemini API:", error);
+  } catch (error: any) {
+    console.error("Gemini extraction failed:", error?.message, error?.stack);
     throw new functions.https.HttpsError(
-        "internal",
-        "Failed to extract information from the check image.",
+      "internal",
+      `Failed to extract information from the check image: ${error?.message}`
     );
   }
 });
