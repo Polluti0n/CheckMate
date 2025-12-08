@@ -1,6 +1,9 @@
 import firebase from 'firebase/compat/app';
 import { storage, db } from './firebase';
-import { Check, Flag, Comment, AuditLog, Batch, CheckStatus, UserProfile, Notification, CurrentUser } from '../types';
+import { Check, Flag, Comment, AuditLog, Batch, CheckStatus, UserProfile, Notification, CurrentUser, UserPreferences } from '../types';
+import { DEFAULT_PREFERENCES } from '../constants';
+import merge from 'lodash.merge';
+import isEqual from 'lodash.isequal';
 
 const CHECKS_COLLECTION = 'checks';
 const FLAGS_COLLECTION = 'flags';
@@ -9,6 +12,66 @@ const USERS_COLLECTION = 'users';
 const NOTIFICATIONS_COLLECTION = 'notifications';
 
 const TimestampCompat = firebase.firestore.Timestamp;
+
+// --- Data Migration Helper ---
+const migrateUserPreferences = (userData: any): UserPreferences => {
+    let migratedData = { ...userData };
+
+    // 1. Migrate top-level profile fields
+    if (!migratedData.profile || typeof migratedData.profile !== 'object') {
+        migratedData.profile = {
+            uid: migratedData.uid || '',
+            email: migratedData.email || '',
+            firstName: migratedData.firstName || '',
+            lastName: migratedData.lastName || '',
+            phone: migratedData.phone || '',
+            branch: migratedData.branch || '',
+            profilePictureUrl: migratedData.profilePictureUrl || '',
+        }
+        // Clean up old top-level fields
+        // This is not deleting the top level fields for some reason
+        delete migratedData.email;
+        delete migratedData.firstName;
+        delete migratedData.lastName;
+        delete migratedData.phone;
+        delete migratedData.branch;
+        delete migratedData.profilePictureUrl;
+    }
+    // If uid exists at the top level and profile.uid is empty, move it
+    if (migratedData.uid && migratedData.profile && migratedData.profile.uid === "")     {
+        migratedData.profile.uid = migratedData.uid;
+    }
+     
+
+    // 2. Migrate legacy checkViewOptions structure
+    if (migratedData.overlays || migratedData.footer) {
+        const newCheckViewOptions = { ...migratedData.checkViewOptions };
+        
+        if (migratedData.overlays) {
+            newCheckViewOptions.overlays = {
+                overlayTopRight: migratedData.overlays.overlayTopRight,
+                overlayBottomLeft: migratedData.overlays.overlayBottomLeft,
+            };
+            // Copy over other properties that were incorrectly placed
+            newCheckViewOptions.showAmountInWords = migratedData.overlays.showAmountInWords;
+            newCheckViewOptions.showMemo = migratedData.overlays.showMemo;
+            newCheckViewOptions.showPayorAddress = migratedData.overlays.showPayorAddress;
+            newCheckViewOptions.showSignature = migratedData.overlays.showSignature;
+            delete migratedData.overlays;
+        }
+
+        if (migratedData.footer) {
+            newCheckViewOptions.footer = {
+                footerLeft: migratedData.footer.footerLeft,
+            };
+            delete migratedData.footer;
+        }
+        migratedData.checkViewOptions = newCheckViewOptions;
+    }
+
+    return migratedData as UserPreferences;
+}
+
 
 // --- Helper to convert Firestore Timestamps to ISO strings recursively ---
 const processDocTimestamps = (data: any) => {
@@ -68,37 +131,54 @@ export const onBatchesSnapshot = (callback: (batches: Batch[]) => void) => {
 // --- User Profile ---
 export const onUsersSnapshot = (callback: (users: UserProfile[]) => void) => {
     return db.collection(USERS_COLLECTION).onSnapshot((snapshot) => {
-        const users = snapshot.docs.map((doc) => doc.data() as UserProfile);
+        const users = snapshot.docs.map((doc) => {
+            // Leverage the existing migration logic to handle both legacy and new user profile structures
+            const migratedData = migrateUserPreferences(doc.data());
+            // The UserProfile object is nested under the 'profile' key
+            return migratedData.profile;
+        }).filter((profile): profile is UserProfile => !!profile); // Ensure no null/undefined profiles are passed
         callback(users);
     });
 };
 
-export const getOrCreateUserProfile = async (uid: string, email: string) => {
-    const userRef = db.collection(USERS_COLLECTION).doc(uid);
+export const getOrCreateUserProfile = async (user: firebase.User): Promise<UserPreferences> => {
+    const userRef = db.collection(USERS_COLLECTION).doc(user.uid);
     const doc = await userRef.get();
+
     if (!doc.exists) {
-        // Create a user document so they can be notified.
-        // User can fill out profile details in preferences later.
-        return userRef.set({
-            uid,
-            email,
-            firstName: '',
-            lastName: '',
-            phone: '',
-            profilePictureUrl: '',
+        const newUserPrefs: UserPreferences = merge({}, DEFAULT_PREFERENCES, {
+            profile: {
+                uid: user.uid,
+                email: user.email || '',
+                firstName: user.displayName?.split(' ')[0] || '',
+                lastName: user.displayName?.split(' ').slice(1).join(' ') || '',
+            }
         });
+        await userRef.set(newUserPrefs);
+        return newUserPrefs;
+    } else {
+        const firestoreData = doc.data();
+        const migratedData = migrateUserPreferences(firestoreData);
+        const mergedPrefs = merge({}, DEFAULT_PREFERENCES, migratedData);
+        
+        if (!isEqual(mergedPrefs, firestoreData)) {
+            await userRef.set(mergedPrefs, { merge: true });
+        }
+        
+        return mergedPrefs;
     }
 };
 
-export const updateUserProfile = (uid: string, updates: Partial<UserProfile>) => {
+export const updateUserProfile = (uid: string, updates: Partial<UserPreferences>) => {
     return db.collection(USERS_COLLECTION).doc(uid).update(updates);
 };
 
-export const onUserProfileSnapshot = (uid: string, callback: (profile: UserProfile | null) => void) => {
+export const onUserProfileSnapshot = (uid: string, callback: (prefs: UserPreferences | null) => void) => {
     const userRef = db.collection(USERS_COLLECTION).doc(uid);
     return userRef.onSnapshot((doc) => {
         if (doc.exists) {
-            callback(doc.data() as UserProfile);
+            const migratedData = migrateUserPreferences(doc.data());
+            callback(migratedData);
         } else {
             callback(null);
         }
@@ -150,11 +230,11 @@ export const deleteReadNotifications = async (userId: string) => {
 
 // --- Check Operations ---
 
-export const addCheck = (checkData: Omit<Check, 'id' | 'createdAt' | 'comments' | 'auditTrail' | 'flags' | 'statusUpdatedAt' | 'batchId'>, currentUser: CurrentUser) => {
+export const addCheck = (checkData: Omit<Check, 'id' | 'createdAt' | 'comments' | 'auditTrail' | 'flags' | 'statusUpdatedAt' | 'batchId'>, currentUser: UserProfile) => {
   const newLog: AuditLog = {
     id: `log-${Date.now()}`,
     uid: currentUser.uid,
-    user: currentUser.name,
+    user: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
     field: 'Check Created',
     oldValue: 'N/A',
     newValue: `Amount: $${checkData.amount.toFixed(2)}`,
@@ -170,7 +250,7 @@ export const addCheck = (checkData: Omit<Check, 'id' | 'createdAt' | 'comments' 
   });
 };
 
-export const updateCheck = (checkId: string, updates: Record<string, any>, logDetails: Omit<AuditLog, 'id' | 'timestamp'>, currentUser: CurrentUser) => {
+export const updateCheck = (checkId: string, updates: Record<string, any>, logDetails: Omit<AuditLog, 'id' | 'timestamp'>, currentUser: UserProfile) => {
   const checkRef = db.collection(CHECKS_COLLECTION).doc(checkId);
   
   if (updates.status && (updates.status === CheckStatus.COMPLETE || updates.status === CheckStatus.ARCHIVED)) {
@@ -181,6 +261,8 @@ export const updateCheck = (checkId: string, updates: Record<string, any>, logDe
       ...logDetails,
       id: `log-${Date.now()}`,
       timestamp: new Date().toISOString(),
+      user: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
+      uid: currentUser.uid,
   };
 
   const updatePayload = {
@@ -215,7 +297,7 @@ export const deleteCheck = async (checkId: string, imageUrl?: string) => {
   return db.collection(CHECKS_COLLECTION).doc(checkId).delete();
 };
 
-export const bulkDeleteChecks = (checks: Check[], currentUser: CurrentUser) => {
+export const bulkDeleteChecks = (checks: Check[], currentUser: UserProfile) => {
     const batch = db.batch();
     const imageUrls: string[] = [];
 
@@ -226,11 +308,7 @@ export const bulkDeleteChecks = (checks: Check[], currentUser: CurrentUser) => {
             imageUrls.push(check.imageUrl);
         }
     });
-
-    // Delete all images from storage
     const imageDeletionPromises = imageUrls.map(url => deleteCheckImage(url));
-    
-    // We will wait for all image deletions to complete, but we won't block the firestore deletion
     Promise.all(imageDeletionPromises).catch(error => {
         console.error("One or more image deletions failed:", error);
     });
@@ -239,11 +317,11 @@ export const bulkDeleteChecks = (checks: Check[], currentUser: CurrentUser) => {
 };
 
 
-export const addComment = (checkId: string, commentText: string, currentUser: CurrentUser) => {
+export const addComment = (checkId: string, commentText: string, currentUser: UserProfile) => {
   const checkRef = db.collection(CHECKS_COLLECTION).doc(checkId);
   const newComment: Comment = {
       id: `com-${Date.now()}`,
-      author: currentUser.name,
+      author: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
       authorUid: currentUser.uid,
       text: commentText,
       timestamp: new Date().toISOString(),
@@ -252,7 +330,7 @@ export const addComment = (checkId: string, commentText: string, currentUser: Cu
   const newLog: AuditLog = {
       id: `log-comment-${Date.now()}`,
       uid: currentUser.uid,
-      user: currentUser.name,
+      user: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
       field: 'Comment',
       oldValue: '',
       newValue: commentText,
@@ -265,12 +343,12 @@ export const addComment = (checkId: string, commentText: string, currentUser: Cu
   });
 };
 
-export const toggleFlag = (checkId: string, flag: Flag, isAdding: boolean, currentUser: CurrentUser) => {
+export const toggleFlag = (checkId: string, flag: Flag, isAdding: boolean, currentUser: UserProfile) => {
   const checkRef = db.collection(CHECKS_COLLECTION).doc(checkId);
   const newLog: AuditLog = {
       id: `log-${Date.now()}`,
       uid: currentUser.uid,
-      user: currentUser.name,
+      user: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
       field: isAdding ? 'Flag Added' : 'Flag Removed',
       oldValue: isAdding ? 'N/A' : flag.name,
       newValue: isAdding ? flag.name : 'N/A',
@@ -283,7 +361,7 @@ export const toggleFlag = (checkId: string, flag: Flag, isAdding: boolean, curre
   });
 };
 
-export const bulkUpdateChecksStatus = (checks: Check[], newStatus: CheckStatus, currentUser: CurrentUser) => {
+export const bulkUpdateChecksStatus = (checks: Check[], newStatus: CheckStatus, currentUser: UserProfile) => {
     const batch = db.batch();
     checks.forEach(check => {
         if (check.status === newStatus) return; // No change needed
@@ -291,7 +369,7 @@ export const bulkUpdateChecksStatus = (checks: Check[], newStatus: CheckStatus, 
         const log: AuditLog = {
             id: `log-${Date.now()}-${check.id}`,
             uid: currentUser.uid,
-            user: currentUser.name,
+            user: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
             field: 'status',
             oldValue: check.status,
             newValue: newStatus,
@@ -311,7 +389,7 @@ export const bulkUpdateChecksStatus = (checks: Check[], newStatus: CheckStatus, 
 
 // --- Batch Operations ---
 
-export const processBatch = (checkIds: string[], trackingNumber: string, currentUser: CurrentUser) => {
+export const processBatch = (checkIds: string[], trackingNumber: string, currentUser: UserProfile) => {
   const batchOp = db.batch();
   const newBatchRef = db.collection(BATCHES_COLLECTION).doc();
   
@@ -320,7 +398,7 @@ export const processBatch = (checkIds: string[], trackingNumber: string, current
     trackingNumber,
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     processedByUid: currentUser.uid,
-    processedByName: currentUser.name,
+    processedByName: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
   });
 
   const batchId = newBatchRef.id;
@@ -329,7 +407,7 @@ export const processBatch = (checkIds: string[], trackingNumber: string, current
     const log: AuditLog = {
         id: `log-${Date.now()}-${checkId}`,
         uid: currentUser.uid,
-        user: currentUser.name,
+        user: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
         field: 'Batch Processed',
         oldValue: CheckStatus.QUEUED,
         newValue: CheckStatus.COMPLETE,

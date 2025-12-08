@@ -16,8 +16,10 @@ export enum CheckStatus {
     ARCHIVED = "Archived",
 }
 
+export type CardStyle = 'classic' | 'ledger' | 'modern' | 'check';
+
 export type CheckField = keyof Check | 'lastComment';
-export type CardLayoutZone = 'title' | 'topRight' | 'subtitle' | 'body1' | 'body2' | 'footerLeft' | 'footerRight';
+export type CardLayoutZone = 'title' | 'topRight' | 'subtitle' | 'body1' | 'body2' | 'footerLeft' | 'footerRight' | 'overlayTopRight' | 'overlayBottomLeft';
 
 
 export interface Flag {
@@ -118,6 +120,12 @@ export interface Theme {
         text: string; // Tailwind text color class e.g., 'text-red-800'
         accent: string; // Tailwind bg color for the accent swatch e.g., 'bg-red-500'
         glow?: string; // Tailwind ring and shadow classes for selection glow e.g., 'ring-sky-500 shadow-lg shadow-sky-500/40'
+        dark?: {
+            border: string;
+            bg: string;
+            text: string;
+            accent: string;
+        }
     };
 }
 
@@ -143,10 +151,26 @@ export interface NotificationSettings {
 export interface Notification {
     id: string;
     userId: string;
+    actorId?: string;
     message: string;
     link: string;
     read: boolean;
     timestamp: string;
+}
+
+export type AlertType = 'info' | 'error' | 'warning' | 'success';
+
+export interface NotificationData {
+    message: string;
+}
+  
+export interface ToastData {
+    id: string;
+    userProfile?: UserProfile;
+    notification: NotificationData;
+    handleToastClick: (e: React.MouseEvent<HTMLDivElement>) => void;
+    alertType?: AlertType;
+    iconSvg?: React.ReactNode;
 }
 
 export type CheckFontTheme = 'cursive' | 'block' | 'typed';
@@ -167,16 +191,17 @@ export interface CheckViewOptions {
 }
 
 export interface UserPreferences {
-  viewMode: 'card' | 'check';
+  cardStyle: CardStyle;
   profile: UserProfile;
   notifications: NotificationSettings;
   columnThemes: Record<CheckStatus, string>;
   columnDisplayOptions: Record<CheckStatus, { showCount: boolean; showTotal: boolean }>;
-  cardLayout: Partial<Record<CardLayoutZone, CheckField>>;
+  cardLayout: Partial<Record<CardLayoutZone, CheckField | 'flags' | 'category'>>;
   visibleArchiveColumns: CheckField[];
   archiveColumnWidths: Record<string, number>;
   archiveTheme: string;
   checkViewOptions: CheckViewOptions;
+  darkMode?: boolean;
 }
 
 export interface FlagColorVariant {

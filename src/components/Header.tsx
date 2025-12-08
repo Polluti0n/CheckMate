@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { PlusIcon, SearchIcon, AdjustmentsHorizontalIcon, UserCircleIcon, Cog6ToothIcon, Bars3Icon, CheckMateLogo, BellIcon } from './icons';
-import { CheckCategory, Notification, CurrentUser } from '../types';
+import { CheckCategory, Notification, UserProfile } from '../types';
 import { auth } from '../services/firebase';
 import * as firestoreService from '../services/firestoreService';
 import { useNavigate } from 'react-router-dom';
@@ -14,11 +14,10 @@ interface HeaderProps {
     activeCategory: CheckCategory | null;
     onCategoryFilterChange: (category: CheckCategory | null) => void;
     userEmail: string | null;
-    currentUser: CurrentUser | null;
+    currentUser: UserProfile | null;
     onOpenPreferences: () => void;
     notificationCount: number;
     notifications: Notification[];
-    profilePictureUrl: string;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -34,7 +33,6 @@ const Header: React.FC<HeaderProps> = ({
     onOpenPreferences,
     notificationCount,
     notifications,
-    profilePictureUrl
 }) => {
     const [isProfileMenuOpen, setProfileMenuOpen] = useState(false);
     const [isFilterMenuOpen, setFilterMenuOpen] = useState(false);
@@ -113,17 +111,17 @@ const Header: React.FC<HeaderProps> = ({
     }
 
     return (
-        <header className="bg-white shadow-sm sticky top-0 z-20">
+        <header className="bg-white dark:bg-gray-800 shadow-sm dark:shadow-lg sticky top-0 z-20">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-16">
                     {/* Left Side */}
                     <div className="flex items-center">
-                        <button onClick={onOpenMainMenu} className="p-2 -ml-2 mr-2 rounded-full text-slate-600 hover:bg-slate-100">
+                        <button onClick={onOpenMainMenu} className="p-2 -ml-2 mr-2 rounded-full text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700">
                            <Bars3Icon className="h-6 w-6" />
                         </button>
                         <div className="flex items-center">
                             <CheckMateLogo className="h-12 w-12" />
-                            <h1 className="text-2xl font-bold text-slate-800 ml-2 hidden sm:block">CheckMate</h1>
+                            <h1 className="text-2xl font-bold text-slate-800 dark:text-white ml-2 hidden sm:block">CheckMate</h1>
                         </div>
                     </div>
 
@@ -140,7 +138,7 @@ const Header: React.FC<HeaderProps> = ({
                                     ref={searchInputRef}
                                     id="search"
                                     name="search"
-                                    className="block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-md leading-5 bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-500 sm:text-sm"
+                                    className="block w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-gray-600 rounded-md leading-5 bg-slate-50 dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-500 sm:text-sm"
                                     placeholder="Search (Ctrl+K)"
                                     type="search"
                                     value={searchTerm}
@@ -151,17 +149,17 @@ const Header: React.FC<HeaderProps> = ({
                          <div ref={filterMenuRef} className="relative ml-2 hidden sm:block">
                             <button
                                 onClick={() => setFilterMenuOpen(prev => !prev)}
-                                className="p-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-600 rounded-md"
+                                className="p-2 bg-white dark:bg-gray-800 hover:bg-slate-100 dark:hover:bg-gray-700 border border-slate-300 dark:border-gray-600 text-slate-600 dark:text-gray-300 rounded-md"
                             >
                                 <AdjustmentsHorizontalIcon className="h-5 w-5" />
                             </button>
                             {isFilterMenuOpen && (
-                                <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none border border-slate-200">
+                                <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black dark:ring-white ring-opacity-5 focus:outline-none border border-slate-200 dark:border-gray-700">
                                     <div className="py-1">
-                                        <p className="px-4 py-2 text-xs text-gray-500 uppercase">Filter by Category</p>
-                                        <button onClick={() => onCategoryFilterChange(null)} className={`block w-full text-left px-4 py-2 text-sm ${!activeCategory ? 'bg-sky-50 text-sky-700 font-semibold' : 'text-gray-700 hover:bg-slate-50'}`}>All Categories</button>
+                                        <p className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 uppercase">Filter by Category</p>
+                                        <button onClick={() => onCategoryFilterChange(null)} className={`block w-full text-left px-4 py-2 text-sm ${!activeCategory ? 'bg-sky-50 dark:bg-sky-900 text-sky-700 dark:text-sky-300 font-semibold' : 'text-gray-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-700'}`}>All Categories</button>
                                         {Object.values(CheckCategory).map(cat => (
-                                             <button key={cat} onClick={() => onCategoryFilterChange(cat)} className={`block w-full text-left px-4 py-2 text-sm ${activeCategory === cat ? 'bg-sky-50 text-sky-700 font-semibold' : 'text-gray-700 hover:bg-slate-50'}`}>{cat}</button>
+                                             <button key={cat} onClick={() => onCategoryFilterChange(cat)} className={`block w-full text-left px-4 py-2 text-sm ${activeCategory === cat ? 'bg-sky-50 dark:bg-sky-900 text-sky-700 dark:text-sky-300 font-semibold' : 'text-gray-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-700'}`}>{cat}</button>
                                         ))}
                                     </div>
                                 </div>
@@ -190,7 +188,7 @@ const Header: React.FC<HeaderProps> = ({
                     
                         <div ref={notificationMenuRef} className="relative">
                             <div className="flex justify-center items-center flex-wrap">
-                            <button onClick={() => setNotificationMenuOpen(p => !p)} className="group h-8 rounded-md text-slate-500">
+                            <button onClick={() => setNotificationMenuOpen(p => !p)} className="group h-8 rounded-md text-slate-500 dark:text-gray-400">
                                 <BellIcon className="h-9 w-9 group-hover:fill-yellow-500 transition-colors duration-200" />
                             </button>
                             
@@ -208,20 +206,20 @@ const Header: React.FC<HeaderProps> = ({
                             
                             </div>
                             {isNotificationMenuOpen && (
-                                <div className="origin-top-right absolute right-0 mt-2 w-80 rounded-md shadow-xl bg-white ring-1 ring-black ring-opacity-5 focus:outline-none border border-slate-200 z-30">
+                                <div className="origin-top-right absolute right-0 mt-2 w-80 rounded-md shadow-xl bg-white dark:bg-gray-800 ring-1 ring-black dark:ring-white ring-opacity-5 focus:outline-none border border-slate-200 dark:border-gray-700 z-30">
                                     <div className="flex justify-between items-center px-4 py-2 border-b">
-                                        <p className="text-sm font-semibold text-slate-700">Notifications</p>
+                                        <p className="text-sm font-semibold text-slate-700 dark:text-white">Notifications</p>
                                         {notificationCount > 0 && (
-                                            <button onClick={handleMarkAllAsRead} className="text-xs text-sky-600 hover:underline">
+                                            <button onClick={handleMarkAllAsRead} className="text-xs text-sky-600 dark:text-sky-400 hover:underline">
                                                 Mark all as read
                                             </button>
                                         )}
                                     </div>
                                     <div className="py-1 max-h-80 overflow-y-auto">
                                         {notifications.length > 0 ? notifications.map(n => (
-                                            <button key={n.id} onClick={() => handleNotificationClick(n)} className={`w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-slate-50 ${!n.read ? 'font-semibold' : ''}`}>
+                                            <button key={n.id} onClick={() => handleNotificationClick(n)} className={`w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-700 ${!n.read ? 'font-semibold' : ''}`}>
                                                 <p>{n.message}</p>
-                                                <p className={`text-xs mt-1 ${!n.read ? 'text-sky-600' : 'text-slate-400'}`}>{new Date(n.timestamp).toLocaleString()}</p>
+                                                <p className={`text-xs mt-1 ${!n.read ? 'text-sky-600' : 'text-slate-400 dark:text-gray-500'}`}>{new Date(n.timestamp).toLocaleString()}</p>
                                             </button>
                                         )) : (
                                             <p className="px-4 py-3 text-sm text-center text-slate-500">No new notifications</p>
@@ -231,26 +229,26 @@ const Header: React.FC<HeaderProps> = ({
                             )}
                         </div>
                         <div ref={profileMenuRef} className="relative hidden sm:block">
-                             <button onClick={() => setProfileMenuOpen(prev => !prev)} className="h-9 w-9 bg-slate-100 text-slate-600 rounded-full hover:bg-slate-200 flex items-center justify-center overflow-hidden">
-                                {profilePictureUrl ? (
-                                    <img src={profilePictureUrl} alt="Profile" className="h-full w-full object-cover"/>
+                             <button onClick={() => setProfileMenuOpen(prev => !prev)} className="h-9 w-9 bg-slate-100 dark:bg-gray-700 text-slate-600 dark:text-gray-300 rounded-full hover:bg-slate-200 dark:hover:bg-gray-600 flex items-center justify-center overflow-hidden">
+                                {currentUser?.profilePictureUrl ? (
+                                    <img src={currentUser.profilePictureUrl} alt="Profile" className="h-full w-full object-cover"/>
                                 ) : (
                                     <UserCircleIcon className="h-7 w-7" />
                                 )}
                              </button>
                              {isProfileMenuOpen && (
-                                <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-xl py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none border border-slate-200 z-30">
-                                    <div className="px-4 py-2 text-sm text-gray-500">
+                                <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-xl py-1 bg-white dark:bg-gray-800 ring-1 ring-black dark:ring-white ring-opacity-5 focus:outline-none border border-slate-200 dark:border-gray-700 z-30">
+                                    <div className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
                                         <p>Signed in as</p>
-                                        <p className="font-medium text-gray-700 truncate" title={userEmail || ''}>{userEmail}</p>
+                                        <p className="font-medium text-gray-700 dark:text-gray-300 truncate" title={userEmail || ''}>{userEmail}</p>
                                     </div>
                                     <div className="border-t my-1"></div>
-                                    <button onClick={() => { onOpenPreferences(); setProfileMenuOpen(false); }} className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-slate-100">
+                                    <button onClick={() => { onOpenPreferences(); setProfileMenuOpen(false); }} className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700">
                                         <Cog6ToothIcon className="h-5 w-5" />
                                         <span>Preferences</span>
                                     </button>
                                     <div className="border-t my-1"></div>
-                                    <button onClick={(e) => {e.preventDefault(); handleLogout();}} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-slate-100">
+                                    <button onClick={(e) => {e.preventDefault(); handleLogout();}} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700">
                                         Log Out
                                     </button>
                                 </div>

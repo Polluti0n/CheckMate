@@ -1,15 +1,14 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Check, CheckStatus, CheckCategory, CurrentUser, UserPreferences } from "../types"; // Import UserPreferences
+import { Check, CheckStatus, CheckCategory, UserProfile } from "../types";
 import { XMarkIcon, ProcessingLoaderIcon } from "./icons";
 import * as ExcelJS from "exceljs";
 
 interface ProcessBatchModalProps {
   isOpen: boolean;
   checks: Check[];
-  currentUser?: CurrentUser | null;
+  currentUser?: UserProfile | null;
   onClose: () => void;
   onProcessBatch: (checkIds: string[], trackingNumber: string) => void;
-  preferences: UserPreferences; // Add preferences to props
 }
 
 const ProcessBatchModal: React.FC<ProcessBatchModalProps> = ({
@@ -18,7 +17,6 @@ const ProcessBatchModal: React.FC<ProcessBatchModalProps> = ({
   currentUser,
   onClose,
   onProcessBatch,
-  preferences, // Destructure preferences
 }) => {
   const [selectedChecks, setSelectedChecks] = useState<Record<string, boolean>>(
     {}
@@ -86,17 +84,17 @@ const ProcessBatchModal: React.FC<ProcessBatchModalProps> = ({
         await workbook.xlsx.load(arrayBuffer);
 
         // 2. Prepare user data from preferences and current user
-        const userFullName = `${preferences.profile.firstName || ''} ${preferences.profile.lastName || ''}`.trim() || currentUser?.name || 'N/A';
+        const userFullName = `${currentUser?.firstName || ''} ${currentUser?.lastName || ''}`.trim() || 'N/A';
         const userData = {
-            branchName: preferences.profile.branch || "N/A",
+            branchName: currentUser?.branch || "N/A",
             completedBy: userFullName,
-            contactPhone: preferences.profile.phone || "N/A",
+            contactPhone: currentUser?.phone || "N/A",
             contactEmail: currentUser?.email || "N/A",
             dateCompleted: new Date(),
             signature: userFullName
         };
-        const fInitial = preferences.profile.firstName ? preferences.profile.firstName[0] : '';
-        const lInitial = preferences.profile.lastName ? preferences.profile.lastName[0] : '';
+        const fInitial = currentUser?.firstName ? currentUser.firstName[0] : '';
+        const lInitial = currentUser?.lastName ? currentUser.lastName[0] : '';
         const initials = `${fInitial}${lInitial}`.toUpperCase() || 'N/A';
 
         const categoryToSheetMap: Partial<Record<CheckCategory, string>> = {
@@ -268,15 +266,15 @@ const ProcessBatchModal: React.FC<ProcessBatchModalProps> = ({
       aria-modal="true"
     >
       <div className="flex items-start justify-center min-h-screen p-4 text-center overflow-y-auto">
-        <div className="relative bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all my-8 sm:max-w-2xl sm:w-full">
+        <div className="relative bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all my-8 sm:max-w-2xl sm:w-full">
           <div className="p-6">
             <div className="flex justify-between items-start">
-              <h3 className="text-2xl font-bold text-slate-800">
+              <h3 className="text-2xl font-bold text-slate-800 dark:text-white">
                 Process Queued Checks
               </h3>
               <button
                 onClick={onClose}
-                className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                className="p-1 rounded-full text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700 transition-colors"
               >
                 <XMarkIcon className="h-6 w-6" />
               </button>
@@ -286,7 +284,7 @@ const ProcessBatchModal: React.FC<ProcessBatchModalProps> = ({
               <div className="mb-4">
                 <label
                   htmlFor="trackingNumber"
-                  className="block text-sm font-medium text-slate-600"
+                  className="block text-sm font-medium text-slate-600 dark:text-gray-300"
                 >
                   Package Tracking Number
                 </label>
@@ -296,55 +294,55 @@ const ProcessBatchModal: React.FC<ProcessBatchModalProps> = ({
                   id="trackingNumber"
                   value={trackingNumber}
                   onChange={(e) => setTrackingNumber(e.target.value)}
-                  className="mt-1 block w-full bg-slate-50 border border-slate-300 text-slate-900 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-500 sm:text-sm"
+                  className="mt-1 block w-full bg-slate-50 dark:bg-gray-700 border border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-500 sm:text-sm"
                   placeholder="Enter tracking number..."
                   required
                 />
               </div>
 
-              <div className="flex justify-between items-center mb-2 p-2 bg-slate-100 rounded-t-md border-b">
+              <div className="flex justify-between items-center mb-2 p-2 bg-slate-100 dark:bg-gray-700 rounded-t-md border-b dark:border-gray-600">
                 <div className="flex items-center">
                   <input
                     type="checkbox"
                     checked={allSelected}
                     onChange={handleSelectAll}
-                    className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500"
+                    className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-sky-600 focus:ring-sky-500"
                   />
                   <label
                     htmlFor="select-all"
-                    className="ml-3 text-sm font-medium text-slate-700"
+                    className="ml-3 text-sm font-medium text-slate-700 dark:text-gray-300"
                   >
                     Select All
                   </label>
                 </div>
-                <span className="text-sm font-medium text-slate-600">
+                <span className="text-sm font-medium text-slate-600 dark:text-gray-300">
                   {selectedCount} / {checksToBatch.length} selected
                 </span>
               </div>
-              <div className="space-y-2 max-h-[40vh] overflow-y-auto p-2 bg-slate-50 rounded-b-md">
+              <div className="space-y-2 max-h-[40vh] overflow-y-auto p-2 bg-slate-50 dark:bg-gray-800 rounded-b-md">
                 {checksToBatch.length > 0 ? (
                   <ul className="space-y-1">
                     {checksToBatch.map((check) => (
                       <li
                         key={check.id}
-                        className="flex items-center p-2 bg-white rounded-md border"
+                        className="flex items-center p-2 bg-white dark:bg-gray-700 rounded-md border dark:border-gray-600"
                       >
                         <input
                           type="checkbox"
                           checked={!!selectedChecks[check.id]}
                           onChange={() => handleToggleCheck(check.id)}
-                          className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500"
+                          className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-sky-600 focus:ring-sky-500"
                         />
                         <div className="ml-3 flex-grow flex justify-between">
                           <div>
-                            <span className="text-sm text-slate-800 font-medium">
+                            <span className="text-sm text-slate-800 dark:text-white font-medium">
                               {check.payor} , #{check.checkNumber}
                             </span>
-                            <p className="text-xs text-slate-500">
+                            <p className="text-xs text-slate-500 dark:text-gray-400">
                               {check.category}
                             </p>
                           </div>
-                          <span className="text-sm font-semibold text-slate-800">
+                          <span className="text-sm font-semibold text-slate-800 dark:text-white">
                             ${check.amount.toFixed(2)}
                           </span>
                         </div>
@@ -352,17 +350,17 @@ const ProcessBatchModal: React.FC<ProcessBatchModalProps> = ({
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-slate-500 text-center py-8">
+                  <p className="text-slate-500 dark:text-gray-400 text-center py-8">
                     No checks are currently in the queue.
                   </p>
                 )}
               </div>
             </div>
             {error && (
-              <p className="mt-2 text-sm text-red-600 text-center">{error}</p>
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400 text-center">{error}</p>
             )}
 
-            <div className="mt-6 border-t pt-4 flex justify-end">
+            <div className="mt-6 border-t dark:border-gray-700 pt-4 flex justify-end">
               <button
                 onClick={handleProcessBatch}
                 className="w-full sm:w-auto px-6 py-2 text-base font-medium text-white bg-sky-600 rounded-md hover:bg-sky-700 disabled:bg-sky-300 disabled:cursor-not-allowed flex items-center justify-center"

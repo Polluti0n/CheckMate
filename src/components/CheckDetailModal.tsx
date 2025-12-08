@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, ChangeEvent } from 'react';
 import { useSwipeable } from 'react-swipeable';
-import { Check, Comment, AuditLog, Flag, CheckStatus, UserProfile, CurrentUser, CheckCategory, CheckField } from '../types';
-import { XMarkIcon, FlagIcon, PencilIcon, TrashIcon, SendIcon, UserCircleIcon, CalendarDaysIcon, BuildingOfficeIcon, DocumentTextIcon, BanknotesIcon, HashtagIcon, LockClosedIcon, BankBuildingIcon, MapLocationIcon, ImageIcon, ExclamationTriangleIcon, ArrowDownTrayIcon, ClipboardDocumentIcon, ChevronLeftIcon, ChevronRightIcon, SignatureIcon, UsDollarIcon, CategoryIcon } from './icons'; // Added Chevron icons
+import { Check, Comment, AuditLog, Flag, CheckStatus, UserProfile, CheckCategory, CheckField, UserPreferences, CurrentUser } from '../types';
+import { XMarkIcon, FlagIcon, PencilIcon, TrashIcon, SendIcon, UserCircleIcon, CalendarDaysIcon, BuildingOfficeIcon, DocumentTextIcon, BanknotesIcon, HashtagIcon, LockClosedIcon, BankBuildingIcon, MapLocationIcon, ImageIcon, ExclamationTriangleIcon, ArrowDownTrayIcon, ClipboardDocumentIcon, ChevronLeftIcon, ChevronUpDownIcon, ChevronRightIcon, SignatureIcon, UsDollarIcon, CategoryIcon } from './icons'; // Added Chevron icons
 import { stringify } from 'querystring';
 import { flagColorVariant, CHECK_TYPE_COLORS } from '@/constants';
 import { formConfig } from '@/formConfig';
@@ -19,19 +19,20 @@ interface CheckDetailModalProps {
     currentUser: CurrentUser | null;
     allUsers: UserProfile[];
     onNavigateToBatch: (batchId: string) => void;
+    preferences: UserPreferences;
 }
 
-const statusColors: { [key in CheckStatus]: string } = {
-    [CheckStatus.RECEIVED]: 'bg-yellow-100 text-yellow-800 border-yellow-500',
-    [CheckStatus.CONFIRMING_DETAILS]: 'bg-orange-100 text-orange-800 border-orange-500',
-    [CheckStatus.QUEUED]: 'bg-sky-100 text-sky-800 border-sky-500',
-    [CheckStatus.COMPLETE]: 'bg-green-100 text-green-800 border-green-500',
-    [CheckStatus.ARCHIVED]: 'bg-slate-100 text-slate-800 border-slate-500',
+const statusColors: { [key in CheckStatus]: { border: string, bg: string, text: string, dark: { border: string, bg: string, text: string } } } = {
+    [CheckStatus.RECEIVED]: { border: 'border-yellow-500', bg: 'bg-yellow-100', text: 'text-yellow-800', dark: { border: 'border-yellow-700', bg: 'bg-yellow-900', text: 'text-yellow-300' } },
+    [CheckStatus.CONFIRMING_DETAILS]: { border: 'border-orange-500', bg: 'bg-orange-100', text: 'text-orange-800', dark: { border: 'border-orange-700', bg: 'bg-orange-900', text: 'text-orange-300' } },
+    [CheckStatus.QUEUED]: { border: 'border-sky-500', bg: 'bg-sky-100', text: 'text-sky-800', dark: { border: 'border-sky-700', bg: 'bg-sky-900', text: 'text-sky-300' } },
+    [CheckStatus.COMPLETE]: { border: 'border-green-500', bg: 'bg-green-100', text: 'text-green-800', dark: { border: 'border-green-700', bg: 'bg-green-900', text: 'text-green-300' } },
+    [CheckStatus.ARCHIVED]: { border: 'border-slate-500', bg: 'bg-slate-100', text: 'text-slate-800', dark: { border: 'border-slate-600', bg: 'bg-slate-800', text: 'text-slate-200' } },
 };
 
 
 
-const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClose, onUpdateCheck, onAddComment, onToggleFlag, onOpenFlagManager, onDeleteCheck, currentUser, allUsers, onNavigateToBatch }) => {
+const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClose, onUpdateCheck, onAddComment, onToggleFlag, onOpenFlagManager, onDeleteCheck, currentUser, allUsers, onNavigateToBatch, preferences }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editableCheck, setEditableCheck] = useState<Check | null>(check);
     const [editableAddress, setEditableAddress] = useState('');
@@ -39,12 +40,15 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
     const [isFlagDropdownOpen, setIsFlagDropdownOpen] = useState(false);
     const [expandedView, setExpandedView] = useState<'NONE' | 'COMMENTS' | 'AUDIT'>('NONE');
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+    const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     
     const tabs: ('payment' | 'accounting' | 'banking' | 'image')[] = useMemo(() => ['payment', 'accounting', 'banking', 'image'], []);
     const [activeTabIndex, setActiveTabIndex] = useState(0);
     const activeTab = tabs[activeTabIndex];
     const [imageError, setImageError] = useState(false);
+    const statusDropdownRef = useRef<HTMLDivElement>(null);
+    const [editableAmount, setEditableAmount] = useState<string>('');
 
     const flagDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -53,11 +57,13 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
 
     const userProfilesMap = useMemo(() => new Map(allUsers.map(user => [user.uid, user])), [allUsers]);
     const formatAsCurrancy = (value: number) => value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-
+    const darkMode = preferences.darkMode;
+    const statusColor = darkMode && editableCheck ? statusColors[editableCheck.status].dark : editableCheck ? statusColors[editableCheck.status] : undefined;
 
     useEffect(() => {
         setEditableCheck(check);
         if (check?.payorAddress) {
+            setEditableAmount(check.amount.toFixed(2));
             const { street, city, state, zip } = check.payorAddress;
             setEditableAddress([street, city, `${state || ''} ${zip || ''}`.trim()].filter(Boolean).join(', '));
         }
@@ -90,13 +96,16 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
             if (flagDropdownRef.current && !flagDropdownRef.current.contains(event.target as Node)) {
                 setIsFlagDropdownOpen(false);
             }
+            if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target as Node)) {
+                setIsStatusDropdownOpen(false);
+            }
         };
 
-        if (isFlagDropdownOpen) {
+        if (isFlagDropdownOpen || isStatusDropdownOpen) {
             document.addEventListener('mousedown', handleClickOutside);
         }
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [isFlagDropdownOpen]);
+    }, [isFlagDropdownOpen, isStatusDropdownOpen]);
 
     useEffect(() => {
         if (toast) {
@@ -191,14 +200,24 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
         if (editableCheck && currentUser) {
             const changes = Object.keys(editableCheck).filter(key => editableCheck[key as keyof Check] !== check[key as keyof Check]);
             if (changes.length > 0) {
+                //Create a JSON object of all changes and strigify it so we can list multiple changes in a single log
+                const oldValues: { [key: string]: any } = {};
+                const newValues: { [key: string]: any } = {};
+
+                changes.forEach(key => {
+                    oldValues[key] = check[key as keyof Check];
+                    newValues[key] = editableCheck[key as keyof Check];
+                });
+
                  const log = {
                     user: currentUser.name,
                     uid: currentUser.uid,
-                    field: changes.join(', '),
-                    oldValue: changes.map(key => check[key as keyof Check]).join(', '),
-                    newValue: changes.map(key => editableCheck[key as keyof Check]).join(', '),
+                    field: 'Check updated',
+                    oldValue: JSON.stringify(oldValues),
+                    newValue: JSON.stringify(newValues),
                  };
                 onUpdateCheck(editableCheck, log);
+            } else if (isEditing) {
             }
         }
         setIsEditing(false);
@@ -212,7 +231,6 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
         }
     };
     
-    
     const checkFlags = flags.filter(f => check.flags.includes(f.id));
     const availableFlags = flags.filter(f => !check.flags.includes(f.id));
 
@@ -223,7 +241,7 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
                 onClick={() => handleTabChange(tabIndex)}
                 className={`flex items-center group justify-center gap-2 whitespace-nowrap py-3 px-4 font-medium text-center tab-background text-sm w-full transition-all duration-200 ${
                     activeTabIndex === tabIndex 
-                        ? `selected bg-white` : 'hover:text-sky-600'}`}>
+                        ? `selected bg-white dark:bg-gray-700` : 'hover:text-sky-600 dark:hover:text-sky-400'}`}>
                 {children}
             </button>
         )};
@@ -286,15 +304,15 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
 
     const renderDetailField = (label: string, value: string | number | undefined | null, icon: React.ReactNode, name?: keyof Check, isLink: boolean = false, onClick?: () => void) => (
         <div>
-            <label className="text-xs font-medium text-slate-500 flex items-center gap-2">{icon}{label}</label>
+            <label className="text-xs font-medium text-slate-500 dark:text-gray-400 flex items-center gap-2">{icon}{label}</label>
             {isEditing && name ? (
                 <input
                     name={name} value={String(value || '')} onChange={handleInputChange}
                     autoComplete={getAutocompleteValue(name)}
-                    className="w-full p-2 bg-sky-50 border border-sky-400 rounded-md shadow-sm text-sm" />
+                    className="w-full p-2 bg-sky-50 dark:bg-gray-800 border border-sky-400 dark:border-sky-700 rounded-md shadow-sm text-sm text-slate-700 dark:text-gray-300" />
             ) : isLink && value ? (
-                <button onClick={onClick} className="text-sm font-semibold text-sky-600 hover:underline mt-1">{value}</button>
-            ) : (<p className="text-sm text-slate-700 p-2 bg-slate-50 rounded-md border border-slate-200">{value || 'N/A'}</p>)}
+                <button onClick={onClick} className="text-sm font-semibold text-sky-600 dark:text-sky-400 hover:underline mt-1">{value}</button>
+            ) : (<p className="text-sm text-slate-700 dark:text-gray-300 p-2 bg-slate-50 dark:bg-gray-800 rounded-md border border-slate-200 dark:border-gray-700">{value || 'N/A'}</p>)}
         </div>
     );
 
@@ -304,53 +322,45 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
                 return (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label className="text-xs font-medium text-slate-500 flex items-center gap-2"><CalendarDaysIcon className="h-4 w-4"/>Date Received</label>
-                            {isEditing ? <input name="date" type="date" value={new Date(editableCheck.date).toISOString().split('T')[0]} onChange={handleInputChange} className="w-full p-2 bg-sky-50 border border-sky-400 rounded-md shadow-sm text-sm" /> : <p className="text-sm text-slate-700 p-2 bg-slate-50 rounded-md border border-slate-200">{new Date(editableCheck.date).toLocaleDateString()}</p>}
+                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400 flex items-center gap-2"><CalendarDaysIcon className="h-4 w-4"/>Date Received</label>
+                            {isEditing ? <input name="date" type="date" value={new Date(editableCheck.date).toISOString().split('T')[0]} onChange={handleInputChange} className="w-full p-2 bg-sky-50 dark:bg-gray-800 border border-sky-400 dark:border-sky-700 rounded-md shadow-sm text-sm text-slate-700 dark:text-gray-300" /> : <p className="text-sm text-slate-700 dark:text-gray-300 p-2 bg-slate-50 dark:bg-gray-800 rounded-md border border-slate-200 dark:border-gray-700">{new Date(editableCheck.date).toLocaleDateString()}</p>}
                         </div>
                         <div>
-                            <label className="text-xs font-medium text-slate-500 flex items-center gap-2"><BuildingOfficeIcon className="h-4 w-4"/>Payee</label>
-                            {isEditing ? <input name="payee" value={editableCheck.payee} onChange={handleInputChange} className="w-full p-2 bg-sky-50 border border-sky-400 rounded-md shadow-sm text-sm" /> : <p className="text-sm text-slate-700 p-2 bg-slate-50 rounded-md border border-slate-200">{editableCheck.payee}</p>}
+                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400 flex items-center gap-2"><BuildingOfficeIcon className="h-4 w-4"/>Payee</label>
+                            {isEditing ? <input name="payee" value={editableCheck.payee} onChange={handleInputChange} className="w-full p-2 bg-sky-50 dark:bg-gray-800 border border-sky-400 dark:border-sky-700 rounded-md shadow-sm text-sm text-slate-700 dark:text-gray-300" /> : <p className="text-sm text-slate-700 dark:text-gray-300 p-2 bg-slate-50 dark:bg-gray-800 rounded-md border border-slate-200 dark:border-gray-700">{editableCheck.payee}</p>}
                         </div>
                         <div className="sm:col-span-2">
-                            <label className="text-xs font-medium text-slate-500 flex items-center gap-2"><MapLocationIcon className="h-4 w-4"/>Payor Address</label>
+                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400 flex items-center gap-2"><MapLocationIcon className="h-4 w-4"/>Payor Address</label>
                             {isEditing ? 
-                                <input name="payorAddress" value={editableAddress} onChange={handleAddressChange} placeholder="e.g. 123 Main St, Anytown, ST 12345" className="w-full p-2 bg-sky-50 border border-sky-400 rounded-md shadow-sm text-sm" />
+                                <input name="payorAddress" value={editableAddress} onChange={handleAddressChange} placeholder="e.g. 123 Main St, Anytown, ST 12345" className="w-full p-2 bg-sky-50 dark:bg-gray-800 border border-sky-400 dark:border-sky-700 rounded-md shadow-sm text-sm text-slate-700 dark:text-gray-300" />
                              :
                                 <> 
-                                    <p className='text-sm text-slate-700 p-2 bg-slate-50 rounded-md border border-slate-200'>{editableAddress || 'N/A'}</p>
+                                    <p className='text-sm text-slate-700 dark:text-gray-300 p-2 bg-slate-50 dark:bg-gray-800 rounded-md border border-slate-200 dark:border-gray-700'>{editableAddress || 'N/A'}</p>
                                 </>}
                         </div>
                         <div className="sm:col-span-2">
-                            <label className="text-xs font-medium text-slate-500 flex items-center gap-2"><DocumentTextIcon className="h-4 w-4"/>Memo</label>
-                            {isEditing ? <textarea name="memo" value={editableCheck.memo || ''} onChange={handleInputChange} rows={3} className="w-full p-2 bg-sky-50 border border-sky-400 rounded-md shadow-sm text-sm h-[5rem]" /> : <p className="text-sm text-slate-700 p-2 bg-slate-50 rounded-md border border-slate-200 h-[5rem]">{editableCheck.memo || 'N/A'}</p>}
+                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400 flex items-center gap-2"><DocumentTextIcon className="h-4 w-4"/>Memo</label>
+                            {isEditing ? <textarea name="memo" value={editableCheck.memo || ''} onChange={handleInputChange} rows={3} className="w-full p-2 bg-sky-50 dark:bg-gray-800 border border-sky-400 dark:border-sky-700 rounded-md shadow-sm text-sm text-slate-700 dark:text-gray-300 h-[5rem]" /> : <p className="text-sm text-slate-700 dark:text-gray-300 p-2 bg-slate-50 dark:bg-gray-800 rounded-md border border-slate-200 dark:border-gray-700 h-[5rem]">{editableCheck.memo || 'N/A'}</p>}
                         </div>
                     </div>
                 );
             case 'accounting':
                 return (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {isEditing && (
-                            <div>
-                                <label className="text-xs font-medium text-slate-500 flex items-center gap-2"><FlagIcon className="h-4 w-4" />Status</label>
-                                <select aria-label="Status" name="status" value={editableCheck.status} onChange={handleInputChange} className="w-full p-2 bg-sky-50 border border-sky-400 rounded-md shadow-sm text-sm">
-                                {Object.values(CheckStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                            </div>
-                        )}
                         <div>
-                            <label className="text-xs font-medium text-slate-500 flex items-center gap-2"><CategoryIcon className="h-4 w-4"/>Category</label>
+                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400 flex items-center gap-2"><CategoryIcon className="h-4 w-4"/>Category</label>
                             {isEditing ? (
-                                <select name="category" value={editableCheck.category} onChange={handleCategoryChange} className="w-full p-2 bg-sky-50 border border-sky-400 rounded-md shadow-sm text-sm">
+                                <select name="category" value={editableCheck.category} onChange={handleCategoryChange} className="w-full p-2 bg-sky-50 dark:bg-gray-800 border border-sky-400 dark:border-sky-700 rounded-md shadow-sm text-sm text-slate-700 dark:text-gray-300">
                                     {Object.values(CheckCategory).map(c => (
                                         <option key={c} value={c}>{c}</option>
                                     ))}
                                 </select>
                             ) : (
-                                <p className="text-sm text-slate-700 p-2 bg-slate-50 rounded-md border border-slate-200">{editableCheck.category}</p>
+                                <p className="text-sm text-slate-700 dark:text-gray-300 p-2 bg-slate-50 dark:bg-gray-800 rounded-md border border-slate-200 dark:border-gray-700">{editableCheck.category}</p>
                             )}
                         </div>
                         {editableCheck.batchId && renderDetailField("Batch", editableCheck.batchId, <HashtagIcon className="h-4 w-4" />, undefined, true, () => { if (editableCheck.batchId) onNavigateToBatch(editableCheck.batchId); })}
-                        {editableCheck.trackingNumber && renderDetailField("Tracking #", editableCheck.trackingNumber, <HashtagIcon className="h-4 w-4" />)}
+                        {editableCheck.trackingNumber && renderDetailField("Tracking #", editableCheck.trackingNumber, <HashtagIcon className="h-4 w-4" />, 'trackingNumber')}
                         
                         {/* Category Specific Fields */}
                         {editableCheck.category === CheckCategory.HOMEOWNER_LOCKBOX && renderDetailField("Client Acct #", editableCheck.clientAccountNumber, <HashtagIcon className="h-4 w-4" />, 'clientAccountNumber')}
@@ -368,28 +378,28 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
                 return (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                         <div>
-                            <label className="text-xs font-medium text-slate-500 flex items-center gap-2"><BankBuildingIcon className="h-4 w-4"/>Bank Name</label>
-                            {isEditing ? <input name="bankName" value={editableCheck.bankName || ''} onChange={handleInputChange} className="w-full p-2 bg-sky-50 border border-sky-400 rounded-md shadow-sm text-sm" /> : <p className="text-sm text-slate-700 p-2 bg-slate-50 rounded-md border border-slate-200">{editableCheck.bankName || 'N/A'}</p>}
+                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400 flex items-center gap-2"><BankBuildingIcon className="h-4 w-4"/>Bank Name</label>
+                            {isEditing ? <input name="bankName" value={editableCheck.bankName || ''} onChange={handleInputChange} className="w-full p-2 bg-sky-50 dark:bg-gray-800 border border-sky-400 dark:border-sky-700 rounded-md shadow-sm text-sm text-slate-700 dark:text-gray-300" /> : <p className="text-sm text-slate-700 dark:text-gray-300 p-2 bg-slate-50 dark:bg-gray-800 rounded-md border border-slate-200 dark:border-gray-700">{editableCheck.bankName || 'N/A'}</p>}
                         </div>
                         <div>
-                            <label className="text-xs font-medium text-slate-500 flex items-center gap-2"><SignatureIcon className="h-4 w-4"/>Is Signed</label>
-                            {isEditing ? <select id="signature" name="signature" value={String(editableCheck.signature)} onChange={handleInputChange} className="w-full p-2 bg-sky-50 border border-sky-400 rounded-md shadow-sm text-sm">
+                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400 flex items-center gap-2"><SignatureIcon className="h-4 w-4"/>Is Signed</label>
+                            {isEditing ? <select id="signature" name="signature" value={String(editableCheck.signature)} onChange={handleInputChange} className="w-full p-2 bg-sky-50 dark:bg-gray-800 border border-sky-400 dark:border-sky-700 rounded-md shadow-sm text-sm text-slate-700 dark:text-gray-300">
                                     <option value="true">Yes</option>
                                     <option value="false">No</option>
                                 </select> : 
-                                <p className="text-sm text-slate-700 p-2 bg-slate-50 rounded-md border border-slate-200">
+                                <p className="text-sm text-slate-700 dark:text-gray-300 p-2 bg-slate-50 dark:bg-gray-800 rounded-md border border-slate-200 dark:border-gray-700">
                                     {editableCheck.signature === true ? 'Yes' : 
                                      editableCheck.signature === false ? 'No' : 'N/A'}
                                 </p>
                             }
                         </div>
                         <div>
-                            <label className="text-xs font-medium text-slate-500 flex items-center gap-2"><LockClosedIcon className="h-4 w-4"/>Routing Number</label>
-                            {isEditing ? <input name="routingNumber" value={editableCheck.routingNumber || ''} onChange={handleInputChange} className="w-full p-2 bg-sky-50 border border-sky-400 rounded-md shadow-sm text-sm" /> : <p className="text-sm text-slate-700 p-2 bg-slate-50 rounded-md border border-slate-200">{editableCheck.routingNumber || 'N/A'}</p>}
+                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400 flex items-center gap-2"><LockClosedIcon className="h-4 w-4"/>Routing Number</label>
+                            {isEditing ? <input name="routingNumber" value={editableCheck.routingNumber || ''} onChange={handleInputChange} className="w-full p-2 bg-sky-50 dark:bg-gray-800 border border-sky-400 dark:border-sky-700 rounded-md shadow-sm text-sm text-slate-700 dark:text-gray-300" /> : <p className="text-sm text-slate-700 dark:text-gray-300 p-2 bg-slate-50 dark:bg-gray-800 rounded-md border border-slate-200 dark:border-gray-700">{editableCheck.routingNumber || 'N/A'}</p>}
                         </div>
                         <div>
-                            <label className="text-xs font-medium text-slate-500 flex items-center gap-2"><HashtagIcon className="h-4 w-4"/>Bank Account #</label>
-                            {isEditing ? <input name="bankAccountNumber" value={editableCheck.bankAccountNumber} onChange={handleInputChange} className="w-full p-2 bg-sky-50 border border-sky-400 rounded-md shadow-sm text-sm" /> : <p className="text-sm text-slate-700 p-2 bg-slate-50 rounded-md border border-slate-200">{editableCheck.bankAccountNumber}</p>}
+                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400 flex items-center gap-2"><HashtagIcon className="h-4 w-4"/>Bank Account #</label>
+                            {isEditing ? <input name="bankAccountNumber" value={editableCheck.bankAccountNumber} onChange={handleInputChange} className="w-full p-2 bg-sky-50 dark:bg-gray-800 border border-sky-400 dark:border-sky-700 rounded-md shadow-sm text-sm text-slate-700 dark:text-gray-300" /> : <p className="text-sm text-slate-700 dark:text-gray-300 p-2 bg-slate-50 dark:bg-gray-800 rounded-md border border-slate-200 dark:border-gray-700">{editableCheck.bankAccountNumber}</p>}
                         </div>
                 </div>
                 );
@@ -397,17 +407,17 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
                 return (
                     <div className="flex flex-col items-center justify-center h-full">
                         {imageError ? (
-                            <div className="text-center p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                                <ExclamationTriangleIcon className="h-8 w-8 text-amber-500 mx-auto mb-2" />
-                                <p className="font-semibold text-amber-800">Image Expired</p>
-                                <p className="text-xs text-amber-600">This image is older than 90 days and has been removed.</p>
+                            <div className="text-center p-4 bg-amber-50 dark:bg-amber-900 border border-amber-200 dark:border-amber-700 rounded-lg">
+                                <ExclamationTriangleIcon className="h-8 w-8 text-amber-500 dark:text-amber-400 mx-auto mb-2" />
+                                <p className="font-semibold text-amber-800 dark:text-amber-300">Image Expired</p>
+                                <p className="text-xs text-amber-600 dark:text-amber-400">This image is older than 90 days and has been removed.</p>
                             </div>
                         ) : (
                             <>
                                 <img src={check.imageUrl} alt="Check scan" className="w-full h-full rounded-lg object-contain max-h-80 border" onError={() => setImageError(true)} />
                                 <div className="absolute h-full w-full flex absolute top-0 bottom-0 left-0 right-0 flex items-center gap-2 justify-center bg-black/30 transition-all duration-300 opacity-0 hover:opacity-100">
-                                    <button onClick={handleDownloadImage} className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 border rounded-md"><ArrowDownTrayIcon className="h-4 w-4" /> Download</button>
-                                    <button onClick={handleCopyImage} className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 border rounded-md"><ClipboardDocumentIcon className="h-4 w-4" /> Copy</button>
+                                    <button onClick={handleDownloadImage} className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-gray-300 bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 dark:hover:bg-gray-600 border rounded-md"><ArrowDownTrayIcon className="h-4 w-4" /> Download</button>
+                                    <button onClick={handleCopyImage} className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-gray-300 bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 dark:hover:bg-gray-600 border rounded-md"><ClipboardDocumentIcon className="h-4 w-4" /> Copy</button>
                                 </div>
                             </>
                         )}
@@ -423,7 +433,7 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
         <div className="fixed inset-0 z-40 flex items-center justify-center p-4 sm:p-6">
             <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
 
-            <div className="relative w-full max-w-4xl mx-auto bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="relative w-full max-w-4xl mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-2xl flex flex-col overflow-hidden">
                 {/* Toast Notification */}
                 {toast && (
                     <div
@@ -437,21 +447,21 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
                 )}
 
                 {/* Header */}
-                <div className="flex items-start justify-between gap-4 p-5 border-b border-slate-100">
+                <div className="flex items-start justify-between gap-4 p-5 border-b border-slate-100 dark:border-gray-700">
                     <div className="min-w-0">
-                        <h3 className="text-lg sm:text-2xl font-semibold text-slate-900 truncate">Check Details</h3>
-                        <p className="text-sm text-slate-500 truncate">{check.payor} • {check.checkNumber || 'No #'} • {new Date(check.date).toLocaleDateString()}</p>
+                        <h3 className="text-lg sm:text-2xl font-semibold text-slate-900 dark:text-white truncate">Check Details</h3>
+                        <p className="text-sm text-slate-500 dark:text-gray-400 truncate">{check.payor} • {check.checkNumber || 'No #'} • {new Date(check.date).toLocaleDateString()}</p>
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <button onClick={() => { setIsEditing(p => !p); if (isEditing) handleSave(); else setEditableCheck(check); }} className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm font-medium transition-colors ${isEditing ? 'bg-sky-600 text-white border-sky-600 hover:bg-sky-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}>
+                        <button onClick={() => { setIsEditing(p => !p); if (isEditing) handleSave(); else setEditableCheck(check); }} className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm font-medium transition-colors ${isEditing ? 'bg-sky-600 text-white border-sky-600 hover:bg-sky-700' : 'border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-600'}`}>
                             <PencilIcon className="h-4 w-4" /> {isEditing ? 'Save' : 'Edit'}
                         </button>
                         <button onClick={() => setIsDeleteConfirmOpen(true)} aria-label="Delete" className="inline-flex items-center px-3 py-1.5 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700">
                             <TrashIcon className="h-4 w-4" />
                         </button>
-                        <button onClick={onClose} aria-label="Close" className="ml-2 inline-flex items-center justify-center h-9 w-9 rounded-full bg-slate-50 hover:bg-slate-100">
-                            <XMarkIcon className="h-5 w-5 text-slate-700" />
+                        <button onClick={onClose} aria-label="Close" className="ml-2 inline-flex items-center justify-center h-9 w-9 rounded-full bg-slate-50 dark:bg-gray-700 hover:bg-slate-100 dark:hover:bg-gray-600">
+                            <XMarkIcon className="h-5 w-5 text-slate-700 dark:text-gray-300" />
                         </button>
                     </div>
                 </div>
@@ -461,32 +471,56 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
                     <div className={`grid grid-cols-1 lg:grid-cols-3 gap-6 ${expandedView === 'AUDIT' || expandedView === 'COMMENTS' ? "h-full min-h-0": "lg:h-full lg:min-h-0"}`}>
                         {/* Left: Details + Flags */}
                         <div className={expandedView === 'AUDIT' || expandedView === 'COMMENTS' ? 'hidden' : 'relative lg:col-span-2 flex flex-col gap-4 min-h-0'}>
-
-                            {/* --- NEW CHECK DETAILS CARD --- */}
-                            <div className="flex-1 bg-white border border-slate-200 rounded-md flex flex-col overflow-hidden details">
-                                {/* Card Header */}
-                                <div className={`flex flex-row justify-between items-start p-4 rounded-t-md ${CHECK_TYPE_COLORS[editableCheck.category] || 'bg-slate-100 border-slate-500'} shadow-lg`}>
-                                    <div>
-                                        <div className="flex items-center">
-                                           {isEditing ? <input name="payor" value={editableCheck.payor} onChange={handleInputChange} className="text-xl font-bold text-slate-800 border border-sky-400 rounded-md min-w-0" /> : <h2 className="text-xl font-bold text-slate-800">{editableCheck.payor}</h2>}
-                                            {!isEditing && (
-                                                <span className={`absolute top-0 -right-2 -translate-y-1/2 inline-flex items-center text-sm font-medium px-2.5 py-1 rounded-full border-2 ${["border", statusColors[editableCheck.status].split('-')[1], "500"].join('-')} ${statusColors[editableCheck.status]}`}>
+                                {!isEditing && statusColor && (
+                                        <span className={`absolute top-0 -right-2 -translate-y-1/2 inline-flex items-center text-sm font-medium px-2.5 py-1 rounded-full border-2 ${statusColor.border} ${statusColor.bg} ${statusColor.text}`}>
                                                     {editableCheck.status}
                                                 </span>
-                                        )}
+                                    )}
+                                    {isEditing && statusColor && (
+                                        <div ref={statusDropdownRef} className="absolute top-0 -right-2 -translate-y-1/2 z-10">
+                                            <button type="button" onClick={() => setIsStatusDropdownOpen(p => !p)} className={`inline-flex items-center gap-1 text-sm font-medium px-2.5 py-1 rounded-full border-2 ${statusColor.border} ${statusColor.bg} ${statusColor.text}`}>
+                                                {editableCheck.status}
+                                                <ChevronUpDownIcon className="h-4 w-4" />
+                                            </button>
+                                            {isStatusDropdownOpen && (
+                                                <div className="absolute top-full right-0 text-right">
+                                                    {Object.values(CheckStatus).filter(s => s !== editableCheck.status).map(s => {
+                                                        const dropdownColor = darkMode ? statusColors[s].dark : statusColors[s];
+                                                        return (
+                                                            <button
+                                                                key={s}
+                                                                type="button"
+                                                                onClick={() => { setEditableCheck(prev => ({ ...prev!, status: s })); setIsStatusDropdownOpen(false); }}
+                                                                className={`items-center mt-1 text-sm font-medium px-2.5 py-1 drop-shadow-xl rounded-full whitespace-nowrap border-2 ${dropdownColor.border} ${dropdownColor.bg} ${dropdownColor.text} saturate-50 hover:saturate-100`}
+                                                            >{s}</button>
+                                                        )
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                            {/* --- NEW CHECK DETAILS CARD --- */}
+
+                            <div className="flex-1 bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-md flex flex-col overflow-hidden details">
+                                {/* Card Header */}
+                                <div className={`flex flex-row justify-between items-start p-4 rounded-t-md ${darkMode ? "bg-gradient-to-b from-gray-900/80 from-5% " + CHECK_TYPE_COLORS[editableCheck.category].dark.gradient + " to-30%" : CHECK_TYPE_COLORS[editableCheck.category].bg} shadow-lg`}>
+                                    <div>
+                                        <div className="flex items-center">
+                                           {isEditing ? <input name="payor" value={editableCheck.payor} onChange={handleInputChange} className="text-xl font-bold text-slate-800 dark:bg-gray-800 dark:text-gray-300 border border-sky-400 dark:border-sky-700 rounded-md min-w-0" /> : <h2 className="text-xl font-bold text-slate-800 dark:text-white">{editableCheck.payor}</h2>}
+                                            
                                     </div>
-                                        <span className="inline-flex pt-1 items-center text-sm text-slate-500 font-medium text-slate-600"><MapLocationIcon className="h-5 w-5 me-2"/>
-                                        {isEditing ? <input name="associationName" value={editableCheck.associationName || ''} onChange={handleInputChange} className="border border-sky-400 rounded-md min-w-0" /> : editableCheck.associationName}
+                                        <span className="inline-flex pt-1 items-center text-sm font-medium text-slate-600 dark:text-gray-300"><MapLocationIcon className="h-5 w-5 me-2"/>
+                                        {isEditing ? <input name="associationName" value={editableCheck.associationName || ''} onChange={handleInputChange} className="border border-sky-400 dark:border-sky-700 dark:bg-gray-800 dark:text-gray-300 rounded-md min-w-0" /> : editableCheck.associationName}
                                         </span>
                                     </div>
                                     <div className="flex flex-col text-left sm:text-right mt-3 sm:pl-6 sm:mt-0 sm:ml-auto min-w-0 max-w-full">
                                         <div className="flex items-center gap-1 flex-shrink-1">
-                                            {isEditing ? <UsDollarIcon className="h-5 w-5" /> : ''}
-                                            {isEditing ? <input name="amount" value={editableCheck.amount.toFixed(2) || ''} onChange={handleInputChange} className="text-2xl sm:text-right font-bold text-slate-900 border border-sky-400 rounded-md min-w-0" /> : <p className="text-2xl font-bold text-slate-900">{formatAsCurrancy(editableCheck.amount)}</p>}
+                                            {isEditing ? <UsDollarIcon className="h-5 w-5 text-slate-700 dark:text-gray-300" /> : ''}
+                                            {isEditing ? <input name="amount" value={editableCheck.amount.toFixed(2) || ''} onChange={handleInputChange} className="text-2xl sm:text-right font-bold text-slate-900 dark:bg-gray-800 dark:text-gray-300 border border-sky-400 dark:border-sky-700 rounded-md min-w-0" /> : <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatAsCurrancy(editableCheck.amount)}</p>}
                                             </div>
                                         <div className="flex items-center gap-2 flex-shrink-1 sm:justify-end">
-                                            <span className="inline-flex text-xs font-mono text-slate-400 mt-1">Check #
-                                        {isEditing ? <input name="checkNumber" value={editableCheck.checkNumber || ''} onChange={handleInputChange} className='border border-sky-400 rounded-md min-w-0' /> : editableCheck.checkNumber}
+                                            <span className="inline-flex text-xs font-mono text-slate-400 dark:text-gray-500 mt-1">Check #
+                                        {isEditing ? <input name="checkNumber" value={editableCheck.checkNumber || ''} onChange={handleInputChange} className='border border-sky-400 dark:border-sky-700 dark:bg-gray-800 dark:text-gray-300 rounded-md min-w-0' /> : editableCheck.checkNumber}
                                             </span>
                                             </div>
                                     </div>
@@ -495,7 +529,7 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
                                 {/* Tab Navigation */}
                                 <div className={``}>
                                     {/* Desktop Tabs */}
-                                    <nav className={`hidden sm:flex justify-around tabrow ${CHECK_TYPE_COLORS[editableCheck.category]}`} aria-label="Tabs">
+                                    <nav className={`hidden sm:flex justify-around tabrow ${darkMode ? CHECK_TYPE_COLORS[editableCheck.category].dark.bg : CHECK_TYPE_COLORS[editableCheck.category].bg}`} aria-label="Tabs">
                                         <TabButton className="" tabName="payment"><BanknotesIcon className="h-5 w-5"/>Payment</TabButton>
                                         <TabButton tabName="accounting"><PencilIcon className="h-5 w-5"/>Accounting</TabButton>
                                         <TabButton tabName="banking"><BankBuildingIcon className="h-5 w-5"/>Banking</TabButton>
@@ -503,17 +537,17 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
                                     </nav>
                                     {/* Mobile Tabs */}
                                     <nav className="sm:hidden flex items-center justify-between p-2 tab-background" aria-label="Tabs">
-                                        <button onClick={() => handleTabChange(activeTabIndex - 1)} disabled={activeTabIndex === 0} className="p-2 rounded-full hover:bg-slate-100 disabled:opacity-50">
+                                        <button onClick={() => handleTabChange(activeTabIndex - 1)} disabled={activeTabIndex === 0} className="p-2 rounded-full text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-600 disabled:opacity-50">
                                             <ChevronLeftIcon className="h-5 w-5" />
                                         </button>
-                                        <div className="font-medium text-sm slate-sky-600 capitalize flex items-center gap-2">
+                                        <div className="font-medium text-sm text-sky-600 dark:text-sky-400 capitalize flex items-center gap-2">
                                             {activeTab === 'payment' && <BanknotesIcon className="h-5 w-5"/>}
                                             {activeTab === 'accounting' && <PencilIcon className="h-5 w-5"/>}
                                             {activeTab === 'banking' && <BankBuildingIcon className="h-5 w-5"/>}
                                             {activeTab === 'image' && <ImageIcon className="h-5 w-5"/>}
                                             {activeTab}
                                         </div>
-                                        <button onClick={() => handleTabChange(activeTabIndex + 1)} disabled={activeTabIndex === tabs.length - 1} className="p-2 rounded-full hover:bg-slate-100 disabled:opacity-50">
+                                        <button onClick={() => handleTabChange(activeTabIndex + 1)} disabled={activeTabIndex === tabs.length - 1} className="p-2 rounded-full text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-600 disabled:opacity-50">
                                             <ChevronRightIcon className="h-5 w-5" />
                                         </button>
                                     </nav>
@@ -526,17 +560,17 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
                             </div>
                             {/* --- END NEW CHECK DETAILS CARD --- */}
 
-                            <div className="bg-white border border-slate-200 rounded-md max-h-full flex-shrink-0 flags">
-                                <div className="flex items-center justify-between p-4 bg-slate-100 border-b border-slate-200">
-                                    <h4 className="text-sm font-semibold text-slate-800">Flags</h4>
+                            <div className="bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-md max-h-full flex-shrink-0 flags">
+                                <div className="flex items-center justify-between p-4 bg-slate-100 dark:bg-gradient-to-b dark:from-gray-700 dark:from-5% dark:to-gray-800 dark:to-30% border-b border-slate-200 dark:border-gray-700">
+                                    <h4 className="text-sm font-semibold text-slate-800 dark:text-white">Flags</h4>
                                     <div className="flex items-center gap-2">
                                         <div className="relative">
-                                            <button onClick={() => setIsFlagDropdownOpen(p => !p)} className="inline-flex items-center gap-2 px-3 py-1 rounded-md text-sm font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50">
+                                            <button onClick={() => setIsFlagDropdownOpen(p => !p)} className="inline-flex items-center gap-2 px-3 py-1 rounded-md text-sm font-medium bg-white dark:bg-gray-600 text-slate-700 dark:text-gray-300 border border-slate-200 dark:border-gray-500 hover:bg-slate-50 dark:hover:bg-gray-500">
                                                 <FlagIcon className="h-4 w-4" /> Add
                                             </button>
 
                                         </div>
-                                        <button onClick={onOpenFlagManager} className="text-sm text-slate-500 hover:text-slate-700">Manage</button>
+                                        <button onClick={onOpenFlagManager} className="text-sm text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300">Manage</button>
                                     </div>
                                 </div>
 
@@ -552,18 +586,18 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
                                             ))}
                                         </div>
                                     ) : (
-                                        <p className="text-sm text-slate-500">No flags applied.</p>
+                                        <p className="text-sm text-slate-500 dark:text-gray-400">No flags applied.</p>
                                     )}
                                     {isFlagDropdownOpen && (
                                         <div className="relative">
-                                                <div ref={flagDropdownRef} className="absolute left-0 -top-4 lg:top-6 lg:-translate-y-full mt-2 flex flex-col gap-1 p-2 w-48 bg-slate-200 border-2 border-slate-400 rounded-md shadow-lg z-10">
+                                                <div ref={flagDropdownRef} className="absolute left-0 -top-4 lg:top-6 lg:-translate-y-full mt-2 flex flex-col gap-1 p-2 w-48 bg-slate-200 dark:bg-gray-600 border-2 border-slate-400 dark:border-gray-500 rounded-md shadow-lg z-10">
                                                     {availableFlags.length > 0 ? availableFlags.map(flag => (
                                                         <div className="flex">
                                                             <button key={flag.id} onClick={() => { onToggleFlag(check.id, flag.id); setIsFlagDropdownOpen(false); }} className={`inline-flex py-1 px-3 rounded-full text-xs font-medium text-left text-slate-700 truncate ${flagColorVariant[flag.color].default} ${flagColorVariant[flag.color].hover} ${flag.textColor} hover:scale-105 hover:ring-2 hover:ring-slate-500`}>
                                                                 {flag.name}
                                                             </button>
                                                         </div>
-                                                        )) : <p className="text-sm text-slate-500 p-4">No flags to add.</p>}
+                                                        )) : <p className="text-sm text-slate-500 dark:text-gray-400 p-4">No flags to add.</p>}
                                             </div>
                                         </div>
                                     )}
@@ -574,17 +608,24 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
 
                         {/* Right: Comments & Audit */}
                         <div className={expandedView === 'AUDIT' || expandedView === 'COMMENTS' ? 'lg:col-span-3 flex flex-col h-full min-h-0' : 'flex flex-col gap-4 min-h-0 max-h-[67vh] lg:max-h-full lg:h-full'}>
-                            <div className={`bg-white border border-slate-200 rounded-md overflow-hidden flex flex-col audit ${expandedView === 'AUDIT' ? 'h-full' : expandedView === "COMMENTS" ? 'hidden' : 'max-h-[40%]'}`}>
-                                <div className="flex items-center justify-between p-4 bg-slate-100 border-b border-slate-200">
-                                    <h4 className="text-sm font-semibold text-slate-800">Audit Trail</h4>
-                                    <button onClick={() => setExpandedView(prev => prev === 'AUDIT' ? 'NONE' : 'AUDIT')} className="text-sm text-slate-500 hover:text-slate-700">{expandedView === 'AUDIT' ? 'Collapse' : 'Expand'}</button>
+                            <div className={`bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-md overflow-hidden flex flex-col audit ${expandedView === 'AUDIT' ? 'h-full' : expandedView === "COMMENTS" ? 'hidden' : 'max-h-[40%]'}`}>
+                                <div className="flex items-center justify-between p-4 bg-slate-100 dark:bg-gradient-to-b dark:from-gray-700 dark:from-5% dark:to-gray-800 dark:to-30% border-b border-slate-200 dark:border-gray-700">
+                                    <h4 className="text-sm font-semibold text-slate-800 dark:text-white">Audit Trail</h4>
+                                    <button onClick={() => setExpandedView(prev => prev === 'AUDIT' ? 'NONE' : 'AUDIT')} className="text-sm text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300">{expandedView === 'AUDIT' ? 'Collapse' : 'Expand'}</button>
                                 </div>
 
                                 <div className={`p-4 space-y-3 flex-1 ${expandedView === 'AUDIT' ? 'overflow-y-auto' : 'overflow-y-hidden'}`}>
                                     {check.auditTrail.length > 0 ? check.auditTrail.slice().map(log => {
                                         if (log.field === 'reordered') return null;
-                                        const userDisplay = log.user.indexOf(' ') !== -1 ? log.user.slice(0, log.user.indexOf(' ')) : log.user;
+                                        const userDisplay = log.user?.indexOf(' ') !== -1 ? log.user.slice(0, log.user.indexOf(' ')) : log.user || 'System';
                                         let actionText: React.ReactNode = '';
+
+                                        const formatAuditValue = (value: any): string => {
+                                            if (value === null || value === undefined || value === '') return 'Empty';
+                                            if (typeof value === 'object') return JSON.stringify(value);
+                                            return String(value);
+                                        };
+
                                         switch (log.field) {
                                             case 'Check Created':
                                                 actionText = 'created a new check';
@@ -598,36 +639,62 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
                                             case 'Flag Removed':
                                                 actionText = `removed flag for "${log.oldValue}"`;
                                                 break;
-                                            case 'Status':
+                                            case 'status':
                                                 actionText = `changed status to "${log.newValue}"`;
                                                 break;
                                             case 'Comment':
                                                 actionText = 'added a comment';
                                                 break;
                                             case 'Batch Processed':
-                                                actionText = <>processed check with batch <button type="button" className="text-sky-600 hover:underline cursor-pointer" onClick={() => { if (editableCheck.batchId) onNavigateToBatch(editableCheck.batchId); }}>{editableCheck.batchId}</button></>;
+                                                actionText = <>processed check with batch <button type="button" className="text-sky-600 dark:text-sky-400 hover:underline cursor-pointer" onClick={() => { if (check.batchId) onNavigateToBatch(check.batchId); }}>{check.batchId}</button></>;
+                                                break;
+                                            case 'Check updated':
+                                                try {
+                                                    const oldValues = JSON.parse(log.oldValue);
+                                                    const newValues = JSON.parse(log.newValue);
+                                                    const changedKeys = Object.keys(newValues);
+
+                                                    const formatFieldName = (fieldName: string) => fieldName.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+
+                                                    if (changedKeys.length === 1) {
+                                                        const key = changedKeys[0];
+                                                        const formattedKey = formatFieldName(key);
+                                                        const oldValue = formatAuditValue(oldValues[key]);
+                                                        const newValue = formatAuditValue(newValues[key]);
+                                                        actionText = <>updated {formattedKey} from <span className="font-semibold text-slate-400 bg-slate-100 dark:bg-gray-600 border border-slate-300 dark:border-gray-500 px-1 rounded-md">{oldValue}</span> to <span className="font-semibold text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900 border border-green-300 dark:border-green-700 px-1 rounded-md">{newValue}</span></>;
+                                                    } else {
+                                                        const changedFieldsList = changedKeys.map(key => (
+                                                            <div key={key}>
+                                                                {formatFieldName(key)}: <span className="font-semibold text-slate-400 bg-slate-100 dark:bg-gray-600 border border-slate-300 dark:border-gray-500 px-1 rounded-md">{formatAuditValue(oldValues[key])}</span> to <span className="font-semibold text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900 border border-green-300 dark:border-green-700 px-1 rounded-md">{formatAuditValue(newValues[key])}</span>
+                                                            </div>
+                                                        ));
+                                                        actionText = <>updated the following check details: <div className="flex flex-col gap-1 text-xs ml-4 mt-1">{changedFieldsList}</div></>;
+                                                    }
+                                                } catch (e) {
+                                                    actionText = 'updated check details'; // Fallback for old format
+                                                }
                                                 break;
                                             default:
                                                 actionText = `changed ${log.field} from "${log.oldValue}" to "${log.newValue}"`;
                                         }
                                         return (
                                             <div key={log.id} className="text-xs">
-                                                <p className="text-slate-600">
-                                                    <span className="font-medium text-slate-800">{userDisplay}</span> {actionText}.
-                                                </p>
-                                                <p className="text-slate-400">{new Date(log.timestamp).toLocaleString()}</p>
+                                                <div className="text-slate-600 dark:text-gray-400">
+                                                    <span className="font-medium text-slate-500 dark:text-gray-300">{userDisplay}</span> {actionText}.
+                                                </div>
+                                                <p className="text-slate-400 dark:text-gray-500">{new Date(log.timestamp).toLocaleString()}</p>
                                             </div>
                                         )
                                         })
-                                     : <p className="text-sm text-slate-400">No changes recorded.</p> }
+                                     : <p className="text-sm text-slate-400 dark:text-gray-500">No changes recorded.</p> }
                                     <div ref={auditTrailEndRef} />
                                 </div>
                             </div>
 
-                            <div className={`bg-white border border-slate-200 rounded-md flex flex-1 flex-col overflow-hidden comments ${expandedView === 'COMMENTS' ? 'min-h-0 h-full' : expandedView === "AUDIT" ? 'hidden' : ''}`}>
-                                <div className="p-4 flex items-center justify-between bg-slate-100 border-b border-slate-200">
-                                    <h4 className="text-sm font-semibold text-slate-800">Comments</h4>
-                                    <button onClick={() => setExpandedView(prev => prev === 'COMMENTS' ? 'NONE' : 'COMMENTS')} className="text-sm text-slate-500 hover:text-slate-700">{expandedView === 'COMMENTS' ? 'Collapse' : 'Expand'}</button>
+                            <div className={`bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-md flex flex-1 flex-col overflow-hidden comments ${expandedView === 'COMMENTS' ? 'min-h-0 h-full' : expandedView === "AUDIT" ? 'hidden' : ''}`}>
+                                <div className="p-4 flex items-center justify-between bg-slate-100 dark:bg-gradient-to-b dark:from-gray-700 dark:from-5% dark:to-gray-800 dark:to-30% border-b border-slate-200 dark:border-gray-700">
+                                    <h4 className="text-sm font-semibold text-slate-800 dark:text-white">Comments</h4>
+                                    <button onClick={() => setExpandedView(prev => prev === 'COMMENTS' ? 'NONE' : 'COMMENTS')} className="text-sm text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300">{expandedView === 'COMMENTS' ? 'Collapse' : 'Expand'}</button>
                                 </div>
                                 <div className={`flex-1 p-4 space-y-4 min-h-0 ${expandedView === 'COMMENTS' ? 'h-full overflow-y-auto' : 'overflow-y-hidden'}`}>
                                     {check.comments.length > 0 ? check.comments.map(comment => {
@@ -639,30 +706,28 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
                                                 {!isCurrentUser && (
                                                     authorProfile?.profilePictureUrl
                                                         ? <img className="w-8 h-8 rounded-full object-cover" src={authorProfile.profilePictureUrl} alt={comment.author} />
-                                                        : <UserCircleIcon className="w-8 h-8 text-slate-300 flex-shrink-0" />
+                                                        : <UserCircleIcon className="w-8 h-8 text-slate-300 dark:text-gray-500 flex-shrink-0" />
                                                 )}
                                                 <div className={`flex flex-col gap-1 w-full max-w-xs ${isCurrentUser ? 'items-end' : ''}`}>
-                                                    <div className="flex items-center space-x-2">
-                                                        <span className="text-sm font-semibold text-gray-900">{isCurrentUser ? 'You' : (authorProfile?.firstName || comment.author.split(' ')[0] || 'Unknown')}</span>
-                                                        <span className="text-xs font-normal text-gray-500">{new Date(comment.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
+                                                    <div className={`leading-1.5 p-3 rounded-xl ${isCurrentUser ? 'bg-sky-100 dark:bg-sky-900 rounded-br-none' : 'bg-gray-100 dark:bg-gray-600 rounded-bl-none'}`}>
+                                                        <p className="text-sm font-normal text-gray-500 dark:text-gray-300 break-words">
+                                                            <span className="inline-flex items-baseline pr-2 text-sm font-semibold text-slate-500 dark:text-gray-300">{isCurrentUser ? 'You' : (authorProfile?.firstName || comment.author.split(' ')[0] || 'Unknown')}:</span>{comment.text}</p>
                                                     </div>
-                                                    <div className={`leading-1.5 p-3 rounded-xl ${isCurrentUser ? 'bg-sky-100 rounded-br-none' : 'bg-gray-100 rounded-bl-none'}`}>
-                                                        <p className="text-sm font-normal text-gray-900 break-words">{comment.text}</p>
-                                                    </div>
+                                                    <span className="text-xs font-normal text-gray-500 dark:text-gray-400">{new Date(comment.timestamp).toLocaleString('en-US', {dateStyle: 'medium', timeStyle: 'short'})}</span>
                                                 </div>
                                                 {isCurrentUser && (
                                                      userProfilesMap.get(currentUser.uid)?.profilePictureUrl
                                                         ? <img className="w-8 h-8 rounded-full object-cover" src={userProfilesMap.get(currentUser.uid)?.profilePictureUrl} alt="You" />
-                                                        : <UserCircleIcon className="w-8 h-8 text-slate-300 flex-shrink-0" />
+                                                        : <UserCircleIcon className="w-8 h-8 text-slate-300 dark:text-gray-500 flex-shrink-0" />
                                                 )}
                                             </div>
                                         );
-                                    }) : <p className="text-sm text-center text-slate-400 pt-8">No comments yet.</p>}
+                                    }) : <p className="text-sm text-center text-slate-400 dark:text-gray-500 pt-8">No comments yet.</p>}
                                     <div ref={commentsEndRef} />
                                 </div>
                                 
-                                <form onSubmit={handleCommentSubmit} className="p-4 border-t flex gap-2">
-                                    <input type="text" value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Add a comment..." className="flex-1 rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300" />
+                                <form onSubmit={handleCommentSubmit} className="p-4 border-t dark:border-gray-600 flex gap-2">
+                                    <input type="text" value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Add a comment..." className="flex-1 rounded-md border border-slate-300 dark:border-gray-600 bg-slate-50 dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300" />
                                     <button type="submit" className="inline-flex items-center justify-center px-3 py-2 bg-sky-600 text-white rounded-md text-sm hover:bg-sky-700 disabled:bg-sky-300 disabled:cursor-not-allowed" disabled={!commentText.trim()}>
                                         <SendIcon className="h-4 w-4" />
                                     </button>
@@ -673,11 +738,11 @@ const CheckDetailModal: React.FC<CheckDetailModalProps> = ({ check, flags, onClo
                 </div>
                 {isDeleteConfirmOpen && (
                     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40">
-                        <div className="bg-white p-5 rounded-lg shadow-lg w-full max-w-sm">
-                            <h3 className="text-lg font-semibold text-slate-900">Delete Check</h3>
-                            <p className="text-sm text-slate-500 mt-2">Are you sure? This action cannot be undone.</p>
+                        <div className="bg-white dark:bg-gray-700 p-5 rounded-lg shadow-lg w-full max-w-sm">
+                            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Delete Check</h3>
+                            <p className="text-sm text-slate-500 dark:text-gray-400 mt-2">Are you sure? This action cannot be undone.</p>
                             <div className="mt-4 flex justify-end gap-2">
-                                <button onClick={() => setIsDeleteConfirmOpen(false)} className="px-3 py-1 rounded-md border border-slate-200">Cancel</button>
+                                <button onClick={() => setIsDeleteConfirmOpen(false)} className="px-3 py-1 rounded-md border border-slate-200 dark:border-gray-600 text-slate-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-slate-50 dark:hover:bg-gray-600">Cancel</button>
                                 <button onClick={() => {onDeleteCheck(check.id); setIsDeleteConfirmOpen(false);}} className="px-3 py-1 rounded-md bg-red-600 text-white">Delete</button>
                             </div>
                         </div>

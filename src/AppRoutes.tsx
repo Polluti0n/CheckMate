@@ -5,7 +5,7 @@ import * as firestoreService from './services/firestoreService';
 // Import all your components and types 
 import { THEMES } from './constants';
 // FIX: Use named import for AddCheckWizard and its step components.
-import { Check, CheckStatus, CurrentUser, UserPreferences, CheckField, CheckCategory, Notification, UserProfile, CheckViewOptions } from './types';
+import { Check, CheckStatus, CurrentUser, UserPreferences, CheckField, CheckCategory, Notification, UserProfile, CheckViewOptions, CardStyle } from './types';
 import Header from './components/Header'; // FIX: Added Batch to imports
 import CheckDetailModal from './components/CheckDetailModal';
 import FlagManager from './components/FlagManager';
@@ -34,14 +34,14 @@ const ExpandedColumnView = lazy(() => import('./components/ExpandedColumnView'))
 
 // Define a single, comprehensive type for all props passed from App.tsx
 export interface AppState {
-    currentUser: CurrentUser | null;
+    currentUser: UserProfile | null;
     userEmail: string | null;
     checks: Check[];
     flags: any[];
     batches: any[];
     filteredChecks: Check[];
     preferences: UserPreferences;
-    savePreferences: (prefs: UserPreferences) => void;
+    savePreferences: (prefs: Partial<UserPreferences>) => void;
     
     // State and Setters
     searchTerm: string;
@@ -80,6 +80,7 @@ export interface AppState {
     handleMoveCheck: (checkId: string, newStatus: CheckStatus, targetIndex: number) => void;
     handleCheckSelection: (clickedCheckId: string, event: React.MouseEvent, allChecksInOrder: Check[]) => void;
     handleToggleMultiSelect: () => void;
+    cardStyle: CardStyle;
     checkViewOptions: CheckViewOptions;
 
     // Notifications
@@ -92,7 +93,7 @@ export interface AppState {
 const MainLayout: React.FC<{ appState: AppState }> = ({ appState }) => {
     const navigate = useNavigate();
     return (
-        <div className="min-h-screen bg-slate-50 font-sans flex flex-col">
+        <div className="min-h-screen bg-slate-50 dark:bg-gray-900 font-sans flex flex-col">
             <Header
                 onOpenMainMenu={() => appState.setIsMainMenuOpen(true)}
                 onAddCheck={() => navigate('/add-check')}
@@ -104,7 +105,7 @@ const MainLayout: React.FC<{ appState: AppState }> = ({ appState }) => {
                 userEmail={appState.userEmail}
                 currentUser={appState.currentUser}
                 onOpenPreferences={() => navigate('/preferences')}
-                profilePictureUrl={appState.preferences.profile.profilePictureUrl}
+                profilePictureUrl={appState.preferences.profilePictureUrl}
                 notificationCount={appState.notificationCount}
                 notifications={appState.notifications}
             />
@@ -160,11 +161,12 @@ const CheckDetailWrapper: React.FC<{ appState: AppState }> = ({ appState }) => {
                 onOpenFlagManager={() => navigate(`/check/${checkId}/manage-flags`)}
                 onDeleteCheck={() => {
                     appState.actions.handleDeleteCheck(check.id);
-                    navigate('/');
+                    navigate(-1);
                 }}
                 currentUser={appState.currentUser}
                 allUsers={appState.allUsers}
                 onNavigateToBatch={appState.handleViewBatch}
+                preferences={appState.preferences}
             />
             {/* THIS OUTLET IS THE FIX. It renders the nested FlagManager route. */}
             <Outlet />
@@ -272,91 +274,175 @@ const AppRoutes: React.FC<{ appState: AppState }> = ({ appState }) => {
     };
 
     return (
-        <Suspense fallback={<SplashScreen />}>
-            <Routes>
-                <Route path="/" element={<MainLayout appState={appState} />}>
-                    {/* Main Views */}
-                    <Route index element={
-                        <KanbanBoard checks={appState.filteredChecks.filter(c => c.status !== CheckStatus.ARCHIVED)} flags={appState.flags} themes={THEMES} onSelectCheck={appState.handleSelectCheck} onMoveCheck={appState.handleMoveCheck} onExpandColumn={(status) => navigate(`/column/${status}`)} sortConfig={appState.sortConfig} onSort={handleSort} onSelectAllInColumn={handleSelectAllInColumn} selectedCheckIds={appState.selectedCheckIds} isMultiSelectMode={appState.isMultiSelectMode} onCheckSelection={appState.handleCheckSelection} columnDisplayOptions={appState.preferences.columnDisplayOptions} columnThemes={appState.preferences.columnThemes} onToggleDisplayOption={handleToggleDisplayOption} onOpenThemePicker={(status) => navigate(`/theme/${status}`)} cardLayout={appState.preferences.cardLayout} viewMode={appState.preferences.viewMode} checkViewOptions={appState.preferences.checkViewOptions} />
-                    } />
-                    <Route path="/archive" element={
-                        <ArchiveView
-                            checks={appState.filteredChecks.filter(c => c.status === CheckStatus.ARCHIVED)}
-                            onSelectCheck={appState.handleSelectCheck}
-                            onBack={() => navigate('/')}
-                            searchTerm={appState.searchTerm}
-                            visibleColumns={appState.preferences.visibleArchiveColumns}
-                            onVisibleColumnsChange={(cols) => appState.savePreferences({ ...appState.preferences, visibleArchiveColumns: cols })}
-                            columnWidths={appState.preferences.archiveColumnWidths}
-                            onColumnWidthsChange={(widths) => appState.savePreferences({ ...appState.preferences, archiveColumnWidths: widths })}
-                            archiveTheme={appState.preferences.archiveTheme}
-                            themes={THEMES}
-                            onOpenThemePicker={() => navigate('/theme/ARCHIVE')}
-                        />
-                    } />
-                    <Route path="/batch-history" element={
-                        <BatchHistoryView
-                            batches={appState.batches}
-                            checks={appState.checks}
-                            onSelectCheck={appState.handleSelectCheck}
-                            onBack={() => navigate('/')}
-                        />
-                    } />
-                    <Route path="/column/:status" element={<ExpandedColumnWrapper appState={appState} />} />
-
-                    {/* Modals as Routes */}
-                    <Route path="/check/:checkId" element={<CheckDetailWrapper appState={appState} />}>
-                        <Route path="manage-flags" element={<FlagManager isOpen={true} flags={appState.flags} onClose={appState.handleGoBack} currentUser={appState.currentUser} />} />
-                    </Route>
-                    
-                    <Route path="/add-check" element={
-                        <AddCheckWizard 
-                            isOpen={true} 
-                            onClose={() => navigate('/')} 
-                            onAddCheck={appState.actions.handleAddCheck} 
-                        />
-                    }>
-                        <Route index element={<CategoryStep />} />
-                        <Route path="upload" element={<UploadStep />} />
-                        <Route path="crop" element={<CropStep />} />
-                        <Route path="details" element={<DetailsStep />} />
-                    </Route>
-
-                    <Route path="/batching" element={
-                        <ProcessBatchModal
-                            isOpen={true}
-                            checks={appState.checks}
-                            currentUser={appState.currentUser}
-                            onClose={() => navigate('/')}
-                            onProcessBatch={appState.actions.handleProcessBatch}
-                            preferences={appState.preferences}
-                        />
-                    } />
-                    <Route path="/preferences" element={
-                        <PreferencesModal
-                            isOpen={true}
-                            onClose={() => navigate('/')}
-                            currentPreferences={appState.preferences}
-                            onSave={appState.savePreferences}
-                            userEmail={appState.userEmail}
-                            currentUser={appState.currentUser}
-                        />
-                    } />
-                    <Route path="/theme/:target" element={<ThemePickerWrapper appState={appState} />} />
-                    <Route path="/batch/:batchId" element={<BatchChecksWrapper appState={appState} />} />
-                </Route>
-            </Routes>
-            {/* Render BatchChecksModal on top of other content, outside of <Routes> */}
-            {appState.viewingBatchId && (
-                <BatchChecksModal
-                    isOpen={true}
-                    batch={appState.batches.find(b => b.id === appState.viewingBatchId) || null}
-                    checks={appState.checks}
-                    onClose={() => appState.handleViewBatch(null as any)} // Close by setting ID to null
-                    onSelectCheck={appState.handleSelectCheck}
+      <Suspense fallback={<SplashScreen />}>
+        <Routes>
+          <Route path="/" element={<MainLayout appState={appState} />}>
+            {/* Main Views */}
+            <Route
+              index
+              element={
+                <KanbanBoard
+                  checks={appState.filteredChecks.filter(
+                    (c) => c.status !== CheckStatus.ARCHIVED
+                  )}
+                  flags={appState.flags}
+                  themes={THEMES}
+                  onSelectCheck={appState.handleSelectCheck}
+                  onMoveCheck={appState.handleMoveCheck}
+                  onExpandColumn={(status) => navigate(`/column/${status}`)}
+                  sortConfig={appState.sortConfig}
+                  onSort={handleSort}
+                  onSelectAllInColumn={handleSelectAllInColumn}
+                  selectedCheckIds={appState.selectedCheckIds}
+                  isMultiSelectMode={appState.isMultiSelectMode}
+                  onCheckSelection={appState.handleCheckSelection}
+                  columnDisplayOptions={
+                    appState.preferences.columnDisplayOptions
+                  }
+                  columnThemes={appState.preferences.columnThemes}
+                  onToggleDisplayOption={handleToggleDisplayOption}
+                  onOpenThemePicker={(status) => navigate(`/theme/${status}`)}
+                  cardLayout={appState.preferences.cardLayout}
+                  viewMode={appState.preferences.viewMode}
+                  cardStyle={appState.preferences.cardStyle}
+                  checkViewOptions={appState.preferences.checkViewOptions}
+                  preferences={appState.preferences}
                 />
-            )}
-        </Suspense>
+              }
+            />
+            <Route
+              path="/archive"
+              element={
+                <ArchiveView
+                  checks={appState.filteredChecks.filter(
+                    (c) => c.status === CheckStatus.ARCHIVED
+                  )}
+                  onSelectCheck={appState.handleSelectCheck}
+                  onBack={() => navigate("/")}
+                  searchTerm={appState.searchTerm}
+                  visibleColumns={appState.preferences.visibleArchiveColumns}
+                  onVisibleColumnsChange={(cols) =>
+                    appState.savePreferences({
+                      ...appState.preferences,
+                      visibleArchiveColumns: cols,
+                    })
+                  }
+                  columnWidths={appState.preferences.archiveColumnWidths}
+                  onColumnWidthsChange={(widths) =>
+                    appState.savePreferences({
+                      ...appState.preferences,
+                      archiveColumnWidths: widths,
+                    })
+                  }
+                  archiveTheme={appState.preferences.archiveTheme}
+                  themes={THEMES}
+                  onOpenThemePicker={() => navigate("/theme/ARCHIVE")}
+                  preferences={appState.preferences}
+                />
+              }
+            />
+            <Route
+              path="/batch-history"
+              element={
+                <BatchHistoryView
+                  batches={appState.batches}
+                  checks={appState.checks}
+                  onSelectCheck={appState.onSelectCheck}
+                  onBack={() => navigate("/")}
+                  preferences={appState.preferences}
+                  savePreferences={appState.savePreferences}
+                />
+              }
+            />
+            <Route
+              path="/column/:status"
+              element={<ExpandedColumnWrapper appState={appState} />}
+            />
+
+            {/* Modals as Routes */}
+            <Route
+              path="/check/:checkId"
+              element={<CheckDetailWrapper appState={appState} />}
+            >
+              <Route
+                path="manage-flags"
+                element={
+                  <FlagManager
+                    isOpen={true}
+                    flags={appState.flags}
+                    onClose={appState.handleGoBack}
+                    currentUser={appState.currentUser}
+                  />
+                }
+              />
+            </Route>
+
+            <Route
+              path="/add-check"
+              element={
+                <AddCheckWizard
+                  isOpen={true}
+                  onClose={() => navigate("/")}
+                  onAddCheck={appState.actions.handleAddCheck}
+                />
+              }
+            >
+              <Route index element={<CategoryStep />} />
+              <Route path="upload" element={<UploadStep />} />
+              <Route path="crop" element={<CropStep />} />
+              <Route path="details" element={<DetailsStep />} />
+            </Route>
+
+            <Route
+              path="/batching"
+              element={
+                <ProcessBatchModal
+                  isOpen={true}
+                  checks={appState.checks}
+                  currentUser={appState.currentUser}
+                  onClose={() => navigate("/")}
+                  onProcessBatch={appState.actions.handleProcessBatch}
+                  preferences={appState.preferences}
+                />
+              }
+            />
+            <Route
+              path="/preferences"
+              element={
+                <PreferencesModal
+                  isOpen={true}
+                  onClose={() => navigate("/")}
+                  currentPreferences={appState.preferences}
+                  onSave={appState.savePreferences}
+                  userEmail={appState.userEmail}
+                  currentUser={appState.currentUser}
+                />
+              }
+            />
+            <Route
+              path="/theme/:target"
+              element={<ThemePickerWrapper appState={appState} />}
+            />
+            <Route
+              path="/batch/:batchId"
+              element={<BatchChecksWrapper appState={appState} />}
+            />
+          </Route>
+        </Routes>
+        {/* Render BatchChecksModal on top of other content, outside of <Routes> */}
+        {appState.viewingBatchId && (
+          <BatchChecksModal
+            isOpen={true}
+            batch={
+              appState.batches.find((b) => b.id === appState.viewingBatchId) ||
+              null
+            }
+            checks={appState.checks}
+            onClose={() => appState.handleViewBatch(null as any)} // Close by setting ID to null
+            onSelectCheck={appState.handleSelectCheck}
+          />
+        )}
+      </Suspense>
     );
 };
 

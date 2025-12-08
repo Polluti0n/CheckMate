@@ -5,7 +5,6 @@ export const extractCheckInfoFromImage = async (base64Image: string, mimeType: s
     try {
         const result = await extractCheckInfoFn({ base64Image, mimeType });
         // The callable function returns a result object with a 'data' property
-        console.log("Result Object:", result);
         return result.data as Partial<Check>;
     } catch (error: any) {
         console.error("Error calling Firebase Function 'extractCheckInfo':", error);

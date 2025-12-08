@@ -29,6 +29,7 @@ interface ArchiveViewProps {
     archiveTheme: string;
     themes: Theme[];
     onOpenThemePicker: () => void;
+    preferences: UserPreferences;
 }
 
 type SortConfig = { key: CheckField; direction: 'asc' | 'desc' } | null;
@@ -66,6 +67,19 @@ const ColumnResizer = ({ onResize, onResizeEnd }: { onResize: (delta: number) =>
     );
 };
 
+interface DraggableHeaderProps {
+    column: { key: CheckField; label: string; };
+    columnIndex: number;
+    sortConfig: SortConfig;
+    onSort: (key: CheckField) => void;
+    checksForPreview: Check[];
+    onResize: (delta: number) => void;
+    onResizeEnd: () => void;
+    theme?: Theme;
+    width: number | undefined;
+    preferences: UserPreferences;
+}
+
 const DraggableHeader = ({
     column,
     columnIndex,
@@ -76,17 +90,8 @@ const DraggableHeader = ({
     onResizeEnd,
     theme,
     width,
-}: {
-    column: { key: CheckField; label: string; };
-    columnIndex: number;
-    sortConfig: SortConfig;
-    onSort: (key: CheckField) => void;
-    checksForPreview: Check[];
-    onResize: (delta: number) => void;
-    onResizeEnd: () => void;
-    theme?: Theme;
-    width: number | undefined;
-}) => {
+    preferences,
+}: DraggableHeaderProps) => {
     const ref = useRef<HTMLTableCellElement>(null);
     const [dragState, setDragState] = useState<{ closestEdge: Edge | null }>({ closestEdge: null });
 
@@ -106,14 +111,14 @@ const DraggableHeader = ({
                             container.appendChild(preview);
                             const root = createRoot(preview);
                             root.render(
-                                <div className="bg-white rounded-md shadow-lg border border-slate-300">
+                                <div className="bg-white dark:bg-gray-700 rounded-md shadow-lg border border-slate-300 dark:border-gray-600">
                                     <table className="min-w-full">
-                                        <thead className="bg-slate-100">
-                                            <tr><th className="px-4 py-2 text-sm font-medium text-slate-700">{column.label}</th></tr>
+                                        <thead className="bg-slate-100 dark:bg-gray-800">
+                                            <tr><th className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-gray-300">{column.label}</th></tr>
                                         </thead>
                                         <tbody>
                                             {checksForPreview.map(check => (
-                                                <tr key={check.id}><td className="px-4 py-1 text-sm text-slate-600 border-t truncate">{formatCell(check, column.key)}</td></tr>
+                                                <tr key={check.id}><td className="px-4 py-1 text-sm text-slate-600 dark:text-gray-400 border-t dark:border-gray-600 truncate">{formatCell(check, column.key)}</td></tr>
                                             ))}
                                         </tbody>
                                     </table>
@@ -141,7 +146,9 @@ const DraggableHeader = ({
     }, [column, columnIndex, checksForPreview]);
 
     const isSorted = sortConfig?.key === column.key;
-    const headerTextColorClass = theme && theme.id !== 'default' ? theme.colors.text : 'text-slate-500';
+    const headerTextColorClass = preferences.darkMode 
+        ? (theme && theme.id !== 'default' ? theme.colors.dark?.text : 'text-gray-300') 
+        : (theme && theme.id !== 'default' ? theme.colors.text : 'text-slate-500');
 
     return (
         <th
@@ -156,7 +163,7 @@ const DraggableHeader = ({
                 {isSorted ? (
                     sortConfig?.direction === 'asc' ? <ArrowSmallUpIcon className="h-4 w-4" /> : <ArrowSmallDownIcon className="h-4 w-4" />
                 ) : (
-                    <ChevronUpDownIcon className="h-4 w-4 text-slate-300" />
+                    <ChevronUpDownIcon className="h-4 w-4 text-slate-300 dark:text-gray-500" />
                 )}
             </div>
             {dragState.closestEdge && <div className={`absolute top-0 bottom-0 w-1 bg-sky-500 pointer-events-none ${dragState.closestEdge === 'left' ? 'left-0' : 'right-0'}`}></div>}
@@ -166,7 +173,7 @@ const DraggableHeader = ({
 };
 
 
-const ArchiveView: React.FC<ArchiveViewProps> = ({ checks, onSelectCheck, onBack, searchTerm, visibleColumns, onVisibleColumnsChange, columnWidths: persistedWidths, onColumnWidthsChange, archiveTheme, themes, onOpenThemePicker }) => {
+const ArchiveView: React.FC<ArchiveViewProps> = ({ checks, onSelectCheck, onBack, searchTerm, visibleColumns, onVisibleColumnsChange, columnWidths: persistedWidths, onColumnWidthsChange, archiveTheme, themes, onOpenThemePicker, preferences }) => {
     const [sortConfig, setSortConfig] = useState<SortConfig>(null);
     const [isColumnDropdownOpen, setIsColumnDropdownOpen] = useState(false);
     const [lastDroppedColumnIndex, setLastDroppedColumnIndex] = useState<number | null>(null);
@@ -302,32 +309,38 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ checks, onSelectCheck, onBack
         onVisibleColumnsChange(newColumns);
     };
     
-    const headerClasses = theme && theme.id !== 'default' ? theme.colors.bg : 'bg-slate-50';
-    const rowHoverClass = theme && theme.id !== 'default' ? `hover:${theme.colors.bg.replace('bg-', 'bg-')}` : 'hover:bg-slate-50';
+    const darkMode = preferences.darkMode;
+    const headerClasses = theme && theme.id !== 'default' 
+        ? (darkMode && theme.colors.dark ? "bg-gradient-to-b from-gray-700 from-5% " + theme.colors.dark.bg.replace("bg-", "to-") + " to-20%" : theme.colors.bg) 
+        : (darkMode ? 'bg-gray-800' : 'bg-slate-50');
+
+    const rowHoverClass = theme && theme.id !== 'default' 
+        ? (darkMode && theme.colors.dark ? `hover:${theme.colors.dark.bg.replace('bg-', 'bg-')}` : `hover:${theme.colors.bg.replace('bg-', 'bg-')}`) 
+        : (darkMode ? 'dark:hover:bg-gray-600' : 'hover:bg-slate-50');
 
 
     return (
         <main className="container mx-auto p-4 sm:p-6 lg:p-8">
-            <div className="bg-white p-6 rounded-xl shadow-md">
-                <div className="flex justify-between items-center mb-4 border-b pb-4">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md">
+                <div className="flex justify-between items-center mb-4 border-b dark:border-gray-700 pb-4">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800">Archived Checks</h1>
-                        <p className="text-slate-500">{filteredChecks.length} of {checks.length} items found</p>
+                        <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Archived Checks</h1>
+                        <p className="text-slate-500 dark:text-gray-400">{filteredChecks.length} of {checks.length} items found</p>
                     </div>
                     <div className="flex items-center gap-2">
-                        <button onClick={onOpenThemePicker} title="Change Theme" className="p-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-600 rounded-md shadow-sm">
+                        <button onClick={onOpenThemePicker} title="Change Theme" className="p-2 bg-white dark:bg-gray-700 hover:bg-slate-100 dark:hover:bg-gray-600 border border-slate-300 dark:border-gray-600 text-slate-600 dark:text-gray-300 rounded-md shadow-sm">
                             <PaintBrushIcon className="h-5 w-5" />
                         </button>
                         <div className="relative" ref={columnDropdownRef}>
-                            <button onClick={() => setIsColumnDropdownOpen(p => !p)} className="p-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-600 rounded-md shadow-sm">
+                            <button onClick={() => setIsColumnDropdownOpen(p => !p)} className="p-2 bg-white dark:bg-gray-700 hover:bg-slate-100 dark:hover:bg-gray-600 border border-slate-300 dark:border-gray-600 text-slate-600 dark:text-gray-300 rounded-md shadow-sm">
                                 <AdjustmentsHorizontalIcon className="h-5 w-5" />
                             </button>
                             {isColumnDropdownOpen && (
-                                <div className="absolute right-0 mt-2 w-64 bg-white border rounded-md shadow-lg z-10 max-h-80 overflow-y-auto">
-                                    <p className="px-3 py-2 text-xs font-semibold text-slate-500 bg-slate-50 border-b">Visible Columns</p>
+                                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-md shadow-lg z-10 max-h-80 overflow-y-auto">
+                                    <p className="px-3 py-2 text-xs font-semibold text-slate-500 dark:text-gray-400 bg-slate-50 dark:bg-gray-800 border-b dark:border-gray-600">Visible Columns</p>
                                     <div className="p-2">
                                         {ALL_CHECK_FIELDS.map(field => (
-                                            <label key={field.key} className="flex items-center w-full px-2 py-1.5 text-sm text-slate-700 rounded-md hover:bg-slate-50">
+                                            <label key={field.key} className="flex items-center w-full px-2 py-1.5 text-sm text-slate-700 dark:text-gray-300 rounded-md hover:bg-slate-50 dark:hover:bg-gray-600">
                                                 <input
                                                     type="checkbox"
                                                     checked={visibleColumns.includes(field.key)}
@@ -341,7 +354,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ checks, onSelectCheck, onBack
                                 </div>
                             )}
                         </div>
-                        <button onClick={onBack} className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-semibold rounded-md shadow-sm transition-colors duration-200">
+                        <button onClick={onBack} className="px-4 py-2 bg-white dark:bg-gray-700 hover:bg-slate-100 dark:hover:bg-gray-600 border border-slate-300 dark:border-gray-600 text-slate-700 dark:text-gray-300 font-semibold rounded-md shadow-sm transition-colors duration-200">
                             Back to Board
                         </button>
                     </div>
@@ -349,7 +362,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ checks, onSelectCheck, onBack
                 
                 {checks.length > 0 ? (
                      <div className="overflow-x-auto">
-                        <table ref={tableRef} className="min-w-full divide-y divide-slate-200 border-separate border-spacing-0" style={{ tableLayout: 'fixed' }}>
+                        <table ref={tableRef} className="min-w-full divide-y divide-slate-200 dark:divide-gray-700 border-separate border-spacing-0" style={{ tableLayout: 'fixed' }}>
                             <thead className={headerClasses}>
                                 <tr>
                                     {columns.map((col, index) => (
@@ -364,17 +377,18 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ checks, onSelectCheck, onBack
                                             onResizeEnd={handleResizeEnd}
                                             theme={theme}
                                             width={columnWidths[col.key]}
+                                            preferences={preferences}
                                          />
                                     ))}
                                 </tr>
                             </thead>
-                            <tbody className="bg-white divide-y divide-slate-200">
+                            <tbody className="bg-white dark:bg-gray-800 divide-y divide-slate-200 dark:divide-gray-700">
                                 {filteredChecks.map(check => (
                                     <tr key={check.id} onClick={() => onSelectCheck(check)} className={`${rowHoverClass} cursor-pointer`}>
                                         {columns.map(col => (
                                             <td 
                                                 key={col.key} 
-                                                className="px-6 py-4 whitespace-nowrap text-sm text-slate-700 truncate"
+                                                className="px-6 py-4 whitespace-nowrap text-sm text-slate-700 dark:text-gray-300 truncate"
                                             >
                                                 {formatCell(check, col.key)}
                                             </td>
@@ -385,10 +399,10 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ checks, onSelectCheck, onBack
                         </table>
                     </div>
                 ) : (
-                    <div className="text-center py-16 px-4 border-2 border-dashed border-slate-200 rounded-lg">
-                        <ArchiveBoxIcon className="mx-auto h-16 w-16 text-slate-300" />
-                        <h3 className="mt-4 text-lg font-medium text-slate-800">The Archive is Empty</h3>
-                        <p className="mt-1 text-sm text-slate-500">Checks marked 'Complete' for over 10 days will automatically appear here.</p>
+                    <div className="text-center py-16 px-4 border-2 border-dashed border-slate-200 dark:border-gray-700 rounded-lg">
+                        <ArchiveBoxIcon className="mx-auto h-16 w-16 text-slate-300 dark:text-gray-600" />
+                        <h3 className="mt-4 text-lg font-medium text-slate-800 dark:text-white">The Archive is Empty</h3>
+                        <p className="mt-1 text-sm text-slate-500 dark:text-gray-400">Checks marked 'Complete' for over 10 days will automatically appear here.</p>
                     </div>
                 )}
             </div>

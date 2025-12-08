@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
-import { usePreferences } from './hooks/usePreferences';
+import { useUserData } from './hooks/useUserData';
 import { useCheckData } from './hooks/useCheckData';
 import { useCheckActions } from './hooks/useCheckActions';
 import { Check, CheckStatus, CurrentUser, Notification, UserProfile } from './types';
@@ -9,18 +9,46 @@ import * as firestoreService from './services/firestoreService';
 import Login from './components/Login';
 import SplashScreen from './components/SplashScreen';
 import AppRoutes from './AppRoutes';
+import { NotificationProvider, useNotification } from './contexts/NotificationContext';
+import NotificationStack from './components/NotificationStack';
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
     const { user, loading } = useAuth();
     const navigate = useNavigate();
-     const [preferences, savePreferences, clearPreferences] = usePreferences(user?.uid || null);
-   useEffect(() => {
-        if (user) {
-            firestoreService.getOrCreateUserProfile(user.uid, user.email || 'new.user@checkmate.com');
+    const [preferences, savePreferences, clearPreferences] = useUserData();
+    const { addToast, removeToast } = useNotification();
+    const [sessionStartTimestamp] = useState(new Date().toISOString());
+    const [shownToastIds, setShownToastIds] = useState<Set<string>>(new Set());
 
-            const unsubscribeNotifications = firestoreService.onNotificationsSnapshot(user.uid, setNotifications);
+    useEffect(() => {
+        if (preferences?.darkMode) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    }, [preferences?.darkMode]);
+    
+    useEffect(() => {
+        if (user) {
+            const unsubscribeNotifications = firestoreService.onNotificationsSnapshot(user.uid, (newNotifications) => {
+                setNotifications(newNotifications);
+                newNotifications.forEach(notification => {
+                    if (notification.timestamp > sessionStartTimestamp && !shownToastIds.has(notification.id)) {
+                        const userProfile = allUsers.find(u => u.uid === notification.actorId);
+                        addToast({
+                            userProfile,
+                            notification: { message: notification.message },
+                            handleToastClick: () => {
+                                navigate(notification.link);
+                                firestoreService.markNotificationsAsRead([notification.id]);
+                            }
+                        });
+                        setShownToastIds(prevIds => new Set(prevIds).add(notification.id));
+                    }
+                });
+            });
+
             const unsubscribeUsers = firestoreService.onUsersSnapshot(setAllUsers);
-            console.log(preferences)
             
             return () => {
                 unsubscribeNotifications();
@@ -31,41 +59,30 @@ const App: React.FC = () => {
             setAllUsers([]);
             clearPreferences();
         }
-    }, [user, clearPreferences]);
+    }, [user, clearPreferences, addToast, navigate, sessionStartTimestamp, shownToastIds]);
 
-    const currentUser = useMemo<CurrentUser | null>(() => {
-        if (!user) return null;
-        return { 
-            name: preferences.profile.firstName ? `${preferences.profile.firstName} ${preferences.profile.lastName}`.trim() : user.email || 'User',
-            uid: user.uid,
-            email: user.email,
-        };
-    }, [user, preferences.profile]);
-    // Custom hooks for data
-    const { checks, flags, batches, filteredChecks, searchTerm, setSearchTerm, activeCategoryFilter, setActiveCategoryFilter } = useCheckData(user, currentUser);
-   
+    const currentUser = useMemo<UserProfile | null>(() => {
+        if (!user || !preferences) return null;
+        return preferences.profile;
+    }, [user, preferences]);
     
-    // State for notifications and users
+    const { checks, flags, batches, filteredChecks, searchTerm, setSearchTerm, activeCategoryFilter, setActiveCategoryFilter } = useCheckData(user, preferences?.profile);
+   
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
-
-    // UI State
     const [sortConfig, setSortConfig] = useState<any>({});
     const [selectedCheckIds, setSelectedCheckIds] = useState<string[]>([]);
     const [lastSelectedCheckId, setLastSelectedCheckId] = useState<string | null>(null);
-    const [isMultiSelectMode, setIsMultiSelectMode] = useState(false); // Re-added state
+    const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
     const [isMainMenuOpen, setIsMainMenuOpen] = useState(false);
     const [expandedStatus, setExpandedStatus] = useState<CheckStatus | null>(null);
     const [viewingBatchId, setViewingBatchId] = useState<string | null>(null);
 
- 
-
     const actions = useCheckActions(currentUser, checks, flags);
     
-    // Re-added handler for the main menu button
     const handleToggleMultiSelect = useCallback(() => {
         setIsMultiSelectMode(prev => {
-            if (prev) setSelectedCheckIds([]); // Clear selection when exiting mode
+            if (prev) setSelectedCheckIds([]);
             return !prev;
         });
         setIsMainMenuOpen(false);
@@ -78,7 +95,6 @@ const App: React.FC = () => {
     const handleNavigateToBatch = useCallback((batchId: string) => navigate(`/batch/${batchId}`), [navigate]);
 
     const handleCheckSelection = useCallback((clickedCheckId: string, event: React.MouseEvent, allChecksInOrder: Check[]) => {
-        // Implicitly enable multi-select mode if a modifier key is used
         if (!isMultiSelectMode) {
             setIsMultiSelectMode(true);
         }
@@ -99,7 +115,7 @@ const App: React.FC = () => {
             } else {
                 setSelectedCheckIds(rangeIds);
             }
-        } else { // Handles Ctrl/Cmd click, Shift click (as first selection), and simple clicks in multi-select mode
+        } else {
             setSelectedCheckIds(prevIds => {
                 const newIds = new Set(prevIds);
                 if (newIds.has(clickedCheckId)) {
@@ -164,7 +180,7 @@ const App: React.FC = () => {
             };
             
             actions.handleUpdateCheck(checkId, updates, log);
-        } else { // Multi-select move logic
+        } else {
             const checksToMove = checks.filter(c => idsToMove.includes(c.id));
             if (checksToMove.length === 0) return;
 
@@ -184,11 +200,11 @@ const App: React.FC = () => {
             });
             
             setSelectedCheckIds([]);
-            setIsMultiSelectMode(false); // Exit multi-select mode after action
+            setIsMultiSelectMode(false);
         }
     }, [currentUser, checks, selectedCheckIds, actions]);
 
-    if (loading) return <SplashScreen />;
+    if (loading || !preferences) return <SplashScreen />;
     if (!user) return <Login />;
 
     const appState = {
@@ -227,9 +243,22 @@ const App: React.FC = () => {
         notifications,
         notificationCount: notifications.filter(n => !n.read).length,
         allUsers,
+        cardStyle: preferences.cardStyle,
     };
 
-    return <AppRoutes appState={appState} />;
+    return (
+        <>
+            <NotificationStack />
+            <AppRoutes appState={appState} />
+        </>
+    );
 };
 
+const App: React.FC = () => (
+    <NotificationProvider>
+        <AppContent />
+    </NotificationProvider>
+);
+
 export default App;
+

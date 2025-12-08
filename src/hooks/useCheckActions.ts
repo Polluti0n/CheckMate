@@ -1,13 +1,13 @@
 import { useCallback } from 'react';
 import * as firestoreService from '../services/firestoreService';
-import { Check, AuditLog, Flag, CurrentUser } from '../types';
+import { Check, AuditLog, Flag, UserProfile } from '../types';
 
 /**
  * A custom hook that provides all Firestore write operations.
  * It now correctly passes the `currentUser` object to each service call, which is
  * required for the backend Cloud Functions to trigger notifications correctly.
  */
-export const useCheckActions = (currentUser: CurrentUser | null, checks: Check[], flags: Flag[]) => {
+export const useCheckActions = (currentUser: UserProfile | null, checks: Check[], flags: Flag[]) => {
 
     const handleAddCheck = useCallback((newCheckData: Omit<Check, 'id' | 'createdAt' | 'comments' | 'auditTrail' | 'flags' | 'statusUpdatedAt' | 'batchId'>) => {
         if (!currentUser) return;
@@ -16,14 +16,15 @@ export const useCheckActions = (currentUser: CurrentUser | null, checks: Check[]
 
     const handleUpdateCheck = useCallback((checkId: string, updates: Partial<Check>, log: Omit<AuditLog, 'id' | 'timestamp' | 'uid' | 'user'>) => {
         if (!currentUser) return;
-        const completeLog = { ...log, user: currentUser.name, uid: currentUser.uid };
+        const completeLog = { ...log, user: `${currentUser.firstName} ${currentUser.lastName}`.trim(), uid: currentUser.uid };
         firestoreService.updateCheck(checkId, updates, completeLog, currentUser);
     }, [currentUser]);
 
     const handleDeleteCheck = useCallback((checkId: string) => {
         if (!currentUser) return;
-        firestoreService.deleteCheck(checkId);
-    }, [currentUser]);
+        const check = checks.find(c => c.id === checkId);
+        firestoreService.deleteCheck(checkId, check?.imageUrl);
+    }, [currentUser, checks]);
 
     const handleAddComment = useCallback((checkId: string, commentText: string) => {
         if (!currentUser) return;

@@ -209,7 +209,6 @@ export default class MICRScanner {
 			// build a hash
 			const referenceMap = MICR_CHARS.reduce((chars, char, index) => {
 				chars[char] = characterMats[index];
-				console.log(char, characterMats[index].rows, characterMats[index].cols, characterMats[index].channels())
 				return chars;
 			}, {});
 			

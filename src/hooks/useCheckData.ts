@@ -3,9 +3,9 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import firebase from 'firebase/compat/app';
 import * as firestoreService from '../services/firestoreService';
 // FIX: Added CurrentUser to imports for system user object.
-import { Check, Flag, Batch, CheckCategory, CheckStatus, CurrentUser } from '../types';
+import { Check, Flag, Batch, CheckCategory, CheckStatus, UserProfile } from '../types';
 
-export const useCheckData = (user: firebase.User | null, currentUser: CurrentUser | null) => {
+export const useCheckData = (user: firebase.User | null, currentUser: UserProfile | null) => {
     const [checks, setChecks] = useState<Check[]>([]);
     const [flags, setFlags] = useState<Flag[]>([]);
     const [batches, setBatches] = useState<Batch[]>([]);
@@ -42,8 +42,7 @@ export const useCheckData = (user: firebase.User | null, currentUser: CurrentUse
             );
 
             if (checksToArchive.length > 0) {
-                console.log(`Auto-archiving ${checksToArchive.length} checks.`);
-                firestoreService.bulkUpdateChecksStatus(checksToArchive, CheckStatus.ARCHIVED, currentUser, true);
+                firestoreService.bulkUpdateChecksStatus(checksToArchive, CheckStatus.ARCHIVED, currentUser);
             }
 
             hasArchived.current = true; // Mark as run
@@ -80,7 +79,7 @@ export const useCheckData = (user: firebase.User | null, currentUser: CurrentUse
             const matchesCategory = !activeCategoryFilter || check.category === activeCategoryFilter;
             return matchesSearch && matchesCategory;
         });
-    }, [checks, searchTerm, activeCategoryFilter]);
+    }, [checks, searchTerm, activeCategoryFilter, flags]);
 
     return {
         checks,

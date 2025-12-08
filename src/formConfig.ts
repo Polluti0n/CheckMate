@@ -1,34 +1,38 @@
 // src/formConfig.ts
 
 import { CheckCategory } from './types';
-import { HomeIcon, UsersIcon, BuildingOfficeIcon, ArchiveBoxIcon } from './components/icons';
+import { HomeIcon, BuildingOfficeIcon, ArchiveBoxIcon, communityIcon } from './components/icons';
 
 // UI Configuration for category selection cards
 export const categoryConfig = {
     [CheckCategory.HOMEOWNER_LOCKBOX]: {
+        name: 'Homeowner Lockbox',
         icon: HomeIcon,
-        colors: "bg-sky-50 border-sky-200 hover:border-sky-400 hover:bg-sky-100",
-        iconColors: "bg-sky-100 text-sky-700",
         description: "Homeowner dues payments.",
+        color: { name: 'sky', border: 'border-sky-500', text: 'text-sky-700', bg: 'bg-sky-500', bgLight: 'bg-sky-200', glow: 'shadow-sky-500/20', borderLight: 'border-sky-200',
+            dark: { border: 'border-sky-700', bg: 'bg-sky-900', text: 'text-sky-300', bgLight: 'bg-sky-800', glow: 'shadow-sky-700/20', borderLight: 'border-sky-700' }
+        },
     },
     [CheckCategory.MISC_HOMEOWNER_INCOME]: {
-        icon: UsersIcon,
-        colors: "bg-green-50 border-green-200 hover:border-green-400 hover:bg-green-100",
-        iconColors: "bg-green-100 text-green-700",
+        name: 'Misc Homeowner Income',
+        icon: communityIcon,
         description: "Clubhouse rentals, pool fees, key fobs, etc.",
-    },
+        color: { name: 'green', border: 'border-green-500', text: 'text-green-700', bg: 'bg-green-500', bgLight: 'bg-green-200', glow: 'shadow-green-500/20', borderLight: 'border-green-200'},
+            dark: { border: 'border-green-700', bg: 'bg-green-900', text: 'text-green-300', bgLight: 'bg-green-800', glow: 'shadow-green-700/20', borderLight: 'border-green-700' } 
+        },
     [CheckCategory.MISC_NON_HOMEOWNER_INCOME]: {
+        name: 'Misc Non-Homeowner Income',
         icon: BuildingOfficeIcon,
-        colors: "bg-purple-50 border-purple-200 hover:border-purple-400 hover:bg-purple-100",
-        iconColors: "bg-purple-100 text-purple-700",
         description: "Transition fees, utility payments, insurance.",
+        color: { name: 'purple', border: 'border-purple-500', text: 'text-purple-700', bg: 'bg-purple-500', bgLight: 'bg-purple-200', glow: 'shadow-purple-500/20', borderLight: 'border-purple-200',
+            dark: { border: 'border-purple-700', bg: 'bg-purple-900', text: 'text-purple-300', bgLight: 'bg-purple-800', glow: 'shadow-purple-700/20', borderLight: 'border-purple-700' }},
     },
     [CheckCategory.COMMUNITY_ARCHIVES]: {
+        name: 'Community Archives',
         icon: ArchiveBoxIcon,
-        colors: "bg-slate-100 border-slate-200 hover:border-slate-400 hover:bg-slate-200",
-        iconColors: "bg-slate-200 text-slate-700",
         description: "Resale documents, new account fees.",
-    },
+        color: { name: 'slate', border: 'border-slate-500', text: 'text-slate-700', bg: 'bg-slate-500', bgLight: 'bg-slate-200', glow: 'shadow-slate-500/20', borderLight: 'border-slate-200' },
+            dark: { border: 'border-slate-700', bg: 'bg-slate-900', text: 'text-slate-300', bgLight: 'bg-slate-800', glow: 'shadow-slate-700/20', borderLight: 'border-slate-700' } },
 };
 
 // Form field definitions and options

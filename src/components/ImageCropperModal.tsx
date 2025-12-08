@@ -139,10 +139,10 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({ isOpen, imageSrc,
     
     return (
         <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-lg flex flex-col max-h-[90vh]">
-                <div className="p-4 border-b flex justify-between items-center flex-shrink-0">
-                    <h3 className="text-lg font-semibold text-slate-800">Crop Profile Picture</h3>
-                    <button onClick={onClose} className="p-1 rounded-full text-slate-400 hover:bg-slate-100"><XMarkIcon className="h-6 w-6" /></button>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg flex flex-col max-h-[90vh]">
+                <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center flex-shrink-0">
+                    <h3 className="text-lg font-semibold text-slate-800 dark:text-white">Crop Profile Picture</h3>
+                    <button onClick={onClose} className="p-1 rounded-full text-slate-400 dark:text-gray-500 hover:bg-slate-100 dark:hover:bg-gray-700"><XMarkIcon className="h-6 w-6" /></button>
                 </div>
                 
                 <div className="p-4 flex-grow flex justify-center items-center overflow-hidden">
@@ -165,7 +165,7 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({ isOpen, imageSrc,
                                 onTouchStart={e => handleMouseDown(e, 'move')}
                             >
                                 <div 
-                                    className="absolute -bottom-2 -right-2 w-4 h-4 bg-white rounded-full cursor-nwse-resize border-2 border-slate-300" 
+                                    className="absolute -bottom-2 -right-2 w-4 h-4 bg-white dark:bg-gray-700 rounded-full cursor-nwse-resize border-2 border-slate-300 dark:border-gray-600" 
                                     onMouseDown={e => handleMouseDown(e, 'resize')} 
                                     onTouchStart={e => handleMouseDown(e, 'resize')}
                                 />
@@ -174,8 +174,8 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({ isOpen, imageSrc,
                     </div>
                 </div>
 
-                <div className="p-4 bg-slate-50 border-t flex justify-end gap-3 flex-shrink-0">
-                    <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50">Cancel</button>
+                <div className="p-4 bg-slate-50 dark:bg-gray-800 border-t dark:border-gray-700 flex justify-end gap-3 flex-shrink-0">
+                    <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 rounded-md hover:bg-slate-50 dark:hover:bg-gray-600">Cancel</button>
                     <button onClick={handleConfirm} className="px-4 py-2 text-sm font-medium text-white bg-sky-600 rounded-md hover:bg-sky-700 flex items-center gap-2">
                         <CheckCircleIcon className="h-5 w-5"/>
                         Confirm & Save

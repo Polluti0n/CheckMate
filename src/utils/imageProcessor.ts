@@ -121,11 +121,8 @@ async function standardizeOutputImage(src) {
                     Tesseract.OEM.TESSERACT_ONLY
                 );
 
-            console.log('Detecting text orientation with Tesseract...');
             const { data: { orientation_degrees, orientation_confidence } } = await worker.detect(dataUrl);
             await worker.terminate();
-            
-            console.log(`Tesseract orientation: ${orientation_degrees} degrees, confidence: ${orientation_confidence}`);
             
             // We only trust Tesseract if confidence is reasonably high
             if (orientation_confidence > 1) { 
@@ -150,13 +147,11 @@ async function standardizeOutputImage(src) {
 
         // --- Apply rotation ---
         if (rotationAngle !== null) {
-            console.log(`Rotating image based on Tesseract result.`);
             rotated = new cv.Mat();
             cv.rotate(src, rotated, rotationAngle); // Rotate the original high-res `src`
             standardized = rotated; // `standardized` now points to the high-res rotated image
         } else if (src.rows > src.cols) {
             // Fallback to simple dimension check
-            console.log("Tesseract detection failed or had low confidence. Falling back to dimension-based rotation.");
             rotated = new cv.Mat();
             cv.rotate(src, rotated, 2); // cv.ROTATE_90_COUNTER_CLOCKWISE on the original `src`
             standardized = rotated;
@@ -178,7 +173,6 @@ async function standardizeOutputImage(src) {
         const scanner = new MICRScanner(cv);
         const micrStrings = scanner.scanImage(standardizedMat);
         const micrData = parseMICRStrings(micrStrings);
-        console.log("MICR Scan Results:", micrData);
 
         return { standardizedMat, micrData };
 
@@ -331,7 +325,6 @@ export const processCheckImage = async (originalDataUrl: string, resizedDataUrl:
         }
 
         for (const config of scanConfigs) {
-            console.log(`Attempting contour detection with config: ${config.name}`);
             resultMat = findAndTransformContour(resizedSrc, config, originalSrc);
 
             if (resultMat) {
@@ -345,7 +338,6 @@ export const processCheckImage = async (originalDataUrl: string, resizedDataUrl:
                 const dataUrl = resultCanvas.toDataURL('image/jpeg', 0.92);
                 const base64Length = dataUrl.length - 'data:image/jpeg;base64,'.length;
                 const bytes = base64Length * 0.75;
-                console.log(`Success with config "${config.name}". Image size: ${Math.round(bytes / 1024)}KB`);
                 return { dataUrl, micrData };
             }
         }

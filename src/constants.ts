@@ -1,11 +1,11 @@
 import { UserPreferences, CheckField, CheckStatus, Theme, UserProfile, CheckCategory,FlagColorVariant  } from './types';
+import { PayorIcon, BanknotesIcon, CategoryIcon, HashtagIcon, MemoIcon, PayeeIcon, MapLocationIcon, CommentIcon, CalendarDaysIcon, DateCreatedIcon, LastModifiedIcon, FlagIcon} from './components/icons'
 
-export const CHECK_TYPE_COLORS: { [key in CheckCategory]: string } = {
-    [CheckCategory.HOMEOWNER_LOCKBOX]: 'bg-sky-100 border-blue-500',
-    [CheckCategory.MISC_HOMEOWNER_INCOME]: 'bg-green-100 border-green-500',
-    [CheckCategory.MISC_NON_HOMEOWNER_INCOME]: 'bg-purple-100 border-purple-500',
-    [CheckCategory.COMMUNITY_ARCHIVES]: 'bg-slate-100 border-slate-500',
-
+export const CHECK_TYPE_COLORS: { [key in CheckCategory]: { bg: string, border: string, dark: { bg: string, border: string, gradient: string } } } = {
+    [CheckCategory.HOMEOWNER_LOCKBOX]: { bg: 'bg-sky-100', border: 'border-blue-500', dark: { bg: 'bg-sky-900', border: 'border-blue-700', gradient: 'to-sky-900'} },
+    [CheckCategory.MISC_HOMEOWNER_INCOME]: { bg: 'bg-green-100', border: 'border-green-500', dark: { bg: 'bg-green-900', border: 'border-green-700', gradient: 'to-green-900'} },
+    [CheckCategory.MISC_NON_HOMEOWNER_INCOME]: { bg: 'bg-purple-100', border: 'border-purple-500', dark: { bg: 'bg-purple-900', border: 'border-purple-700', gradient: 'to-purple-900' } },
+    [CheckCategory.COMMUNITY_ARCHIVES]: { bg: 'bg-slate-100', border: 'border-slate-500', dark: { bg: 'bg-slate-800', border: 'border-slate-600', gradient: 'to-slate-900' } },
 };
 
 export const ALL_CHECK_FIELDS: { key: CheckField; label: string; isNumeric?: boolean }[] = [
@@ -28,18 +28,19 @@ export const ALL_CHECK_FIELDS: { key: CheckField; label: string; isNumeric?: boo
 ];
 
 // A curated list of fields suitable for display on a Kanban card.
-export const AVAILABLE_CARD_FIELDS: { key: CheckField; label: string }[] = [
-    { key: 'payor', label: 'Payor' },
-    { key: 'amount', label: 'Amount' },
-    { key: 'category', label: 'Category' },
-    { key: 'checkNumber', label: 'Check #' },
-    { key: 'memo', label: 'Memo' },
-    { key: 'payee', label: 'Payee' },
-    { key: 'associationName', label: 'Association' },
-    { key: 'lastComment', label: 'Last Comment' },
-    { key: 'date', label: 'Date' },
-    { key: 'createdAt', label: 'Date Created' },
-    { key: 'statusUpdatedAt', label: 'Last Modified' },
+export const AVAILABLE_CARD_FIELDS: { key: CheckField | 'flags'; label: string; icon: React.FC<React.SVGProps<SVGSVGElement>>  }[] = [
+    { key: 'payor', label: 'Payor', icon: PayorIcon },
+    { key: 'amount', label: 'Amount', icon: BanknotesIcon },
+    { key: 'category', label: 'Category', icon: CategoryIcon },
+    { key: 'checkNumber', label: 'Check #', icon: HashtagIcon },
+    { key: 'memo', label: 'Memo', icon: MemoIcon },
+    { key: 'payee', label: 'Payee', icon: PayeeIcon },
+    { key: 'associationName', label: 'Association', icon: MapLocationIcon },
+    { key: 'lastComment', label: 'Last Comment', icon: CommentIcon },
+    { key: 'date', label: 'Date', icon: CalendarDaysIcon },
+    { key: 'createdAt', label: 'Date Created', icon: DateCreatedIcon },
+    { key: 'statusUpdatedAt', label: 'Last Modified', icon: LastModifiedIcon },
+    { key: 'flags', label: 'Flags', icon: FlagIcon },
 ];
 
 // FIX: Added THEMES export to resolve import error in App.tsx
@@ -48,11 +49,17 @@ export const THEMES: Theme[] = [
     id: 'default',
     name: 'Default',
     colors: {
-      border: 'border-slate-500', // This will be overridden by status-specific colors
+      border: 'border-slate-500',
       bg: 'bg-slate-50',
       text: 'text-slate-800',
       accent: 'bg-slate-500',
-      glow: '14, 165, 233', // Default glow for selection
+      glow: '14, 165, 233',
+      dark: {
+        border: 'border-slate-600',
+        bg: 'bg-slate-900',
+        text: 'text-slate-200',
+        accent: 'bg-slate-500',
+      },
     },
   },
   {
@@ -63,7 +70,13 @@ export const THEMES: Theme[] = [
       bg: 'bg-sky-50',
       text: 'text-sky-800',
       accent: 'bg-sky-500',
-      glow: '14, 165, 233', // Custom glow class
+      glow: '14, 165, 233',
+      dark: {
+        border: 'border-sky-700',
+        bg: 'bg--sky-900',
+        text: 'text-sky-300',
+        accent: 'bg-sky-600',
+      },
     },
   },
   {
@@ -74,7 +87,13 @@ export const THEMES: Theme[] = [
       bg: 'bg-amber-50',
       text: 'text-amber-800',
       accent: 'bg-amber-500',
-      glow: '245, 158, 11', // Custom glow class
+      glow: '245, 158, 11',
+      dark: {
+        border: 'border-amber-700',
+        bg: 'bg-amber-900',
+        text: 'text-amber-300',
+        accent: 'bg-amber-600',
+      },
     },
   },
   {
@@ -85,7 +104,13 @@ export const THEMES: Theme[] = [
       bg: 'bg-green-50',
       text: 'text-green-800',
       accent: 'bg-green-500',
-      glow: '34, 197, 94', // Custom glow class
+      glow: '34, 197, 94',
+      dark: {
+        border: 'border-green-700',
+        bg: 'bg-green-900',
+        text: 'text-green-300',
+        accent: 'bg-green-600',
+      },
     },
   },
   {
@@ -96,7 +121,13 @@ export const THEMES: Theme[] = [
       bg: 'bg-purple-50',
       text: 'text-purple-800',
       accent: 'bg-purple-500',
-      glow: '168, 85, 247', // Custom glow class
+      glow: '168, 85, 247',
+      dark: {
+        border: 'border-purple-700',
+        bg: 'bg-purple-900',
+        text: 'text-purple-300',
+        accent: 'bg-purple-600',
+      },
     },
   },
   {
@@ -108,6 +139,12 @@ export const THEMES: Theme[] = [
       text: 'text-rose-800',
       accent: 'bg-rose-500',
       glow: '244, 63, 94',
+      dark: {
+        border: 'border-rose-700',
+        bg: 'bg-rose-900',
+        text: 'text-rose-300',
+        accent: 'bg-rose-600',
+      },
     },
   },
 ];
@@ -115,6 +152,7 @@ export const THEMES: Theme[] = [
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
    viewMode: 'card',
+   cardStyle: 'classic',
    profile: {
 // FIX: Added missing 'uid' and 'email' properties to conform to UserProfile type.
         uid: '',
@@ -173,7 +211,8 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
         footer: {
             footerLeft: 'date',
         }
-    }
+    },
+    darkMode: false,
 };
 
 export const flagColorVariant: FlagColorVariant = {

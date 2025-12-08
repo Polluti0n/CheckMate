@@ -41,21 +41,21 @@ export const CategoryStep = () => {
 
     return (
         <>
-            <div className="p-6 flex-shrink-0 border-b">
-                <h3 className="text-xl font-semibold text-center text-gray-900">Select Check Category</h3>
-                <p className="mt-1 text-sm text-center text-gray-500">Choose the category that best fits the payment type.</p>
+            <div className="p-6 flex-shrink-0 border-b dark:border-gray-700">
+                <h3 className="text-xl font-semibold text-center text-gray-900 dark:text-white">Select Check Category</h3>
+                <p className="mt-1 text-sm text-center text-gray-500 dark:text-gray-400">Choose the category that best fits the payment type.</p>
             </div>
             <div className="p-6 flex-grow overflow-y-auto">
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                     {Object.entries(categoryConfig).map(([category, config]) => {
                         const Icon = config.icon;
                         return (
-                            <button key={category} onClick={() => handleCategorySelect(category as CheckCategory)} className={`group relative text-left p-4 border rounded-lg transition-all duration-300 transform hover:scale-[1.03] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 ${config.colors}`}>
+                            <button key={category} onClick={() => handleCategorySelect(category as CheckCategory)} className={`group relative text-left p-4 border dark:border-gray-700 rounded-lg transition-all duration-300 transform hover:scale-[1.03] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 dark:bg-gray-700 dark:hover:bg-gray-600 dark:hover:shadow-xl dark:focus:ring-sky-700 dark:focus:ring-offset-gray-800 ${config.colors}`}>
                                 <div className="flex items-start space-x-4">
                                     <div className={`flex-shrink-0 p-3 rounded-lg ${config.iconColors}`}><Icon className="h-6 w-6" /></div>
                                     <div>
-                                        <p className="font-semibold text-slate-800">{category}</p>
-                                        <p className="text-sm text-slate-600">{config.description}</p>
+                                        <p className="font-semibold text-slate-800 dark:text-white">{category}</p>
+                                        <p className="text-sm text-slate-600 dark:text-gray-300">{config.description}</p>
                                     </div>
                                 </div>
                             </button>
@@ -75,25 +75,25 @@ export const UploadStep = () => {
 
     return (
         <>
-            <div className="p-6 flex-shrink-0 border-b">
-                <h3 className="text-lg font-medium leading-6 text-gray-900">Upload Check Image (Optional)</h3>
-                <p className="mt-1 text-sm text-gray-500">Upload an image to automatically extract details using AI.</p>
+            <div className="p-6 flex-shrink-0 border-b dark:border-gray-700">
+                <h3 className="text-lg font-medium leading-6 text-gray-900 dark:text-white">Upload Check Image (Optional)</h3>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Upload an image to automatically extract details using AI.</p>
             </div>
             <div className="flex-grow overflow-y-auto p-6">
-                <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-sky-600 hover:text-sky-500">
-                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-md hover:border-sky-400">
+                <label htmlFor="file-upload" className="relative cursor-pointer bg-white dark:bg-gray-800 rounded-md font-medium text-sky-600 dark:text-sky-400 hover:text-sky-500">
+                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-300 dark:border-gray-600 border-dashed rounded-md hover:border-sky-400 dark:hover:border-sky-700">
                         <div className="space-y-1 text-center">
-                            {isLoading ? (<div className="py-4"><ProcessingLoaderIcon className="mx-auto h-12 w-12" /><p className="mt-4 text-sm font-medium text-slate-600">Processing image...</p></div>)
+                            {isLoading ? (<div className="py-4"><ProcessingLoaderIcon className="mx-auto h-12 w-12" /><p className="mt-4 text-sm font-medium text-slate-600 dark:text-gray-300">Processing image...</p></div>)
                             : imagePreview ? (<img src={imagePreview} alt="Check preview" className="mx-auto h-32 object-contain rounded-md shadow-sm" />)
-                            : (<><CheckPlaceholderIcon className="mx-auto h-16 w-auto text-slate-400" /><div className="mt-2 flex text-sm text-gray-600"><span>Upload a file</span><input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleImageUpload} accept="image/*;capture=camera" /></div><p className="text-xs text-gray-500">PNG, JPG, or use camera</p></>)}
+                            : (<><CheckPlaceholderIcon className="mx-auto h-16 w-auto text-slate-400 dark:text-gray-500" /><div className="mt-2 flex text-sm text-gray-600 dark:text-gray-300"><span>Upload a file</span><input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleImageUpload} accept="image/*;capture=camera" /></div><p className="text-xs text-gray-500 dark:text-gray-400">PNG, JPG, or use camera</p></>)}
                         </div>
                     </div>
                 </label>
-                {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+                {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
                 {/* --- START: Temporary Debug View --- */}
                 {debugImages && debugImages.length > 0 && (
-                    <div className="mt-4 p-4 bg-slate-100 border rounded-lg">
-                        <h4 className="text-sm font-semibold text-slate-700 mb-2">Contour Detection Debug Output:</h4>
+                    <div className="mt-4 p-4 bg-slate-100 dark:bg-gray-700 border dark:border-gray-600 rounded-lg">
+                        <h4 className="text-sm font-semibold text-slate-700 dark:text-gray-300 mb-2">Contour Detection Debug Output:</h4>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                             {debugImages.map((src, i) => <img key={i} src={src} alt={`Debug ${i}`} className="w-full h-auto rounded shadow-sm border" />)}
                         </div>
@@ -101,9 +101,9 @@ export const UploadStep = () => {
                 )}
                 {/* --- END: Temporary Debug View --- */}
             </div>
-            <div className="p-6 flex-shrink-0 border-t flex justify-between items-center">
-                <button onClick={() => navigate(-1)} type="button" className="text-sm font-medium text-slate-600 hover:text-slate-900">Back</button>
-                <button onClick={() => navigate('/add-check/details')} type="button" className="rounded-md border border-slate-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-slate-700 hover:bg-slate-50">Skip & Enter Manually</button>
+            <div className="p-6 flex-shrink-0 border-t dark:border-gray-700 flex justify-between items-center">
+                <button onClick={() => navigate(-1)} type="button" className="text-sm font-medium text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white">Back</button>
+                <button onClick={() => navigate('/add-check/details')} type="button" className="rounded-md border border-slate-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-600">Skip & Enter Manually</button>
             </div>
         </>
     );
@@ -365,15 +365,15 @@ export const CropStep = () => {
     return (
 
         <>
-            <div className="p-6 flex-shrink-0 border-b">
-                <h3 className="text-lg font-medium leading-6 text-gray-900">Manual Crop</h3>
-                <p className="mt-1 text-sm text-gray-500">Automatic detection failed. Please drag the corners to align with the check.</p>
+            <div className="p-6 flex-shrink-0 border-b dark:border-gray-700">
+                <h3 className="text-lg font-medium leading-6 text-gray-900 dark:text-white">Manual Crop</h3>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Automatic detection failed. Please drag the corners to align with the check.</p>
             </div>
-            <div ref={containerRef} className="relative flex-grow p-4 bg-gray-100 flex justify-center h-[60dvh] items-center overflow-hidden">
+            <div ref={containerRef} className="relative flex-grow p-4 bg-gray-100 dark:bg-gray-700 flex justify-center h-[60dvh] items-center overflow-hidden">
                  {isLoading ? (
                     <div className="text-center">
                         <ProcessingLoaderIcon className="mx-auto h-12 w-12" />
-                        <p className="mt-4 text-sm font-medium text-slate-600">Processing cropped image...</p>
+                        <p className="mt-4 text-sm font-medium text-slate-600 dark:text-gray-300">Processing cropped image...</p>
                     </div>
                 ) : (
                     <>
@@ -404,10 +404,10 @@ export const CropStep = () => {
                     </>
                 )}
             </div>
-             {error && <p className="mt-2 text-sm text-red-600 text-center">{error}</p>}
-            <div className="p-6 flex-shrink-0 border-t flex justify-between items-center">
-                <button onClick={() => navigate(-1)} type="button" className="text-sm font-medium text-slate-600 hover:text-slate-900" disabled={isLoading}>Back</button>
-                <button onClick={handleCrop} type="button" className="rounded-md border border-transparent shadow-sm px-4 py-2 bg-sky-600 text-base font-medium text-white hover:bg-sky-700 disabled:bg-sky-300" disabled={isLoading}>Crop and Continue</button>
+             {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400 text-center">{error}</p>}
+            <div className="p-6 flex-shrink-0 border-t dark:border-gray-700 flex justify-between items-center">
+                <button onClick={() => navigate(-1)} type="button" className="text-sm font-medium text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white" disabled={isLoading}>Back</button>
+                <button onClick={handleCrop} type="button" className="rounded-md border border-transparent shadow-sm px-4 py-2 bg-sky-600 text-base font-medium text-white hover:bg-sky-700 disabled:bg-sky-300 dark:disabled:bg-sky-900" disabled={isLoading}>Crop and Continue</button>
             </div>
         </>
     );
@@ -455,9 +455,9 @@ export const DetailsStep = () => {
 
     return (
         <>
-            <div className="p-6 flex-shrink-0 border-b">
-                <h3 className="text-lg font-medium leading-6 text-gray-900">Enter Check Details</h3>
-                <p className="text-sm text-slate-500">Category: <span className="font-semibold">{newCheck.category}</span></p>
+            <div className="p-6 flex-shrink-0 border-b dark:border-gray-700">
+                <h3 className="text-lg font-medium leading-6 text-gray-900 dark:text-white">Enter Check Details</h3>
+                <p className="text-sm text-slate-500 dark:text-gray-400">Category: <span className="font-semibold">{newCheck.category}</span></p>
             </div>
             <div className="flex-grow overflow-y-auto px-6 py-4">
                 <DetailsForm ref={detailsRef} openDropdown={openDropdown} setOpenDropdown={setOpenDropdown} />
@@ -469,12 +469,12 @@ export const DetailsStep = () => {
                         }`} role="alert">
                         {toast.type === 'info' ? <InfoIcon className="h-5 w-5 flex-shrink-0" /> : <ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />}
                         <span className="text-left">{toast.message}</span>
-                        <button onClick={() => setToast(null)} className="ml-auto -mr-1 p-1 rounded-full hover:bg-white/20"><XMarkIcon className="h-4 w-4"/></button>
+                        <button onClick={() => setToast(null)} className="ml-auto -mr-1 p-1 rounded-full hover:bg-white/20 dark:hover:bg-black/20"><XMarkIcon className="h-4 w-4"/></button>
                     </div>
                 )}
             </div>
-            <div className="p-6 flex-shrink-0 border-t flex justify-between items-center">
-                 <button onClick={() => navigate(-1)} type="button" className="text-sm font-medium text-slate-600 hover:text-slate-900">Back</button>
+            <div className="p-6 flex-shrink-0 border-t dark:border-gray-700 flex justify-between items-center">
+                 <button onClick={() => navigate(-1)} type="button" className="text-sm font-medium text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white">Back</button>
                  <button type="submit" form="addCheckForm" className="rounded-md border border-transparent shadow-sm px-4 py-2 bg-sky-600 text-base font-medium text-white hover:bg-sky-700">Add Check</button>
             </div>
         </>
@@ -504,7 +504,7 @@ const DetailsForm = React.forwardRef<HTMLFormElement, {openDropdown: string | nu
             autoComplete: field.autocomplete || 'off',
             value: value,
             onChange: handleDetailsChange,
-            className: "mt-1 block w-full bg-slate-50 border border-slate-300 text-slate-900 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-500 sm:text-sm",
+            className: "mt-1 block w-full bg-slate-50 dark:bg-gray-700 border border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-500 sm:text-sm",
         };
 
         let inputElement;
@@ -527,12 +527,12 @@ const DetailsForm = React.forwardRef<HTMLFormElement, {openDropdown: string | nu
                             autoComplete="off"
                         />
                         {openDropdown === field.name && filteredOptions && filteredOptions.length > 0 && (
-                            <ul className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-y-auto focus:outline-none sm:text-sm">
+                            <ul className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-md shadow-lg max-h-60 overflow-y-auto focus:outline-none sm:text-sm">
                                 {filteredOptions.map((opt: { value: string, text: string }) => (
                                     <li 
                                         key={opt.value} 
                                         onClick={() => handleOptionClick(field.name, opt.text)}
-                                        className="text-slate-900 cursor-pointer select-none relative py-2 pl-3 pr-4 hover:bg-slate-100"
+                                        className="text-slate-900 dark:text-white cursor-pointer select-none relative py-2 pl-3 pr-4 hover:bg-slate-100 dark:hover:bg-gray-700"
                                     >
                                         {opt.text}
                                     </li>
@@ -551,7 +551,7 @@ const DetailsForm = React.forwardRef<HTMLFormElement, {openDropdown: string | nu
 
         return (
             <div key={field.name} className={field.colSpan === 2 ? 'sm:col-span-2' : 'sm:col-span-1'}>
-                <label htmlFor={field.name} className="block text-sm font-medium text-slate-600">
+                <label htmlFor={field.name} className="block text-sm font-medium text-slate-600 dark:text-gray-300">
                     {field.label} {field.required && <span className="text-red-500">*</span>}
                 </label>
                 {inputElement}
@@ -569,7 +569,7 @@ const DetailsForm = React.forwardRef<HTMLFormElement, {openDropdown: string | nu
                     <p className="text-sm text-green-700">Details extracted from image. Please verify.</p>
                 </div>
             )}
-            {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+            {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
             <div className="grid grid-cols-1 gap-y-4 gap-x-4 sm:grid-cols-2">
                 {fields.map(renderField)}
             </div>
@@ -804,10 +804,10 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
     return (
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 z-30">
             <div className="flex items-center justify-center min-h-screen p-4">
-                <div className="relative bg-white rounded-lg shadow-xl sm:my-8 sm:max-w-3xl sm:w-full max-h-[80dvh] flex flex-col">
+                <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl sm:my-8 sm:max-w-3xl sm:w-full max-h-[80dvh] flex flex-col">
                     <button
                         onClick={handleClose}
-                        className="absolute top-3 right-3 p-1 rounded-full text-slate-400 hover:bg-slate-100 z-10"
+                        className="absolute top-3 right-3 p-1 rounded-full text-slate-400 dark:text-gray-500 hover:bg-slate-100 dark:hover:bg-gray-700 z-10"
                         aria-label="Close"
                         title="Close"
                     >

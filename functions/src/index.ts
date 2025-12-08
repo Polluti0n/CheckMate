@@ -250,6 +250,7 @@ export const onCheckCreate = onDocumentCreated("checks/{checkId}", async (event)
     const notifRef = db.collection("notifications").doc();
     batch.set(notifRef, {
       userId,
+      actorId: actor.uid,
       message,
       link: `/check/${event.params.checkId}`,
       read: false,
@@ -283,7 +284,9 @@ export const onCheckUpdate = onDocumentUpdated("checks/{checkId}", async (event)
   }
 
   const userIds = await getUsersToNotify(actor.uid);
-  let message = "";
+  let message = lastLog?.message || '';
+
+  if (!message) {
 
   // 1. Check for status change
   if (before.status !== after.status) {
@@ -304,16 +307,18 @@ export const onCheckUpdate = onDocumentUpdated("checks/{checkId}", async (event)
       message = `${actor.name} removed a flag from check #${after.checkNumber || 'N/A'}.`;
     }
   }
+}
 
   if (!message) {
     return null; // No relevant change detected for notification
-  }
+  }tujnmu
 
   const batch = db.batch();
   userIds.forEach((userId) => {
     const notifRef = db.collection("notifications").doc();
     batch.set(notifRef, {
       userId,
+      actorId: actor.uid,
       message,
       link: `/check/${event.params.checkId}`,
       read: false,
@@ -351,6 +356,7 @@ export const onBatchCreate = onDocumentCreated("batches/{batchId}", async (event
     const notifRef = db.collection("notifications").doc();
     batch.set(notifRef, {
       userId,
+      actorId: actorUid,
       message,
       link: "/batch-history",
       read: false,

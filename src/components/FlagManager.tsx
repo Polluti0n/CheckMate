@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Flag, CurrentUser } from '../types';
+import { Flag, UserProfile } from '../types';
 import { XMarkIcon, PencilIcon, TrashIcon, PlusIcon } from './icons';
 import * as firestoreService from '../services/firestoreService';
 
@@ -7,7 +7,7 @@ interface FlagManagerProps {
   isOpen: boolean;
   flags: Flag[];
   onClose: () => void;
-  currentUser: CurrentUser | null;
+  currentUser: UserProfile | null;
 }
 
 const colors = [
@@ -81,13 +81,13 @@ const FlagManager: React.FC<FlagManagerProps> = ({ isOpen, flags, onClose, curre
         // Use a darker backdrop to distinguish it as a second-level modal
         <div className="fixed inset-0 bg-black/70 transition-opacity z-[60] flex items-center justify-center p-4" onClick={onClose}>
             {/* Stop propagation to prevent closing when clicking inside the modal */}
-            <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
-                <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="p-6 border-b border-slate-100 dark:border-gray-700 flex justify-between items-center">
                     <div>
-                        <h3 className="text-xl font-bold text-slate-900">Manage My Flags</h3>
-                        <p className="text-sm text-slate-500 mt-1">Create and edit your personal flags.</p>
+                        <h3 className="text-xl font-bold text-slate-900 dark:text-white">Manage My Flags</h3>
+                        <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">Create and edit your personal flags.</p>
                     </div>
-                    <button onClick={onClose} className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors" aria-label="Close">
+                    <button onClick={onClose} className="p-1 rounded-full text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700 transition-colors" aria-label="Close">
                         <XMarkIcon className="h-6 w-6" />
                     </button>
                 </div>
@@ -96,13 +96,13 @@ const FlagManager: React.FC<FlagManagerProps> = ({ isOpen, flags, onClose, curre
                     {userFlags.length > 0 ? (
                         <ul className="space-y-2 max-h-60 overflow-y-auto pr-2">
                             {userFlags.map(flag => (
-                                <li key={flag.id} className="flex items-center justify-between p-2 bg-slate-50 border border-slate-200 rounded-lg group">
+                                <li key={flag.id} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-lg group">
                                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${flag.color} ${flag.textColor}`}>{flag.name}</span>
                                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => setEditingFlag(flag)} className="p-1 text-slate-500 hover:text-sky-600 hover:bg-white rounded" title="Edit">
+                                        <button onClick={() => setEditingFlag(flag)} className="p-1 text-slate-500 dark:text-gray-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-white dark:hover:bg-gray-600 rounded" title="Edit">
                                             <PencilIcon className="h-4 w-4"/>
                                         </button>
-                                        <button onClick={() => handleDelete(flag.id)} className="p-1 text-slate-500 hover:text-red-600 hover:bg-white rounded" title="Delete">
+                                        <button onClick={() => handleDelete(flag.id)} className="p-1 text-slate-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-white dark:hover:bg-gray-600 rounded" title="Delete">
                                             <TrashIcon className="h-4 w-4"/>
                                         </button>
                                     </div>
@@ -110,30 +110,30 @@ const FlagManager: React.FC<FlagManagerProps> = ({ isOpen, flags, onClose, curre
                             ))}
                         </ul>
                     ) : (
-                        <div className="text-center py-6 border-2 border-dashed border-slate-200 rounded-lg mb-4">
-                            <p className="text-sm text-slate-500">You haven't created any flags yet.</p>
+                        <div className="text-center py-6 border-2 border-dashed border-slate-200 dark:border-gray-700 rounded-lg mb-4">
+                            <p className="text-sm text-slate-500 dark:text-gray-400">You haven't created any flags yet.</p>
                         </div>
                     )}
 
-                    <div className={`mt-6 pt-4 border-t border-slate-100 ${editingFlag ? 'bg-slate-50 -mx-6 px-6 pb-6 -mb-6 mt-4 border-t' : ''}`}>
-                        <h4 className="text-sm font-semibold text-slate-800 mb-3">{editingFlag?.id ? 'Edit Flag' : 'Create New Flag'}</h4>
+                    <div className={`mt-6 pt-4 border-t border-slate-100 dark:border-gray-700 ${editingFlag ? 'bg-slate-50 dark:bg-gray-800 -mx-6 px-6 pb-6 -mb-6 mt-4 border-t dark:border-gray-700' : ''}`}>
+                        <h4 className="text-sm font-semibold text-slate-800 dark:text-white mb-3">{editingFlag?.id ? 'Edit Flag' : 'Create New Flag'}</h4>
                         <div className="space-y-4">
                             <input 
                                 type="text" 
                                 placeholder="Flag name (e.g., 'Urgent', 'Review')"
                                 value={editingFlag?.name || ''} 
                                 onChange={e => setEditingFlag(prev => ({ ...prev, name: e.target.value }))}
-                                className="w-full bg-white border border-slate-300 text-slate-900 rounded-md shadow-sm py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-500"
+                                className="w-full bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white rounded-md shadow-sm py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-500"
                             />
                             <div>
-                                <p className="text-xs text-slate-500 mb-2">Select Color</p>
+                                <p className="text-xs text-slate-500 dark:text-gray-400 mb-2">Select Color</p>
                                 <div className="flex flex-wrap gap-2">
                                     {colors.map(color => (
                                         <button 
                                             key={color.bg} 
                                             type="button"
                                             onClick={() => setEditingFlag(prev => ({ ...prev, color: color.bg, textColor: color.text }))}
-                                            className={`w-6 h-6 rounded-full ${color.bg} ring-2 ring-offset-1 transition-all ${editingFlag?.color === color.bg ? 'ring-slate-600 scale-110' : 'ring-transparent hover:ring-slate-300 hover:scale-105'}`}
+                                            className={`w-6 h-6 rounded-full ${color.bg} ring-2 ring-offset-1 transition-all ${editingFlag?.color === color.bg ? 'ring-slate-600 scale-110' : 'ring-transparent hover:ring-slate-300 dark:ring-offset-gray-800 dark:hover:ring-gray-600 hover:scale-105'}`}
                                             aria-label={`Select color`}
                                         />
                                     ))}
@@ -141,14 +141,14 @@ const FlagManager: React.FC<FlagManagerProps> = ({ isOpen, flags, onClose, curre
                             </div>
                             <div className="flex justify-end gap-2 pt-2">
                                 {editingFlag && (
-                                    <button onClick={() => setEditingFlag(null)} className="px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50">
+                                    <button onClick={() => setEditingFlag(null)} className="px-3 py-2 text-sm font-medium text-slate-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 rounded-md hover:bg-slate-50 dark:hover:bg-gray-600">
                                         Cancel
                                     </button>
                                 )}
                                 <button 
                                     onClick={handleSave} 
                                     disabled={!editingFlag?.name || !editingFlag?.color}
-                                    className="px-4 py-2 text-sm font-medium text-white bg-sky-600 rounded-md hover:bg-sky-700 disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center gap-1"
+                                    className="px-4 py-2 text-sm font-medium text-white bg-sky-600 rounded-md hover:bg-sky-700 disabled:bg-slate-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center gap-1"
                                 >
                                     {editingFlag?.id ? 'Save Changes' : <><PlusIcon className="h-4 w-4"/> Create Flag</>}
                                 </button>

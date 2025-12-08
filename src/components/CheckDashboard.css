@@ -19,34 +19,66 @@
     background-repeat: no-repeat;
     background-color:#006782; /* slate-50 */
 }
-.check-bg-modern {
-    background:
-    radial-gradient(rgba(255,255,255,0) 0, rgba(255,255,255,.15) 30%, rgba(255,255,255,.3) 32%, rgba(255,255,255,0) 33%) 0 0,
-    radial-gradient(rgba(255,255,255,0) 0, rgba(255,255,255,.1) 11%, rgba(255,255,255,.3) 13%, rgba(255,255,255,0) 14%) 0 0,
-    radial-gradient(rgba(255,255,255,0) 0, rgba(255,255,255,.2) 17%, rgba(255,255,255,.43) 19%, rgba(255,255,255,0) 20%) 0 110px,
-    radial-gradient(rgba(255,255,255,0) 0, rgba(255,255,255,.2) 11%, rgba(255,255,255,.4) 13%, rgba(255,255,255,0) 14%) -130px -170px,
-    radial-gradient(rgba(255,255,255,0) 0, rgba(255,255,255,.2) 11%, rgba(255,255,255,.4) 13%, rgba(255,255,255,0) 14%) 130px 370px,
-    radial-gradient(rgba(255,255,255,0) 0, rgba(255,255,255,.1) 11%, rgba(255,255,255,.2) 13%, rgba(255,255,255,0) 14%) 0 0,
-    linear-gradient(45deg, #343702 0%, #184500 20%, #187546 30%, #006782 40%, #0b1284 50%, #760ea1 60%, #83096e 70%, #840b2a 80%, #b13e12 90%, #e27412 100%);
-    background-size: 470px 470px, 970px 970px, 410px 410px, 610px 610px, 530px 530px, 730px 730px, 100% 100%;
-    background-color: #840b2a;
+.dark .check-bg-classic {
+    background-image:
+        linear-gradient(to right, #2d3748, #2d3748),
+        linear-gradient(to right, #1a202c, #1a202c);
+    background-color: #2d3748;
 }
+
+.check-bg-modern {
+    --accent-rgb: 255, 255, 255; 
+    --bg-color: #FFF;
+
+    --bg-gradient: linear-gradient(45deg, #343702 0%, #184500 20%, #187546 30%, #006782 40%, #0b1284 50%, #760ea1 60%, #83096e 70%, #840b2a 80%, #b13e12 90%, #e27412 100%);
+    --bg-gradient-start: rgba(var(--accent-rgb), 0.15); /* Light Tint */
+    --bg-gradient-end:   rgba(var(--accent-rgb), 0.05); /* Fading to white/transparent */
+    background-color: var(--bg-color);
+    background:
+        radial-gradient(rgba(var(--accent-rgb), 0) 0, rgba(var(--accent-rgb), .3) 30%, rgba(var(--accent-rgb), 1) 32%, rgba(var(--accent-rgb), 0) 33%) 0 0,
+        radial-gradient(rgba(var(--accent-rgb), 0) 0, rgba(var(--accent-rgb), .2) 11%, rgba(var(--accent-rgb), .6) 13%, rgba(var(--accent-rgb), 0) 14%) 0 0,
+        radial-gradient(rgba(var(--accent-rgb), 0) 0, rgba(var(--accent-rgb), .4) 17%, rgba(var(--accent-rgb), .86) 19%, rgba(var(--accent-rgb), 0) 20%) 0 110px,
+        radial-gradient(rgba(var(--accent-rgb), 0) 0, rgba(var(--accent-rgb), .4) 11%, rgba(var(--accent-rgb), .8) 13%, rgba(var(--accent-rgb), 0) 14%) -130px -170px,
+        radial-gradient(rgba(var(--accent-rgb), 0) 0, rgba(var(--accent-rgb), .4) 11%, rgba(var(--accent-rgb), .8) 13%, rgba(var(--accent-rgb), 0) 14%) 130px 370px,
+        radial-gradient(rgba(var(--accent-rgb), 0) 0, rgba(var(--accent-rgb), .2) 11%, rgba(var(--accent-rgb), .4) 13%, rgba(var(--accent-rgb), 0) 14%) 0 0,
+        linear-gradient(45deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 40%, rgba(var(--bg-color), 1) 100%) 0 0;
+        
+    background-size: 470px 470px, 970px 970px, 410px 410px, 610px 610px, 530px 530px, 730px 730px, 100% 100%;
+}
+
+.dark .check-bg-modern {
+    --bg-color: #0f0f0f;
+    --bg-gradient: linear-gradient(45deg, #000000 0%, #0a0a0a 40%, #1a1a2e 100%);
+}
+
+/* Secure background colors (variables for easier dark mode toggle) */
+:root {
+    --secure-bg-color-one: white;
+    --secure-bg-color-two: cornflowerblue;
+}
+.dark {
+    --secure-bg-color-one: #1a202c; /* dark gray */
+    --secure-bg-color-two: #4a5568; /* slightly lighter dark gray */
+}
+
 .check-bg-secure {
-    --bg-color-one: white;;
-    --bg-color-two: cornflowerblue;
     background-color:transparent;
     background-image:
-    radial-gradient(circle at 100% 145%, var(--bg-color-one) 24%, var(--bg-color-two) 24%, var(--bg-color-two) 28%, var(--bg-color-one) 28%, var(--bg-color-one) 36%, var(--bg-color-two) 36%, var(--bg-color-two) 40%, transparent 40%, transparent),
-    radial-gradient(circle at 0    150%, var(--bg-color-one) 24%, var(--bg-color-two) 24%, var(--bg-color-two) 28%, var(--bg-color-one) 28%, var(--bg-color-one) 36%, var(--bg-color-two) 36%, var(--bg-color-two) 40%, transparent 40%, transparent),
-    radial-gradient(circle at 50%  100%, var(--bg-color-two) 10%, var(--bg-color-one) 10%, var(--bg-color-one) 23%, var(--bg-color-two) 23%, var(--bg-color-two) 30%, var(--bg-color-one) 30%, var(--bg-color-one) 43%, var(--bg-color-two) 43%, var(--bg-color-two) 50%, var(--bg-color-one) 50%, var(--bg-color-one) 63%, var(--bg-color-two) 63%, var(--bg-color-two) 71%, transparent 71%, transparent),
-    radial-gradient(circle at 100% 50%, var(--bg-color-two) 5%, var(--bg-color-one) 5%, var(--bg-color-one) 15%, var(--bg-color-two) 15%, var(--bg-color-two) 20%, var(--bg-color-one) 20%, var(--bg-color-one) 29%, var(--bg-color-two) 29%, var(--bg-color-two) 34%, var(--bg-color-one) 34%, var(--bg-color-one) 44%, var(--bg-color-two) 44%, var(--bg-color-two) 49%, transparent 49%, transparent),
-    radial-gradient(circle at 0    50%, var(--bg-color-two) 5%, var(--bg-color-one) 5%, var(--bg-color-one) 15%, var(--bg-color-two) 15%, var(--bg-color-two) 20%, var(--bg-color-one) 20%, var(--bg-color-one) 29%, var(--bg-color-two) 29%, var(--bg-color-two) 34%, var(--bg-color-one) 34%, var(--bg-color-one) 44%, var(--bg-color-two) 44%, var(--bg-color-two) 49%, transparent 49%, transparent);
+    radial-gradient(circle at 100% 145%, var(--secure-bg-color-one) 24%, var(--secure-bg-color-two) 24%, var(--secure-bg-color-two) 28%, var(--secure-bg-color-one) 28%, var(--secure-bg-color-one) 36%, var(--secure-bg-color-two) 36%, var(--secure-bg-color-two) 40%, transparent 40%, transparent),
+    radial-gradient(circle at 0    150%, var(--secure-bg-color-one) 24%, var(--secure-bg-color-two) 24%, var(--secure-bg-color-two) 28%, var(--secure-bg-color-one) 28%, var(--secure-bg-color-one) 36%, var(--secure-bg-color-two) 36%, var(--secure-bg-color-two) 40%, transparent 40%, transparent),
+    radial-gradient(circle at 50%  100%, var(--secure-bg-color-two) 10%, var(--secure-bg-color-one) 10%, var(--secure-bg-color-one) 23%, var(--secure-bg-color-two) 23%, var(--secure-bg-color-two) 30%, var(--secure-bg-color-one) 30%, var(--secure-bg-color-one) 43%, var(--secure-bg-color-two) 43%, var(--secure-bg-color-two) 50%, var(--secure-bg-color-one) 50%, var(--secure-bg-color-one) 63%, var(--secure-bg-color-two) 63%, var(--secure-bg-color-two) 71%, transparent 71%, transparent),
+    radial-gradient(circle at 100% 50%, var(--secure-bg-color-two) 5%, var(--secure-bg-color-one) 5%, var(--secure-bg-color-one) 15%, var(--secure-bg-color-two) 15%, var(--secure-bg-color-two) 20%, var(--secure-bg-color-one) 20%, var(--secure-bg-color-one) 29%, var(--secure-bg-color-two) 29%, var(--secure-bg-color-two) 34%, var(--secure-bg-color-one) 34%, var(--secure-bg-color-one) 44%, var(--secure-bg-color-two) 44%, var(--secure-bg-color-two) 49%, transparent 49%, transparent),
+    radial-gradient(circle at 0    50%, var(--secure-bg-color-two) 5%, var(--secure-bg-color-one) 5%, var(--secure-bg-color-one) 15%, var(--secure-bg-color-two) 15%, var(--secure-bg-color-two) 20%, var(--secure-bg-color-one) 20%, var(--secure-bg-color-one) 29%, var(--secure-bg-color-two) 29%, var(--secure-bg-color-two) 34%, var(--secure-bg-color-one) 34%, var(--secure-bg-color-one) 44%, var(--secure-bg-color-two) 44%, var(--secure-bg-color-two) 49%, transparent 49%, transparent);
 background-size: 100px 50px;
 }
 
 .check-card-bg {
     background: rgba(255, 255, 255, 0.85)
 }
+.dark .check-card-bg {
+    background: rgba(26, 32, 44, 0.85); /* dark:bg-gray-900 with opacity */
+}
+
 /* MICR font style */
 .font-micr {
     font-family: 'Special Elite', monospace;
@@ -94,12 +126,20 @@ background-size: 100px 50px;
     line-height: 1;
     max-width: 45%;
 }
+.dark .check-overlay {
+    background-color: rgba(26, 32, 44, 0.8); /* dark:bg-gray-900 with opacity */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
 
 /* HTML: <div class="ribbon">Your text content</div> */
 .ribbon {
   font-weight: bold;
   color: #fff;
 }
+.dark .ribbon {
+    color: #e2e8f0; /* dark:text-gray-200 */
+}
+
 .ribbon {
   position: absolute;
   bottom: 0;
@@ -112,6 +152,12 @@ background-size: 100px 50px;
    radial-gradient(110% .2em at bottom left,#000a,#0000) border-box,
    #45ADA8 padding-box;
   width: fit-content;
+}
+.dark .ribbon {
+    background:
+     radial-gradient(.2em 110% at bottom left, #ffffff1a, #0000) border-box,
+     radial-gradient(110% .2em at bottom left, #ffffff1a, #0000) border-box,
+     #3182ce padding-box; /* dark:bg-blue-600 */
 }
 
 .top-badge {
