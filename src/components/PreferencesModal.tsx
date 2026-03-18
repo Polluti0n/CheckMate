@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { UserPreferences, CheckField, CardLayoutZone, UserProfile, Check, CheckStatus, CheckCategory, CheckViewOptions, CheckFontTheme, CheckBackground, CheckOverlayZone, CheckFooterZone, CheckViewLayoutZone, CardStyle, Flag } from '../types';
-import { XMarkIcon, UserCircleIcon, PencilIcon, ProcessingLoaderIcon, DocumentTextIcon, CheckBadgeIcon } from './icons'; 
+import React, { useState, useEffect } from 'react';
+import { UserPreferences, CheckField, CardLayoutZone, UserProfile, Check, CheckStatus, CheckCategory, CardStyle, Flag } from '../types';
+import { XMarkIcon, UserCircleIcon, PencilIcon, ProcessingLoaderIcon } from './icons';
 import { AVAILABLE_CARD_FIELDS, DEFAULT_PREFERENCES } from '../constants';
 import * as firestoreService from '../services/firestoreService';
 import ImageCropperModal from './ImageCropperModal';
@@ -18,18 +18,18 @@ interface PreferencesModalProps {
 type Tab = 'Profile' | 'Appearance' | 'Notifications';
 
 const formatPhoneNumber = (value: string): string => {
-  if (!value) return '';
-  const cleaned = ('' + value).replace(/\D/g, '');
-  const match = cleaned.match(/^(\d{0,3})(\d{0,3})(\d{0,4})$/);
-  if (match) {
-    const [, area, middle, last] = match;
-    let formatted = '';
-    if (area) formatted += `(${area}`;
-    if (middle) formatted += `) ${middle}`;
-    if (last) formatted += `-${last}`;
-    return formatted;
-  }
-  return value;
+    if (!value) return '';
+    const cleaned = ('' + value).replace(/\D/g, '');
+    const match = cleaned.match(/^(\d{0,3})(\d{0,3})(\d{0,4})$/);
+    if (match) {
+        const [, area, middle, last] = match;
+        let formatted = '';
+        if (area) formatted += `(${area}`;
+        if (middle) formatted += `) ${middle}`;
+        if (last) formatted += `-${last}`;
+        return formatted;
+    }
+    return value;
 };
 
 // Mock Data for Previews
@@ -46,7 +46,6 @@ const PREVIEW_CHECK: Check = {
     flags: ['flag-1', 'flag-2'],
     comments: [],
     auditTrail: [],
-    lastComment: 'Invoice verified against quote.',
     createdAt: new Date().toISOString(),
     payorAddress: { street: '123 Main St', city: 'Dallas', state: 'TX', zip: '75201' },
     bankName: 'Chase Bank',
@@ -71,9 +70,9 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onClose, cu
 
     if (!isOpen) return null;
 
-    const handleSave = () => { 
-        onSave(prefs); 
-        onClose(); 
+    const handleSave = () => {
+        onSave(prefs);
+        onClose();
     };
 
     //Keep all profile information but change all other user preferences to defaults 
@@ -83,22 +82,21 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onClose, cu
             darkMode: DEFAULT_PREFERENCES.darkMode,
             cardStyle: DEFAULT_PREFERENCES.cardStyle,
             cardLayout: DEFAULT_PREFERENCES.cardLayout,
-            viewMode: DEFAULT_PREFERENCES.viewMode,
             checkViewOptions: DEFAULT_PREFERENCES.checkViewOptions,
         }));
     };
-     
-    
+
+
     const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
         if (name === 'phone') {
             const formattedPhone = formatPhoneNumber(value);
-            setPrefs(p => ({...p, profile: {...p.profile, phone: formattedPhone }}));
+            setPrefs(p => ({ ...p, profile: { ...p.profile, phone: formattedPhone } }));
         } else {
-            setPrefs(p => ({...p, profile: {...p.profile, [name]: value }}));
-     }
+            setPrefs(p => ({ ...p, profile: { ...p.profile, [name]: value } }));
+        }
     };
-    
+
     const handleNotificationChange = (key: keyof UserPreferences['notifications'], type: 'inApp' | 'email') => {
         setPrefs(p => {
             const newNotifications = { ...p.notifications };
@@ -117,13 +115,13 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onClose, cu
         reader.readAsDataURL(file);
         e.target.value = '';
     };
-    
+
     const handleConfirmCrop = async (croppedBlob: Blob) => {
         if (!currentUser) return;
         setImageToCrop(null);
         setIsUploading(true);
         try {
-            const uid = currentUser.uid || prefs.profile.uid || prefs.uid || ''
+            const uid = currentUser.uid || '';
             const downloadURL = await firestoreService.uploadProfilePicture(croppedBlob, uid);
             const newProfile = { ...prefs.profile, profilePictureUrl: downloadURL };
             const newPrefs = { ...prefs, profile: newProfile };
@@ -136,11 +134,11 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onClose, cu
             setIsUploading(false);
         }
     };
-    
+
     const handleCardLayoutChange = (targetZone: CardLayoutZone, newFieldKey: CheckField | 'none') => {
         setPrefs(prev => {
             const newLayout = { ...prev.cardLayout };
-    
+
             // If the selected field is not 'none', find if it's used elsewhere
             if (newFieldKey !== 'none') {
                 const currentZoneOfNewField = (Object.keys(newLayout) as CardLayoutZone[]).find(
@@ -151,37 +149,32 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onClose, cu
                     delete newLayout[currentZoneOfNewField];
                 }
             }
-    
+
             // Now, set the new field for the target zone.
             if (newFieldKey === 'none') {
                 delete newLayout[targetZone];
             } else {
                 newLayout[targetZone] = newFieldKey;
             }
-    
+
             return { ...prev, cardLayout: newLayout };
         });
     };
 
 
-    const handleCheckViewChange = (key: keyof CheckViewOptions, value: any) => {
-        setPrefs(p => ({ ...p, checkViewOptions: { ...p.checkViewOptions, [key]: value } }));
-    };
-    
-    const PreferencesZoneWrapper: React.FC<CardZoneProps> = ({ zone, fieldKey, name, className }) => {
-        const currentCardLayout = prefs.cardLayout || {};
+    const PreferencesZoneWrapper: React.FC<CardZoneProps> = ({ zone, fieldKey, label, className }) => {
 
         const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
             const newField = e.target.value as CheckField | 'none';
             handleCardLayoutChange(zone, newField);
         };
-    
+
         const selectId = `zone-select-${zone}`;
-    
+
         return (
             <div className={`${className} relative`}>
                 <label htmlFor={selectId} className="absolute -top-1.5 left-1.5 text-[9px] font-bold text-slate-500 dark:text-gray-400 bg-slate-100 dark:bg-gray-700 px-1 rounded-full">
-                    {name || zone}
+                    {label || zone}
                 </label>
                 <select
                     id={selectId}
@@ -191,8 +184,8 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onClose, cu
                 >
                     <option value="none">-- Empty --</option>
                     {AVAILABLE_CARD_FIELDS.map(field => (
-                        <option 
-                            key={field.key} 
+                        <option
+                            key={field.key}
                             value={field.key}
                         >
                             {field.label}
@@ -208,70 +201,70 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onClose, cu
             case 'Appearance':
                 return (
                     <>
-                                                <div className="flex items-center justify-between pb-3 border-b dark:border-gray-700 mb-3">
-                                                    <div>
-                                                        <h3 className="text-lg font-bold text-slate-800 dark:text-white">Appearance</h3>
-                                                        <p className="text-xs text-slate-500 dark:text-gray-400">Customize check display.</p>
-                                                    </div>
-                                                </div>
-                                                
-                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-full overflow-hidden">
-                                                    <div className="md:col-span-1 flex flex-col gap-3 max-h-[60vh] overflow-y-auto">
-                                                        
-                                                        <div>
-                                                            <h4 className="font-semibold text-slate-700 dark:text-gray-300 text-sm mb-2">Theme</h4>
-                                                            <div className="flex items-center justify-between">
-                                                                <label htmlFor="dark-mode-toggle" className="text-xs text-slate-700 dark:text-gray-300">Dark Mode</label>
-                                                                <button
-                                                                    id="dark-mode-toggle"
-                                                                    onClick={() => setPrefs(p => ({ ...p, darkMode: !p.darkMode }))}
-                                                                    className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${prefs.darkMode ? 'bg-sky-600' : 'bg-slate-200 dark:bg-gray-600'}`}
-                                                                >
-                                                                    <span className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${prefs.darkMode ? 'translate-x-6' : 'translate-x-1'}`} />
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                        <div className="border-t dark:border-gray-700 pt-3 mt-3">
-                                                            <h4 className="font-semibold text-slate-700 dark:text-gray-300 text-sm mb-2">Style</h4>
-                                                            <div className="flex flex-col space-y-2">
-                                                                {(['classic', 'ledger', 'modern', 'check'] as CardStyle[]).map(style => (
-                                                                    <button 
-                                                                        key={style}
-                                                                        onClick={() => setPrefs(p => ({ ...p, cardStyle: style }))}
-                                                                        className={`w-full text-xs font-semibold py-1.5 px-3 rounded-md border-2 transition-colors text-left flex items-center justify-between ${prefs.cardStyle === style ? 'border-slate-700 dark:border-sky-400 bg-slate-50 dark:bg-sky-900 text-slate-800 dark:text-white' : 'border-slate-200 dark:border-gray-700 hover:border-slate-300 dark:hover:border-gray-600 text-slate-500 dark:text-gray-400'}`}>
-                                                                        <span>{style.charAt(0).toUpperCase() + style.slice(1)}</span>
-                                                                        {prefs.cardStyle === style && <div className="h-2 w-2 rounded-full bg-slate-700 dark:bg-white"></div>}
-                                                                    </button>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                        
-                                                    </div>
-                                                    <div className="md:col-span-2 flex flex-col">
-                                                        <h4 className="font-semibold text-slate-700 dark:text-gray-300 text-sm mb-1">Preview</h4>
-                                                        <div className="bg-slate-100 dark:bg-gray-700 p-4 rounded-lg flex justify-center items-center flex-grow min-h-[220px]">
-                                                            <div className="w-full max-w-sm">
-                                                                {prefs.cardStyle === 'classic' && (
-                                                                    <ClassicCard check={PREVIEW_CHECK} allFlags={PREVIEW_FLAGS} cardLayout={prefs.cardLayout} ZoneComponent={PreferencesZoneWrapper} preferences={prefs} />
-                                                                )}
-                                                                {prefs.cardStyle === 'ledger' && (
-                                                                    <LedgerCard check={PREVIEW_CHECK} allFlags={PREVIEW_FLAGS} cardLayout={prefs.cardLayout} ZoneComponent={PreferencesZoneWrapper} preferences={prefs} />
-                                                                )}
-                                                                {prefs.cardStyle === 'modern' && (
-                                                                    <ModernCard check={PREVIEW_CHECK} allFlags={PREVIEW_FLAGS} cardLayout={prefs.cardLayout} ZoneComponent={PreferencesZoneWrapper} preferences={prefs} />
-                                                                )}
-                                                                {prefs.cardStyle === 'check' && (
-                                                                    <CheckStyleCard check={PREVIEW_CHECK} allFlags={PREVIEW_FLAGS} cardLayout={prefs.cardLayout} ZoneComponent={PreferencesZoneWrapper} preferences={prefs} />
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                        <div className="flex items-center justify-between pb-3 border-b dark:border-gray-700 mb-3">
+                            <div>
+                                <h3 className="text-lg font-bold text-slate-800 dark:text-white">Appearance</h3>
+                                <p className="text-xs text-slate-500 dark:text-gray-400">Customize check display.</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-full overflow-hidden">
+                            <div className="md:col-span-1 flex flex-col gap-3 max-h-[60vh] overflow-y-auto">
+
+                                <div>
+                                    <h4 className="font-semibold text-slate-700 dark:text-gray-300 text-sm mb-2">Theme</h4>
+                                    <div className="flex items-center justify-between">
+                                        <label htmlFor="dark-mode-toggle" className="text-xs text-slate-700 dark:text-gray-300">Dark Mode</label>
+                                        <button
+                                            id="dark-mode-toggle"
+                                            onClick={() => setPrefs(p => ({ ...p, darkMode: !p.darkMode }))}
+                                            className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${prefs.darkMode ? 'bg-sky-600' : 'bg-slate-200 dark:bg-gray-600'}`}
+                                        >
+                                            <span className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${prefs.darkMode ? 'translate-x-6' : 'translate-x-1'}`} />
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="border-t dark:border-gray-700 pt-3 mt-3">
+                                    <h4 className="font-semibold text-slate-700 dark:text-gray-300 text-sm mb-2">Style</h4>
+                                    <div className="flex flex-col space-y-2">
+                                        {(['classic', 'ledger', 'modern', 'check'] as CardStyle[]).map(style => (
+                                            <button
+                                                key={style}
+                                                onClick={() => setPrefs(p => ({ ...p, cardStyle: style }))}
+                                                className={`w-full text-xs font-semibold py-1.5 px-3 rounded-md border-2 transition-colors text-left flex items-center justify-between ${prefs.cardStyle === style ? 'border-slate-700 dark:border-sky-400 bg-slate-50 dark:bg-sky-900 text-slate-800 dark:text-white' : 'border-slate-200 dark:border-gray-700 hover:border-slate-300 dark:hover:border-gray-600 text-slate-500 dark:text-gray-400'}`}>
+                                                <span>{style.charAt(0).toUpperCase() + style.slice(1)}</span>
+                                                {prefs.cardStyle === style && <div className="h-2 w-2 rounded-full bg-slate-700 dark:bg-white"></div>}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                            </div>
+                            <div className="md:col-span-2 flex flex-col">
+                                <h4 className="font-semibold text-slate-700 dark:text-gray-300 text-sm mb-1">Preview</h4>
+                                <div className={`bg-slate-100 dark:bg-gray-700 p-4 rounded-lg flex justify-center items-center flex-grow min-h-[220px] ${prefs.darkMode ? 'dark' : ''}`}>
+                                    <div className="w-full max-w-sm">
+                                        {prefs.cardStyle === 'classic' && (
+                                            <ClassicCard check={PREVIEW_CHECK} allFlags={PREVIEW_FLAGS} cardLayout={prefs.cardLayout} ZoneComponent={PreferencesZoneWrapper} preferences={prefs} />
+                                        )}
+                                        {prefs.cardStyle === 'ledger' && (
+                                            <LedgerCard check={PREVIEW_CHECK} allFlags={PREVIEW_FLAGS} cardLayout={prefs.cardLayout} ZoneComponent={PreferencesZoneWrapper} preferences={prefs} />
+                                        )}
+                                        {prefs.cardStyle === 'modern' && (
+                                            <ModernCard check={PREVIEW_CHECK} allFlags={PREVIEW_FLAGS} cardLayout={prefs.cardLayout} ZoneComponent={PreferencesZoneWrapper} preferences={prefs} />
+                                        )}
+                                        {prefs.cardStyle === 'check' && (
+                                            <CheckStyleCard check={PREVIEW_CHECK} allFlags={PREVIEW_FLAGS} cardLayout={prefs.cardLayout} ZoneComponent={PreferencesZoneWrapper} preferences={prefs} />
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </>
                 );
             case 'Profile':
                 return (
-                     <div className="pt-2">
+                    <div className="pt-2">
                         <div className="flex flex-col md:flex-row gap-6">
                             {/* Left Column: Image & Basic Info */}
                             <div className="flex-shrink-0 flex flex-col items-center md:items-start space-y-3">
@@ -333,10 +326,10 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onClose, cu
                     { key: 'newBatches', label: 'Batch Processed' },
                 ];
                 return (
-                     <div>
+                    <div>
                         <div className="pb-3 border-b dark:border-gray-700">
-                             <h3 className="text-lg font-bold text-slate-800 dark:text-white">Notifications</h3>
-                             <p className="text-xs text-slate-500 dark:text-gray-400">Alert preferences.</p>
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-white">Notifications</h3>
+                            <p className="text-xs text-slate-500 dark:text-gray-400">Alert preferences.</p>
                         </div>
                         <div className="mt-3">
                             <table className="min-w-full">
@@ -380,7 +373,7 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onClose, cu
 
                     <div className="border-b border-slate-200 dark:border-gray-700 px-4 flex-shrink-0">
                         <nav className="-mb-px flex space-x-6">
-                            {([ 'Appearance', 'Profile', 'Notifications'] as Tab[]).map(tab => (
+                            {(['Appearance', 'Profile', 'Notifications'] as Tab[]).map(tab => (
                                 <button key={tab} onClick={() => setActiveTab(tab)} className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === tab ? 'border-sky-500 text-sky-600' : 'border-transparent text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300 hover:border-slate-300 dark:hover:border-gray-600'}`}>
                                     {tab}
                                 </button>))}
@@ -388,10 +381,10 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onClose, cu
                     </div>
 
                     <div className="flex-1 overflow-y-auto px-4 py-3 min-h-[65dvh] scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
-                       {renderContent()}
+                        {renderContent()}
                     </div>
 
-                     <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 flex flex-shrink-0 justify-between items-center border-t border-slate-100 dark:border-gray-700">
+                    <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 flex flex-shrink-0 justify-between items-center border-t border-slate-100 dark:border-gray-700">
                         <button type="button" onClick={handleReset} className="text-xs font-medium text-slate-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors">Reset Defaults</button>
                         <div className="flex gap-2">
                             <button type="button" onClick={onClose} className="rounded-md border border-slate-300 dark:border-gray-600 shadow-sm px-3 py-1.5 bg-white dark:bg-gray-700 text-sm font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-600 transition-colors">Cancel</button>
@@ -409,5 +402,5 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onClose, cu
         </>
     );
 };
-                            
+
 export default PreferencesModal;

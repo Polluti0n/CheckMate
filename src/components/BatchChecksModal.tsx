@@ -1,6 +1,6 @@
 import React from 'react';
 import { Batch, Check } from '../types';
-import { XMarkIcon } from './icons';
+import { XMarkIcon, TrashIcon } from './icons';
 
 interface BatchChecksModalProps {
     isOpen: boolean;
@@ -8,9 +8,10 @@ interface BatchChecksModalProps {
     checks: Check[];
     onClose: () => void;
     onSelectCheck: (check: Check) => void;
+    onDeleteBatch: (batchId: string, checkIds: string[]) => void;
 }
 
-const BatchChecksModal: React.FC<BatchChecksModalProps> = ({ isOpen, batch, checks, onClose, onSelectCheck }) => {
+const BatchChecksModal: React.FC<BatchChecksModalProps> = ({ isOpen, batch, checks, onClose, onSelectCheck, onDeleteBatch }) => {
     if (!isOpen || !batch) return null;
 
     const checksInBatch = checks.filter(check => batch.checkIds.includes(check.id));
@@ -61,7 +62,21 @@ const BatchChecksModal: React.FC<BatchChecksModalProps> = ({ isOpen, batch, chec
                                 <p className="text-slate-500 dark:text-gray-400 text-center py-8">No checks found for this batch.</p>
                             )}
                         </div>
-                         <div className="mt-6 border-t dark:border-gray-700 pt-4 flex justify-end">
+                         <div className="mt-6 border-t dark:border-gray-700 pt-4 flex justify-between items-center">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (window.confirm('Are you sure you want to delete this batch record? The checks will remain, but their association with this batch will be removed.')) {
+                                        onDeleteBatch(batch.id, batch.checkIds);
+                                        onClose();
+                                    }
+                                }}
+                                className="inline-flex items-center gap-2 rounded-md px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 font-medium hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+                                title="Delete Batch Record"
+                            >
+                                <TrashIcon className="h-5 w-5" />
+                                Delete Batch Record
+                            </button>
                             <button
                                 type="button"
                                 onClick={onClose}

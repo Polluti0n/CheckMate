@@ -7,19 +7,22 @@
   background-image: linear-gradient(var(--tab-color1) 50%, var(--tab-color2)1 100%);
   box-shadow: 0px -2px 7px -6px black;
 }
+
 .dark .tab-background {
-    box-shadow: 0px -2px 7px -6px rgba(255, 255, 255, 0.4);
+  box-shadow: 0px -2px 7px -6px rgba(255, 255, 255, 0.4);
 }
 
 :root {
-    --tab-color1: #fff;
-    --tab-color2: #d1d1d1;
-    
+  --tab-color1: #fff;
+  --tab-color2: #d1d1d1;
+
 }
 
 .dark {
-    --tab-color1: #374151; /* dark:bg-gray-700 */
-    --tab-color2: #2d3748; /* dark:bg-gray-800 */
+  --tab-color1: #374151;
+  /* dark:bg-gray-700 */
+  --tab-color2: #2d3748;
+  /* dark:bg-gray-800 */
 }
 
 .tabrow {
@@ -28,6 +31,7 @@
   position: relative;
   overflow: hidden;
 }
+
 .tabrow button {
   background-color: var(--tab-color2);
   color: #2d3748;
@@ -44,21 +48,28 @@
   -webkit-box-shadow: 0 3px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 #FFF;
   box-shadow: 0 3px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 #FFF;
 }
+
 .dark .tabrow button {
-    color: #d1d1d1;
-    border: 1px solid #4a5568; /* dark:border-gray-700 */
-    box-shadow: 0 3px 3px rgba(255, 255, 255, 0.2), inset 0 1px 0 #4a5568; /* dark:bg-gray-700 */
+  color: #d1d1d1;
+  border: 1px solid #4a5568;
+  /* dark:border-gray-700 */
+  box-shadow: 0 3px 3px rgba(255, 255, 255, 0.2), inset 0 1px 0 #4a5568;
+  /* dark:bg-gray-700 */
 }
+
 .tabrow button.selected {
   background: var(--tab-color1);
   color: #000;
   z-index: 2;
   border-bottom-color: #FFF;
 }
+
 .dark .tabrow button.selected {
-    background: var(--tab-color1); /* dark:bg-gray-800 */
-    color: #e2e8f0; /* dark:text-gray-200 */
-    border-bottom-color: var(--tab-color1);
+  background: var(--tab-color1);
+  /* dark:bg-gray-800 */
+  color: #e2e8f0;
+  /* dark:text-gray-200 */
+  border-bottom-color: var(--tab-color1);
 }
 
 .tabrow button.selected:before {
@@ -66,28 +77,37 @@
   -webkit-box-shadow: 2px 2px 0 #FFF;
   box-shadow: 2px 2px 0 #FFF;
 }
+
 .dark .tabrow button.selected:before {
-    box-shadow: 2px 2px 0 var(--tab-color1); /* dark:bg-gray-800 */
+  box-shadow: 2px 2px 0 var(--tab-color1);
+  /* dark:bg-gray-800 */
 }
+
 .tabrow button.selected:after {
   -moz-box-shadow: -2px 2px 0 #FFF;
   -webkit-box-shadow: -2px 2px 0 #FFF;
   box-shadow: -2px 2px 0 #FFF;
 }
+
 .dark .tabrow button.selected:after {
-    box-shadow: -2px 2px 0 var(--tab-color1); /* dark:bg-gray-800 */
+  box-shadow: -2px 2px 0 var(--tab-color1);
+  /* dark:bg-gray-800 */
 }
 
-.tabrow button:before, .tabrow button:after {
-    position: absolute;
-    bottom: -1px;
-    width: 6px;
-    height: 6px;
-    content: " ";
-    border: 1px solid #AAA;
+.tabrow button:before,
+.tabrow button:after {
+  position: absolute;
+  bottom: -1px;
+  width: 6px;
+  height: 6px;
+  content: " ";
+  border: 1px solid #AAA;
 }
-.dark .tabrow button:before, .dark .tabrow button:after {
-    border-color: #4a5568; /* dark:border-gray-700 */
+
+.dark .tabrow button:before,
+.dark .tabrow button:after {
+  border-color: #4a5568;
+  /* dark:border-gray-700 */
 }
 
 .tabrow button:before {
@@ -100,11 +120,14 @@
   -webkit-box-shadow: 2px 2px 0 #D1D1D1;
   box-shadow: 2px 2px 0 #D1D1D1;
   border-top: transparent;
-  border-right:transparent;
+  border-right: transparent;
 }
+
 .dark .tabrow button:before {
-    box-shadow: 2px 2px 0 #2d3748; /* dark:bg-gray-800 */
+  box-shadow: 2px 2px 0 #2d3748;
+  /* dark:bg-gray-800 */
 }
+
 .tabrow button:after {
   right: -6px;
   -moz-border-radius-bottomleft: 6px;
@@ -117,21 +140,73 @@
   border-top: transparent;
   border-left: transparent;
 }
+
 .dark .tabrow button:after {
-    box-shadow: -2px 2px 0 #2d3748; /* dark:bg-gray-800 */
+  box-shadow: -2px 2px 0 #2d3748;
+  /* dark:bg-gray-800 */
 }
+
 .tabrow:after {
-    position: absolute;
-    content: "";
-    width: 100%;
-    bottom: 0;
-    left: 0;
-    border-bottom: 1px solid #AAA;
-    z-index: 1;
+  position: absolute;
+  content: "";
+  width: 100%;
+  bottom: 0;
+  left: 0;
+  border-bottom: 1px solid #AAA;
+  z-index: 1;
 }
+
 .dark .tabrow:after {
-    border-bottom: 1px solid #4a5568; /* dark:border-gray-700 */
+  border-bottom: 1px solid #4a5568;
+  /* dark:border-gray-700 */
 }
+
 .tabrow:before {
   z-index: 1;
+}
+
+/* Diagonal Rolling Shimmer: THE SINGLE BEAM APPROACH */
+/* The "Clip" for the individual editable elements */
+.editable-shimmer {
+  position: relative;
+  /* We need a container that "masks" the global beam's effects */
+}
+
+
+.editable-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  border: 3px solid transparent;
+  pointer-events: none;
+  z-index: 10;
+
+  /* The "Visual Border" part */
+  background: linear-gradient(135deg,
+      transparent 45%,
+      rgb(var(--shimmer-color), 0.6) 48%,
+      rgb(var(--shimmer-color)) 50%,
+      rgb(var(--shimmer-color), 0.6) 52%,
+      transparent 55%), linear-gradient(transparent);
+  background-size: 100vh 100vw, 200vh 100vw;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  mix-blend-mode: color-dodge;
+
+  filter: drop-shadow(0 0 5px rgb(var(--shimmer-color, 14, 233, 98)));
+
+  /* Synchronization: Use the exact same timing as the global beam */
+  animation: sync-border-sweep 4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes sync-border-sweep {
+  0% {
+    background-position: -100vh 0vw;
+  }
+
+
+  100% {
+    background-position: 100vh 0vw;
+  }
 }

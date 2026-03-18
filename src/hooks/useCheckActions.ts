@@ -26,6 +26,11 @@ export const useCheckActions = (currentUser: UserProfile | null, checks: Check[]
         firestoreService.deleteCheck(checkId, check?.imageUrl);
     }, [currentUser, checks]);
 
+    const handleBulkDelete = useCallback((checksToDelete: Check[]) => {
+        if (!currentUser) return;
+        firestoreService.bulkDeleteChecks(checksToDelete);
+    }, [currentUser]);
+
     const handleAddComment = useCallback((checkId: string, commentText: string) => {
         if (!currentUser) return;
         firestoreService.addComment(checkId, commentText, currentUser);
@@ -40,18 +45,25 @@ export const useCheckActions = (currentUser: UserProfile | null, checks: Check[]
         const isAdding = !check.flags.includes(flagId);
         firestoreService.toggleFlag(checkId, flag, isAdding, currentUser);
     }, [currentUser, checks, flags]);
-    
+
     const handleProcessBatch = useCallback((checkIds: string[], trackingNumber: string) => {
         if (!currentUser) return;
         firestoreService.processBatch(checkIds, trackingNumber, currentUser);
+    }, [currentUser]);
+
+    const handleDeleteBatch = useCallback((batchId: string, checkIds: string[]) => {
+        if (!currentUser) return;
+        firestoreService.deleteBatch(batchId, checkIds);
     }, [currentUser]);
 
     return {
         handleAddCheck,
         handleUpdateCheck,
         handleDeleteCheck,
+        handleBulkDelete,
         handleAddComment,
         handleToggleFlag,
         handleProcessBatch,
+        handleDeleteBatch,
     };
 };

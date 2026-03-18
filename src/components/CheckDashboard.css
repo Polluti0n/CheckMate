@@ -3,7 +3,14 @@
 /* Import Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Babylonica&family=Just+Me+Again+Down+Here&family=Whisper&family=Miss+Fajardose&family=Mrs+Saint+Delafield&family=Ms+Madi&family=Zeyada&family=Cutive+Mono&family=Kalam&family=Libre+Baskerville:ital@0;1&family=Marck+Script&family=Mr+De+Haviland&family=Roboto+Mono&family=Shadows+Into+Light&family=Special+Elite&display=swap');
 
-/* Style for the check itself to enforce aspect ratio and add a subtle background */
+/*creates a shaded gradient that resembles a beveled edge on the left right and bottom sides of the column*/
+.column-gradient {
+  box-shadow: 
+    inset 10px 0px 10px -5px rgba(0, 0, 0, .2), 
+    inset -10px 0px 10px -5px rgba(0, 0, 0, .2), 
+    inset 0 -10px 10px -5px rgba(0, 0, 0, .2);
+}
+
 .check-aspect-ratio {
     aspect-ratio: 2 / 1;
     container-type: inline-size;

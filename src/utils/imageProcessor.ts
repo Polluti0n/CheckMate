@@ -13,7 +13,7 @@ const onOpenCvReady = (): Promise<void> => {
     });
 };
 
-const orderPoints = (pts: {x: number, y: number}[]) => {
+const orderPoints = (pts: { x: number, y: number }[]) => {
     // This function orders points in [tl, tr, br, bl] order.
     // It's more robust than simple x/y sorting.
     const rect = new Array(4).fill(null);
@@ -34,19 +34,19 @@ const orderPoints = (pts: {x: number, y: number}[]) => {
 };
 
 const scanConfigs = [
-  // 1. Strict & fast, based on user example. Good for clear images.
-  { name: 'Strict', blur: 5, blockSize: 21, C: 10, morph: 5, aspectRatio: [1.8, 2.8], minArea: 0.15 },
-  // 2. Handles hard shadows by using a smaller, more local threshold area.
-  { name: 'Hard Shadow', blur: 5, blockSize: 11, C: 10, morph: 5, aspectRatio: [1.5, 3.5], minArea: 0.15 },
-  // 3. More tolerant of skewed checks that might not have a standard aspect ratio.
-  { name: 'Relaxed Aspect', blur: 5, blockSize: 21, C: 10, morph: 5, aspectRatio: [1.5, 3.5], minArea: 0.15 },
-  // 4. For "washed out" or over-exposed images where edges are faint.
-  { name: 'Washed Out', blur: 5, blockSize: 31, C: 5, morph: 5, aspectRatio: [1.5, 3.5], minArea: 0.10 },
-  { name: 'Low Contrast', blur: 5, blockSize: 31, C: 15, morph: 5, aspectRatio: [1.5, 3.5], minArea: 0.10 },
-  // 4. More blur to handle noisy images.
-  { name: 'Noisy Image', blur: 7, blockSize: 21, C: 10, morph: 7, aspectRatio: [1.5, 3.5], minArea: 0.10 },
-  // 5. Last resort, very loose criteria.
-  { name: 'Very Relaxed', blur: 5, blockSize: 31, C: 2, morph: 5, aspectRatio: [1.0, 4.0], minArea: 0.08 },
+    // 1. Strict & fast, based on user example. Good for clear images.
+    { name: 'Strict', blur: 5, blockSize: 21, C: 10, morph: 5, aspectRatio: [1.8, 2.8], minArea: 0.15 },
+    // 2. Handles hard shadows by using a smaller, more local threshold area.
+    { name: 'Hard Shadow', blur: 5, blockSize: 11, C: 10, morph: 5, aspectRatio: [1.5, 3.5], minArea: 0.15 },
+    // 3. More tolerant of skewed checks that might not have a standard aspect ratio.
+    { name: 'Relaxed Aspect', blur: 5, blockSize: 21, C: 10, morph: 5, aspectRatio: [1.5, 3.5], minArea: 0.15 },
+    // 4. For "washed out" or over-exposed images where edges are faint.
+    { name: 'Washed Out', blur: 5, blockSize: 31, C: 5, morph: 5, aspectRatio: [1.5, 3.5], minArea: 0.10 },
+    { name: 'Low Contrast', blur: 5, blockSize: 31, C: 15, morph: 5, aspectRatio: [1.5, 3.5], minArea: 0.10 },
+    // 4. More blur to handle noisy images.
+    { name: 'Noisy Image', blur: 7, blockSize: 21, C: 10, morph: 7, aspectRatio: [1.5, 3.5], minArea: 0.10 },
+    // 5. Last resort, very loose criteria.
+    { name: 'Very Relaxed', blur: 5, blockSize: 31, C: 2, morph: 5, aspectRatio: [1.0, 4.0], minArea: 0.08 },
 ];
 
 const PROCESSING_WIDTH = 1200; // Use a 1200px image for finding contours
@@ -80,13 +80,13 @@ const parseMICRStrings = (micrStrings: string[]) => {
         micrData.routingNumber = routingString.slice(1, -1).trim();
         // Remove 'T' symbols from the routing number if found
         micrData.routingNumber = micrData.routingNumber.replace(new RegExp(transitSymbol, 'g'), '');
-        } else { micrData.routingNumber = undefined; }
+    } else { micrData.routingNumber = undefined; }
     const accountString = strings.find(s => s.includes('U'));
     if (accountString) {
         micrData.bankAccountNumber = accountString.trim();
         // Remove 'U' and 'T' symbols from the account number if found 
-        micrData.bankAccountNumber = micrData.bankAccountNumber.replace(new RegExp(onUsSymbol, 'g'), '').replace(new RegExp(transitSymbol, 'g'), ''); 
-    } else { micrData.bankAccountNumber = undefined; } 
+        micrData.bankAccountNumber = micrData.bankAccountNumber.replace(new RegExp(onUsSymbol, 'g'), '').replace(new RegExp(transitSymbol, 'g'), '');
+    } else { micrData.bankAccountNumber = undefined; }
     return micrData;
 };
 
@@ -115,17 +115,17 @@ async function standardizeOutputImage(src) {
             const tempCanvas = document.createElement('canvas');
             cv.imshow(tempCanvas, resized);
             const dataUrl = tempCanvas.toDataURL('image/jpeg', 0.9);
-            
+
             const worker = await Tesseract.createWorker(
-                    'eng', 
-                    Tesseract.OEM.TESSERACT_ONLY
-                );
+                'eng',
+                Tesseract.OEM.TESSERACT_ONLY
+            );
 
             const { data: { orientation_degrees, orientation_confidence } } = await worker.detect(dataUrl);
             await worker.terminate();
-            
+
             // We only trust Tesseract if confidence is reasonably high
-            if (orientation_confidence > 1) { 
+            if (orientation_confidence > 1) {
                 switch (orientation_degrees) {
                     case 90:
                         rotationAngle = 2; // cv.ROTATE_90_COUNTER_CLOCKWISE
@@ -159,7 +159,7 @@ async function standardizeOutputImage(src) {
             // No rotation needed, just use the original src
             standardized = src.clone();
         }
-        
+
         // --- Final Resize to fixed width ---
         // Now that orientation is correct, we resize the high-quality (and potentially rotated)
         // image to its final dimensions for the API.
@@ -254,9 +254,9 @@ function findAndTransformContour(processingSrc, config, originalSrc) {
                 // Scale points from the processing image to the original full-res image
                 const scaleX = originalSrc.cols / processingSrc.cols;
                 const scaleY = originalSrc.rows / processingSrc.rows;
-                points.push({ 
-                    x: bestContourApprox.data32S[i * 2] * scaleX, 
-                    y: bestContourApprox.data32S[i * 2 + 1] * scaleY 
+                points.push({
+                    x: bestContourApprox.data32S[i * 2] * scaleX,
+                    y: bestContourApprox.data32S[i * 2 + 1] * scaleY
                 });
             }
             const orderedPoints = orderPoints(points);
@@ -276,11 +276,11 @@ function findAndTransformContour(processingSrc, config, originalSrc) {
             const M = cv.getPerspectiveTransform(srcTri, dstTri);
             const resultMat = new cv.Mat();
             cv.warpPerspective(originalSrc, resultMat, M, new cv.Size(maxWidth, maxHeight), cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
-            
+
             srcTri.delete();
             dstTri.delete();
             M.delete();
-            
+
             return resultMat;
         }
         return null;
@@ -334,7 +334,7 @@ export const processCheckImage = async (originalDataUrl: string, resizedDataUrl:
 
                 const resultCanvas = document.createElement('canvas');
                 cv.imshow(resultCanvas, standardizedMat);
-                
+
                 const dataUrl = resultCanvas.toDataURL('image/jpeg', 0.92);
                 const base64Length = dataUrl.length - 'data:image/jpeg;base64,'.length;
                 const bytes = base64Length * 0.75;
@@ -356,7 +356,7 @@ export const processCheckImage = async (originalDataUrl: string, resizedDataUrl:
     }
 };
 
-export const transformImageWithPoints = async (imageUrl: string, points: {x: number, y: number}[]): Promise<string | null> => {
+export const transformImageWithPoints = async (imageUrl: string, points: { x: number, y: number }[]): Promise<{ dataUrl: string; micrData: any } | null> => {
     await onOpenCvReady();
     const cv = window.cv;
 
@@ -392,7 +392,7 @@ export const transformImageWithPoints = async (imageUrl: string, points: {x: num
         const M = cv.getPerspectiveTransform(srcTri, dstTri);
         resultMat = new cv.Mat();
         cv.warpPerspective(src, resultMat, M, new cv.Size(maxWidth, maxHeight), cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
-        
+
         srcTri.delete();
         dstTri.delete();
         M.delete();
@@ -417,7 +417,7 @@ export const transformImageWithPoints = async (imageUrl: string, points: {x: num
 };
 
 export const cropImageToSquare = (
-    imageSrc: string, 
+    imageSrc: string,
     crop: { x: number; y: number; width: number; height: number }
 ): Promise<Blob> => {
     const FINAL_DIMENSION = 256;
@@ -450,7 +450,7 @@ export const cropImageToSquare = (
 
             canvas.toBlob(
                 (blob) => {
-             if (!blob) {
+                    if (!blob) {
                         return reject(new Error('Canvas to Blob conversion failed'));
                     }
                     resolve(blob);

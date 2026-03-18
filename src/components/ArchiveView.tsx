@@ -1,11 +1,11 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
-import { Check, CheckField, Theme } from '../types';
-import { DocumentTextIcon, AdjustmentsHorizontalIcon, ArrowSmallUpIcon, ArrowSmallDownIcon, ChevronUpDownIcon, PaintBrushIcon, ArchiveBoxIcon } from './icons';
+import { Check, CheckField, Theme, UserPreferences } from '../types';
+import { AdjustmentsHorizontalIcon, ArrowSmallUpIcon, ArrowSmallDownIcon, ChevronUpDownIcon, PaintBrushIcon, ArchiveBoxIcon, TrashIcon } from './icons';
 import { ALL_CHECK_FIELDS } from '../constants';
 import {
-  draggable,
-  dropTargetForElements,
-  monitorForElements,
+    draggable,
+    dropTargetForElements,
+    monitorForElements,
 } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine';
 import { reorder } from "@atlaskit/pragmatic-drag-and-drop/reorder";
@@ -30,19 +30,35 @@ interface ArchiveViewProps {
     themes: Theme[];
     onOpenThemePicker: () => void;
     preferences: UserPreferences;
+    selectedCheckIds: string[];
+    onCheckSelection: (checkId: string, event: React.MouseEvent, allChecks: Check[]) => void;
+    setIsMultiSelectMode: (mode: boolean) => void;
+    onUpdateCheck: (checkId: string, updates: Partial<Check>, log: any) => void;
+    onBulkDelete: (checks: Check[]) => void;
 }
+
+const USDollar = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+});
 
 type SortConfig = { key: CheckField; direction: 'asc' | 'desc' } | null;
 
 // Utility to format cell data for display
 const formatCell = (check: Check, key: CheckField): string => {
-    const value = check[key];
-    if (value === undefined || value === null) return 'N/A';
-    if (key === 'amount') return `$${(value as number).toFixed(2)}`;
+    const value = (check as any)[key];
+    if (value === null || value === undefined) return '-';
+
+    if (key === 'amount') return USDollar.format(value as number);
     if (key === 'date' || key === 'createdAt' || key === 'statusUpdatedAt') {
-        const date = new Date(value as string);
-        if (isNaN(date.getTime())) return 'Invalid Date';
-        return date.toLocaleDateString();
+        try {
+            return new Date(value as string).toLocaleDateString();
+        } catch (e) {
+            return String(value);
+        }
+    }
+    if (key === 'lastComment') {
+        return check.comments.length > 0 ? check.comments[check.comments.length - 1].text : '-';
     }
     return String(value);
 };
@@ -132,7 +148,7 @@ const DraggableHeader = ({
             }),
             dropTargetForElements({
                 element: el,
-                getData: (args) => {
+                getData: () => {
                     const data = { type: 'column', key: column.key, index: columnIndex };
                     const closestEdge = extractClosestEdge(data);
                     return { ...data, closestEdge };
@@ -146,8 +162,8 @@ const DraggableHeader = ({
     }, [column, columnIndex, checksForPreview]);
 
     const isSorted = sortConfig?.key === column.key;
-    const headerTextColorClass = preferences.darkMode 
-        ? (theme && theme.id !== 'default' ? theme.colors.dark?.text : 'text-gray-300') 
+    const headerTextColorClass = preferences.darkMode
+        ? (theme && theme.id !== 'default' ? theme.colors.dark?.text : 'text-gray-300')
         : (theme && theme.id !== 'default' ? theme.colors.text : 'text-slate-500');
 
     return (
@@ -172,8 +188,25 @@ const DraggableHeader = ({
     );
 };
 
-
-const ArchiveView: React.FC<ArchiveViewProps> = ({ checks, onSelectCheck, onBack, searchTerm, visibleColumns, onVisibleColumnsChange, columnWidths: persistedWidths, onColumnWidthsChange, archiveTheme, themes, onOpenThemePicker, preferences }) => {
+const ArchiveView: React.FC<ArchiveViewProps> = ({
+    checks,
+    onSelectCheck,
+    onBack,
+    searchTerm,
+    visibleColumns,
+    onVisibleColumnsChange,
+    columnWidths: persistedWidths,
+    onColumnWidthsChange,
+    archiveTheme,
+    themes,
+    onOpenThemePicker,
+    preferences,
+    selectedCheckIds,
+    onCheckSelection,
+    setIsMultiSelectMode,
+    onUpdateCheck,
+    onBulkDelete
+}) => {
     const [sortConfig, setSortConfig] = useState<SortConfig>(null);
     const [isColumnDropdownOpen, setIsColumnDropdownOpen] = useState(false);
     const [lastDroppedColumnIndex, setLastDroppedColumnIndex] = useState<number | null>(null);
@@ -205,7 +238,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ checks, onSelectCheck, onBack
                 if (source.data.type !== 'column') return;
                 const destination = location.current.dropTargets.find(t => t.data.type === 'column');
                 if (!destination) return;
-                
+
                 const startIndex = source.data.index as number;
                 const indexOfTarget = destination.data.index as number;
                 const closestEdgeOfTarget = destination.data.closestEdge as Edge | null;
@@ -216,7 +249,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ checks, onSelectCheck, onBack
                     closestEdgeOfTarget,
                     axis: 'horizontal',
                 });
-                
+
                 if (finishIndex === startIndex) return;
 
                 setLastDroppedColumnIndex(finishIndex);
@@ -226,10 +259,10 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ checks, onSelectCheck, onBack
             },
         });
     }, [visibleColumns, onVisibleColumnsChange]);
-    
+
     useEffect(() => {
         if (lastDroppedColumnIndex === null) return;
-        
+
         const table = tableRef.current;
         if (!table) return;
 
@@ -247,7 +280,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ checks, onSelectCheck, onBack
             setResizingColumn({ key, initialWidth: initialWidth });
             setColumnWidths(prev => ({ ...prev, [key]: Math.max(80, initialWidth + delta) }));
         } else {
-             setColumnWidths(prev => ({ ...prev, [key]: Math.max(80, resizingColumn.initialWidth + delta) }));
+            setColumnWidths(prev => ({ ...prev, [key]: Math.max(80, resizingColumn.initialWidth + delta) }));
         }
     }, [resizingColumn]);
 
@@ -260,19 +293,19 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ checks, onSelectCheck, onBack
         let sortableChecks = [...checks];
         if (sortConfig) {
             sortableChecks.sort((a, b) => {
-                const aValue = a[sortConfig.key];
-                const bValue = b[sortConfig.key];
+                const aValue = (a as any)[sortConfig.key];
+                const bValue = (b as any)[sortConfig.key];
                 if (aValue === null || aValue === undefined) return 1;
                 if (bValue === null || bValue === undefined) return -1;
                 if (typeof aValue === 'number' && typeof bValue === 'number') {
                     return sortConfig.direction === 'asc' ? aValue - bValue : bValue - aValue;
                 }
                 if (sortConfig.key === 'date' || sortConfig.key === 'createdAt' || sortConfig.key === 'statusUpdatedAt') {
-                     const aDate = new Date(aValue as string).getTime();
-                     const bDate = new Date(bValue as string).getTime();
-                     return sortConfig.direction === 'asc' ? aDate - bDate : bDate - aDate;
+                    const aDate = new Date(aValue as string).getTime();
+                    const bDate = new Date(bValue as string).getTime();
+                    return sortConfig.direction === 'asc' ? aDate - bDate : bDate - aDate;
                 }
-                return sortConfig.direction === 'asc' 
+                return sortConfig.direction === 'asc'
                     ? String(aValue).localeCompare(String(bValue))
                     : String(bValue).localeCompare(String(aValue));
             });
@@ -283,19 +316,19 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ checks, onSelectCheck, onBack
     const filteredChecks = useMemo(() => {
         if (!searchTerm) return sortedChecks;
         const searchLower = searchTerm.toLowerCase();
-        return sortedChecks.filter(check => 
-            Object.values(check).some(value => 
+        return sortedChecks.filter(check =>
+            Object.values(check).some(value =>
                 String(value).toLowerCase().includes(searchLower)
             )
         );
     }, [sortedChecks, searchTerm]);
 
-    const columns = useMemo(() => 
-        visibleColumns
+    const columns = useMemo(() => {
+        const uniqueKeys = Array.from(new Set(visibleColumns));
+        return uniqueKeys
             .map(key => ALL_CHECK_FIELDS.find(f => f.key === key))
-            .filter((c): c is { key: CheckField; label: string; isNumeric?: boolean } => Boolean(c)),
-        [visibleColumns]
-    );
+            .filter((c): c is { key: CheckField; label: string; isNumeric?: boolean } => Boolean(c));
+    }, [visibleColumns]);
 
     const handleSort = (key: CheckField) => {
         const newDirection = sortConfig && sortConfig.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc';
@@ -308,14 +341,29 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ checks, onSelectCheck, onBack
             : [...visibleColumns, key];
         onVisibleColumnsChange(newColumns);
     };
-    
+
+    const handleBackWithCleanup = () => {
+        setIsMultiSelectMode(false);
+        onCheckSelection('', { ctrlKey: false, metaKey: false, shiftKey: false } as any, []); // This is a bit hacky to clear, let's just use the direct prop if available
+        onBack();
+    };
+
+    const handleBulkDelete = () => {
+        if (selectedCheckIds.length === 0) return;
+        const checksToDelete = checks.filter(c => selectedCheckIds.includes(c.id));
+        if (window.confirm(`Are you sure you want to permanently delete ${checksToDelete.length} archived checks?`)) {
+            onBulkDelete(checksToDelete);
+            setIsMultiSelectMode(false);
+        }
+    };
+
     const darkMode = preferences.darkMode;
-    const headerClasses = theme && theme.id !== 'default' 
-        ? (darkMode && theme.colors.dark ? "bg-gradient-to-b from-gray-700 from-5% " + theme.colors.dark.bg.replace("bg-", "to-") + " to-20%" : theme.colors.bg) 
+    const headerClasses = theme && theme.id !== 'default'
+        ? (darkMode && theme.colors.dark ? "bg-gradient-to-b from-gray-700 from-5% " + theme.colors.dark.bg.replace("bg-", "to-") + " to-20%" : theme.colors.bg)
         : (darkMode ? 'bg-gray-800' : 'bg-slate-50');
 
-    const rowHoverClass = theme && theme.id !== 'default' 
-        ? (darkMode && theme.colors.dark ? `hover:${theme.colors.dark.bg.replace('bg-', 'bg-')}` : `hover:${theme.colors.bg.replace('bg-', 'bg-')}`) 
+    const rowHoverClass = theme && theme.id !== 'default'
+        ? (darkMode && theme.colors.dark ? `hover:${theme.colors.dark.bg.replace('bg-', 'bg-')}` : `hover:${theme.colors.bg.replace('bg-', 'bg-')}`)
         : (darkMode ? 'dark:hover:bg-gray-600' : 'hover:bg-slate-50');
 
 
@@ -328,6 +376,37 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ checks, onSelectCheck, onBack
                         <p className="text-slate-500 dark:text-gray-400">{filteredChecks.length} of {checks.length} items found</p>
                     </div>
                     <div className="flex items-center gap-2">
+                        {selectedCheckIds.length > 0 && (
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => {
+                                        const checksToUnarchive = sortedChecks.filter(c => selectedCheckIds.includes(c.id));
+                                        checksToUnarchive.forEach(c => {
+                                            // Use null instead of undefined for Firestore to clear the field, 
+                                            // and ensure status has a fallback.
+                                            onUpdateCheck(c.id, {
+                                                status: (c.previousStatus || 'Confirming Details') as any,
+                                                previousStatus: null
+                                            }, {
+                                                field: 'status',
+                                                oldValue: 'Archived',
+                                                newValue: c.previousStatus || 'Confirming Details'
+                                            });
+                                        });
+                                        setIsMultiSelectMode(false);
+                                    }}
+                                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-md shadow-sm transition-colors duration-200 flex items-center gap-2"
+                                >
+                                    <ArrowSmallUpIcon className="h-5 w-5" /> Unarchive ({selectedCheckIds.length})
+                                </button>
+                                <button
+                                    onClick={handleBulkDelete}
+                                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-md shadow-sm transition-colors duration-200 flex items-center gap-2"
+                                >
+                                    <TrashIcon className="h-5 w-5" /> Delete ({selectedCheckIds.length})
+                                </button>
+                            </div>
+                        )}
                         <button onClick={onOpenThemePicker} title="Change Theme" className="p-2 bg-white dark:bg-gray-700 hover:bg-slate-100 dark:hover:bg-gray-600 border border-slate-300 dark:border-gray-600 text-slate-600 dark:text-gray-300 rounded-md shadow-sm">
                             <PaintBrushIcon className="h-5 w-5" />
                         </button>
@@ -354,23 +433,43 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ checks, onSelectCheck, onBack
                                 </div>
                             )}
                         </div>
-                        <button onClick={onBack} className="px-4 py-2 bg-white dark:bg-gray-700 hover:bg-slate-100 dark:hover:bg-gray-600 border border-slate-300 dark:border-gray-600 text-slate-700 dark:text-gray-300 font-semibold rounded-md shadow-sm transition-colors duration-200">
+                        <button onClick={handleBackWithCleanup} className="px-4 py-2 bg-white dark:bg-gray-700 hover:bg-slate-100 dark:hover:bg-gray-600 border border-slate-300 dark:border-gray-600 text-slate-700 dark:text-gray-300 font-semibold rounded-md shadow-sm transition-colors duration-200">
                             Back to Board
                         </button>
                     </div>
                 </div>
-                
+
                 {checks.length > 0 ? (
-                     <div className="overflow-x-auto">
+                    <div className="overflow-x-auto">
                         <table ref={tableRef} className="min-w-full divide-y divide-slate-200 dark:divide-gray-700 border-separate border-spacing-0" style={{ tableLayout: 'fixed' }}>
                             <thead className={headerClasses}>
                                 <tr>
+                                    <th scope="col" className="px-3 py-3 text-left w-10">
+                                        <input
+                                            type="checkbox"
+                                            checked={filteredChecks.length > 0 && filteredChecks.every(c => selectedCheckIds.includes(c.id))}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    filteredChecks.forEach(c => {
+                                                        if (!selectedCheckIds.includes(c.id)) onCheckSelection(c.id, { shiftKey: false, ctrlKey: true } as any, filteredChecks);
+                                                    });
+                                                } else {
+                                                    // This is tricky because onCheckSelection toggles.
+                                                    // For bulk deselect we might need a better handler, but let's try this.
+                                                    filteredChecks.forEach(c => {
+                                                        if (selectedCheckIds.includes(c.id)) onCheckSelection(c.id, { shiftKey: false, ctrlKey: true } as any, filteredChecks);
+                                                    });
+                                                }
+                                            }}
+                                            className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500"
+                                        />
+                                    </th>
                                     {columns.map((col, index) => (
-                                         <DraggableHeader 
+                                        <DraggableHeader
                                             key={col.key}
-                                            column={col} 
+                                            column={col}
                                             columnIndex={index}
-                                            sortConfig={sortConfig} 
+                                            sortConfig={sortConfig}
                                             onSort={handleSort}
                                             checksForPreview={filteredChecks.slice(0, 5)}
                                             onResize={(delta) => handleResize(col.key, delta)}
@@ -378,16 +477,28 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ checks, onSelectCheck, onBack
                                             theme={theme}
                                             width={columnWidths[col.key]}
                                             preferences={preferences}
-                                         />
+                                        />
                                     ))}
                                 </tr>
                             </thead>
                             <tbody className="bg-white dark:bg-gray-800 divide-y divide-slate-200 dark:divide-gray-700">
                                 {filteredChecks.map(check => (
-                                    <tr key={check.id} onClick={() => onSelectCheck(check)} className={`${rowHoverClass} cursor-pointer`}>
+                                    <tr
+                                        key={check.id}
+                                        className={`${rowHoverClass} cursor-pointer ${selectedCheckIds.includes(check.id) ? 'bg-sky-50 dark:bg-sky-900/30' : ''}`}
+                                    >
+                                        <td className="px-3 py-4" onClick={(e) => e.stopPropagation()}>
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedCheckIds.includes(check.id)}
+                                                onChange={(e) => onCheckSelection(check.id, e as any, filteredChecks)}
+                                                className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500"
+                                            />
+                                        </td>
                                         {columns.map(col => (
-                                            <td 
-                                                key={col.key} 
+                                            <td
+                                                key={col.key}
+                                                onClick={() => onSelectCheck(check)}
                                                 className="px-6 py-4 whitespace-nowrap text-sm text-slate-700 dark:text-gray-300 truncate"
                                             >
                                                 {formatCell(check, col.key)}

@@ -1,6 +1,6 @@
 import firebase from 'firebase/compat/app';
 import { storage, db } from './firebase';
-import { Check, Flag, Comment, AuditLog, Batch, CheckStatus, UserProfile, Notification, CurrentUser, UserPreferences } from '../types';
+import { Check, Flag, Comment, AuditLog, Batch, CheckStatus, UserProfile, Notification, UserPreferences } from '../types';
 import { DEFAULT_PREFERENCES } from '../constants';
 import merge from 'lodash.merge';
 import isEqual from 'lodash.isequal';
@@ -15,78 +15,78 @@ const TimestampCompat = firebase.firestore.Timestamp;
 
 // --- Data Migration Helper ---
 const migrateUserPreferences = (userData: any): UserPreferences => {
-    let migratedData = { ...userData };
+  let migratedData = { ...userData };
 
-    // 1. Migrate top-level profile fields
-    if (!migratedData.profile || typeof migratedData.profile !== 'object') {
-        migratedData.profile = {
-            uid: migratedData.uid || '',
-            email: migratedData.email || '',
-            firstName: migratedData.firstName || '',
-            lastName: migratedData.lastName || '',
-            phone: migratedData.phone || '',
-            branch: migratedData.branch || '',
-            profilePictureUrl: migratedData.profilePictureUrl || '',
-        }
-        // Clean up old top-level fields
-        // This is not deleting the top level fields for some reason
-        delete migratedData.email;
-        delete migratedData.firstName;
-        delete migratedData.lastName;
-        delete migratedData.phone;
-        delete migratedData.branch;
-        delete migratedData.profilePictureUrl;
+  // 1. Migrate top-level profile fields
+  if (!migratedData.profile || typeof migratedData.profile !== 'object') {
+    migratedData.profile = {
+      uid: migratedData.uid || '',
+      email: migratedData.email || '',
+      firstName: migratedData.firstName || '',
+      lastName: migratedData.lastName || '',
+      phone: migratedData.phone || '',
+      branch: migratedData.branch || '',
+      profilePictureUrl: migratedData.profilePictureUrl || '',
     }
-    // If uid exists at the top level and profile.uid is empty, move it
-    if (migratedData.uid && migratedData.profile && migratedData.profile.uid === "")     {
-        migratedData.profile.uid = migratedData.uid;
-    }
-     
+    // Clean up old top-level fields
+    // This is not deleting the top level fields for some reason
+    delete migratedData.email;
+    delete migratedData.firstName;
+    delete migratedData.lastName;
+    delete migratedData.phone;
+    delete migratedData.branch;
+    delete migratedData.profilePictureUrl;
+  }
+  // If uid exists at the top level and profile.uid is empty, move it
+  if (migratedData.uid && migratedData.profile && migratedData.profile.uid === "") {
+    migratedData.profile.uid = migratedData.uid;
+  }
 
-    // 2. Migrate legacy checkViewOptions structure
-    if (migratedData.overlays || migratedData.footer) {
-        const newCheckViewOptions = { ...migratedData.checkViewOptions };
-        
-        if (migratedData.overlays) {
-            newCheckViewOptions.overlays = {
-                overlayTopRight: migratedData.overlays.overlayTopRight,
-                overlayBottomLeft: migratedData.overlays.overlayBottomLeft,
-            };
-            // Copy over other properties that were incorrectly placed
-            newCheckViewOptions.showAmountInWords = migratedData.overlays.showAmountInWords;
-            newCheckViewOptions.showMemo = migratedData.overlays.showMemo;
-            newCheckViewOptions.showPayorAddress = migratedData.overlays.showPayorAddress;
-            newCheckViewOptions.showSignature = migratedData.overlays.showSignature;
-            delete migratedData.overlays;
-        }
 
-        if (migratedData.footer) {
-            newCheckViewOptions.footer = {
-                footerLeft: migratedData.footer.footerLeft,
-            };
-            delete migratedData.footer;
-        }
-        migratedData.checkViewOptions = newCheckViewOptions;
+  // 2. Migrate legacy checkViewOptions structure
+  if (migratedData.overlays || migratedData.footer) {
+    const newCheckViewOptions = { ...migratedData.checkViewOptions };
+
+    if (migratedData.overlays) {
+      newCheckViewOptions.overlays = {
+        overlayTopRight: migratedData.overlays.overlayTopRight,
+        overlayBottomLeft: migratedData.overlays.overlayBottomLeft,
+      };
+      // Copy over other properties that were incorrectly placed
+      newCheckViewOptions.showAmountInWords = migratedData.overlays.showAmountInWords;
+      newCheckViewOptions.showMemo = migratedData.overlays.showMemo;
+      newCheckViewOptions.showPayorAddress = migratedData.overlays.showPayorAddress;
+      newCheckViewOptions.showSignature = migratedData.overlays.showSignature;
+      delete migratedData.overlays;
     }
 
-    return migratedData as UserPreferences;
+    if (migratedData.footer) {
+      newCheckViewOptions.footer = {
+        footerLeft: migratedData.footer.footerLeft,
+      };
+      delete migratedData.footer;
+    }
+    migratedData.checkViewOptions = newCheckViewOptions;
+  }
+
+  return migratedData as UserPreferences;
 }
 
 
 // --- Helper to convert Firestore Timestamps to ISO strings recursively ---
 const processDocTimestamps = (data: any) => {
-    if (!data) return data;
-    const processedData = { ...data };
-    for (const key in processedData) {
-        if (processedData[key] instanceof TimestampCompat) {
-            processedData[key] = (processedData[key] as firebase.firestore.Timestamp).toDate().toISOString();
-        } else if (Array.isArray(processedData[key])) {
-            processedData[key] = processedData[key].map((item: any) => 
-                typeof item === 'object' && item !== null ? processDocTimestamps(item) : item
-            );
-        }
+  if (!data) return data;
+  const processedData = { ...data };
+  for (const key in processedData) {
+    if (processedData[key] instanceof TimestampCompat) {
+      processedData[key] = (processedData[key] as firebase.firestore.Timestamp).toDate().toISOString();
+    } else if (Array.isArray(processedData[key])) {
+      processedData[key] = processedData[key].map((item: any) =>
+        typeof item === 'object' && item !== null ? processDocTimestamps(item) : item
+      );
     }
-    return processedData;
+  }
+  return processedData;
 }
 
 // --- Real-time Listeners ---
@@ -130,66 +130,66 @@ export const onBatchesSnapshot = (callback: (batches: Batch[]) => void) => {
 
 // --- User Profile ---
 export const onUsersSnapshot = (callback: (users: UserProfile[]) => void) => {
-    return db.collection(USERS_COLLECTION).onSnapshot((snapshot) => {
-        const users = snapshot.docs.map((doc) => {
-            // Leverage the existing migration logic to handle both legacy and new user profile structures
-            const migratedData = migrateUserPreferences(doc.data());
-            // The UserProfile object is nested under the 'profile' key
-            return migratedData.profile;
-        }).filter((profile): profile is UserProfile => !!profile); // Ensure no null/undefined profiles are passed
-        callback(users);
-    });
+  return db.collection(USERS_COLLECTION).onSnapshot((snapshot) => {
+    const users = snapshot.docs.map((doc) => {
+      // Leverage the existing migration logic to handle both legacy and new user profile structures
+      const migratedData = migrateUserPreferences(doc.data());
+      // The UserProfile object is nested under the 'profile' key
+      return migratedData.profile;
+    }).filter((profile): profile is UserProfile => !!profile); // Ensure no null/undefined profiles are passed
+    callback(users);
+  });
 };
 
 export const getOrCreateUserProfile = async (user: firebase.User): Promise<UserPreferences> => {
-    const userRef = db.collection(USERS_COLLECTION).doc(user.uid);
-    const doc = await userRef.get();
+  const userRef = db.collection(USERS_COLLECTION).doc(user.uid);
+  const doc = await userRef.get();
 
-    if (!doc.exists) {
-        const newUserPrefs: UserPreferences = merge({}, DEFAULT_PREFERENCES, {
-            profile: {
-                uid: user.uid,
-                email: user.email || '',
-                firstName: user.displayName?.split(' ')[0] || '',
-                lastName: user.displayName?.split(' ').slice(1).join(' ') || '',
-            }
-        });
-        await userRef.set(newUserPrefs);
-        return newUserPrefs;
-    } else {
-        const firestoreData = doc.data();
-        const migratedData = migrateUserPreferences(firestoreData);
-        const mergedPrefs = merge({}, DEFAULT_PREFERENCES, migratedData);
-        
-        if (!isEqual(mergedPrefs, firestoreData)) {
-            await userRef.set(mergedPrefs, { merge: true });
-        }
-        
-        return mergedPrefs;
+  if (!doc.exists) {
+    const newUserPrefs: UserPreferences = merge({}, DEFAULT_PREFERENCES, {
+      profile: {
+        uid: user.uid,
+        email: user.email || '',
+        firstName: user.displayName?.split(' ')[0] || '',
+        lastName: user.displayName?.split(' ').slice(1).join(' ') || '',
+      }
+    });
+    await userRef.set(newUserPrefs);
+    return newUserPrefs;
+  } else {
+    const firestoreData = doc.data();
+    const migratedData = migrateUserPreferences(firestoreData);
+    const mergedPrefs = merge({}, DEFAULT_PREFERENCES, migratedData);
+
+    if (!isEqual(mergedPrefs, firestoreData)) {
+      await userRef.set(mergedPrefs, { merge: true });
     }
+
+    return mergedPrefs;
+  }
 };
 
 export const updateUserProfile = (uid: string, updates: Partial<UserPreferences>) => {
-    return db.collection(USERS_COLLECTION).doc(uid).update(updates);
+  return db.collection(USERS_COLLECTION).doc(uid).update(updates);
 };
 
 export const onUserProfileSnapshot = (uid: string, callback: (prefs: UserPreferences | null) => void) => {
-    const userRef = db.collection(USERS_COLLECTION).doc(uid);
-    return userRef.onSnapshot((doc) => {
-        if (doc.exists) {
-            const migratedData = migrateUserPreferences(doc.data());
-            callback(migratedData);
-        } else {
-            callback(null);
-        }
-    });
+  const userRef = db.collection(USERS_COLLECTION).doc(uid);
+  return userRef.onSnapshot((doc) => {
+    if (doc.exists) {
+      const migratedData = migrateUserPreferences(doc.data());
+      callback(migratedData);
+    } else {
+      callback(null);
+    }
+  });
 };
 
 export const onNotificationsSnapshot = (userId: string, callback: (notifications: Notification[]) => void) => {
   const q = db.collection(NOTIFICATIONS_COLLECTION)
     .where('userId', '==', userId)
     .orderBy('timestamp', 'desc');
-  
+
   return q.onSnapshot((snapshot) => {
     const notifications = snapshot.docs.map((doc) => ({
       id: doc.id, ...processDocTimestamps(doc.data()),
@@ -201,30 +201,30 @@ export const onNotificationsSnapshot = (userId: string, callback: (notifications
 // --- Notification Management (Client-side) ---
 
 export const markNotificationsAsRead = (notificationIds: string[]) => {
-    const batch = db.batch();
-    notificationIds.forEach(id => {
-        const docRef = db.collection(NOTIFICATIONS_COLLECTION).doc(id);
-        batch.update(docRef, { read: true });
-    });
-    return batch.commit();
+  const batch = db.batch();
+  notificationIds.forEach(id => {
+    const docRef = db.collection(NOTIFICATIONS_COLLECTION).doc(id);
+    batch.update(docRef, { read: true });
+  });
+  return batch.commit();
 };
 
 export const deleteReadNotifications = async (userId: string) => {
-    const notificationsRef = db.collection(NOTIFICATIONS_COLLECTION);
-    const q = notificationsRef.where('userId', '==', userId).where('read', '==', true);
-    
-    const snapshot = await q.get();
+  const notificationsRef = db.collection(NOTIFICATIONS_COLLECTION);
+  const q = notificationsRef.where('userId', '==', userId).where('read', '==', true);
 
-    if (snapshot.empty) {
-        return; // No read notifications to delete
-    }
+  const snapshot = await q.get();
 
-    const batch = db.batch();
-    snapshot.docs.forEach(doc => {
-        batch.delete(doc.ref);
-    });
+  if (snapshot.empty) {
+    return; // No read notifications to delete
+  }
 
-    return batch.commit();
+  const batch = db.batch();
+  snapshot.docs.forEach(doc => {
+    batch.delete(doc.ref);
+  });
+
+  return batch.commit();
 };
 
 
@@ -240,34 +240,40 @@ export const addCheck = (checkData: Omit<Check, 'id' | 'createdAt' | 'comments' 
     newValue: `Amount: $${checkData.amount.toFixed(2)}`,
     timestamp: new Date().toISOString(),
   };
-  
+
   return db.collection(CHECKS_COLLECTION).add({
     ...checkData,
     comments: [],
     flags: [],
     auditTrail: [newLog],
+    isNew: true, // Mark as new for badge
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
   });
 };
 
 export const updateCheck = (checkId: string, updates: Record<string, any>, logDetails: Omit<AuditLog, 'id' | 'timestamp'>, currentUser: UserProfile) => {
   const checkRef = db.collection(CHECKS_COLLECTION).doc(checkId);
-  
+
   if (updates.status && (updates.status === CheckStatus.COMPLETE || updates.status === CheckStatus.ARCHIVED)) {
     updates.statusUpdatedAt = firebase.firestore.FieldValue.serverTimestamp();
   }
-  
+
+  // If moving to archived, previousStatus should be set by the caller usually, 
+  // but we can ensure it's handled here if needed.
+  // Actually, it's safer to have the caller provide previousStatus in the updates object 
+  // to ensure consistency with what the user expects.
+
   const newLog: AuditLog = {
-      ...logDetails,
-      id: `log-${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      user: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
-      uid: currentUser.uid,
+    ...logDetails,
+    id: `log-${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    user: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
+    uid: currentUser.uid,
   };
 
   const updatePayload = {
-      ...updates,
-      auditTrail: firebase.firestore.FieldValue.arrayUnion(newLog),
+    ...updates,
+    auditTrail: firebase.firestore.FieldValue.arrayUnion(newLog),
   };
 
   return checkRef.update(updatePayload);
@@ -283,9 +289,9 @@ export const deleteCheckImage = async (imageUrl: string) => {
   } catch (error: any) {
     // We don't want to block the user from deleting a check if the image deletion fails
     if (error.code === 'storage/object-not-found') {
-        console.warn(`Image not found for deletion, but proceeding with check deletion: ${imageUrl}`);
+      console.warn(`Image not found for deletion, but proceeding with check deletion: ${imageUrl}`);
     } else {
-        console.error("Error deleting image from storage:", error);
+      console.error("Error deleting image from storage:", error);
     }
   }
 };
@@ -297,44 +303,44 @@ export const deleteCheck = async (checkId: string, imageUrl?: string) => {
   return db.collection(CHECKS_COLLECTION).doc(checkId).delete();
 };
 
-export const bulkDeleteChecks = (checks: Check[], currentUser: UserProfile) => {
-    const batch = db.batch();
-    const imageUrls: string[] = [];
+export const bulkDeleteChecks = (checks: Check[]) => {
+  const batch = db.batch();
+  const imageUrls: string[] = [];
 
-    checks.forEach(check => {
-        const checkRef = db.collection(CHECKS_COLLECTION).doc(check.id);
-        batch.delete(checkRef);
-        if (check.imageUrl) {
-            imageUrls.push(check.imageUrl);
-        }
-    });
-    const imageDeletionPromises = imageUrls.map(url => deleteCheckImage(url));
-    Promise.all(imageDeletionPromises).catch(error => {
-        console.error("One or more image deletions failed:", error);
-    });
+  checks.forEach(check => {
+    const checkRef = db.collection(CHECKS_COLLECTION).doc(check.id);
+    batch.delete(checkRef);
+    if (check.imageUrl) {
+      imageUrls.push(check.imageUrl);
+    }
+  });
+  const imageDeletionPromises = imageUrls.map(url => deleteCheckImage(url));
+  Promise.all(imageDeletionPromises).catch(error => {
+    console.error("One or more image deletions failed:", error);
+  });
 
-    return batch.commit();
+  return batch.commit();
 };
 
 
 export const addComment = (checkId: string, commentText: string, currentUser: UserProfile) => {
   const checkRef = db.collection(CHECKS_COLLECTION).doc(checkId);
   const newComment: Comment = {
-      id: `com-${Date.now()}`,
-      author: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
-      authorUid: currentUser.uid,
-      text: commentText,
-      timestamp: new Date().toISOString(),
+    id: `com-${Date.now()}`,
+    author: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
+    authorUid: currentUser.uid,
+    text: commentText,
+    timestamp: new Date().toISOString(),
   };
 
   const newLog: AuditLog = {
-      id: `log-comment-${Date.now()}`,
-      uid: currentUser.uid,
-      user: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
-      field: 'Comment',
-      oldValue: '',
-      newValue: commentText,
-      timestamp: new Date().toISOString(),
+    id: `log-comment-${Date.now()}`,
+    uid: currentUser.uid,
+    user: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
+    field: 'Comment',
+    oldValue: '',
+    newValue: commentText,
+    timestamp: new Date().toISOString(),
   };
 
   return checkRef.update({
@@ -346,15 +352,15 @@ export const addComment = (checkId: string, commentText: string, currentUser: Us
 export const toggleFlag = (checkId: string, flag: Flag, isAdding: boolean, currentUser: UserProfile) => {
   const checkRef = db.collection(CHECKS_COLLECTION).doc(checkId);
   const newLog: AuditLog = {
-      id: `log-${Date.now()}`,
-      uid: currentUser.uid,
-      user: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
-      field: isAdding ? 'Flag Added' : 'Flag Removed',
-      oldValue: isAdding ? 'N/A' : flag.name,
-      newValue: isAdding ? flag.name : 'N/A',
-      timestamp: new Date().toISOString(),
+    id: `log-${Date.now()}`,
+    uid: currentUser.uid,
+    user: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
+    field: isAdding ? 'Flag Added' : 'Flag Removed',
+    oldValue: isAdding ? 'N/A' : flag.name,
+    newValue: isAdding ? flag.name : 'N/A',
+    timestamp: new Date().toISOString(),
   };
-  
+
   return checkRef.update({
     flags: isAdding ? firebase.firestore.FieldValue.arrayUnion(flag.id) : firebase.firestore.FieldValue.arrayRemove(flag.id),
     auditTrail: firebase.firestore.FieldValue.arrayUnion(newLog),
@@ -362,29 +368,32 @@ export const toggleFlag = (checkId: string, flag: Flag, isAdding: boolean, curre
 };
 
 export const bulkUpdateChecksStatus = (checks: Check[], newStatus: CheckStatus, currentUser: UserProfile) => {
-    const batch = db.batch();
-    checks.forEach(check => {
-        if (check.status === newStatus) return; // No change needed
-        const checkRef = db.collection(CHECKS_COLLECTION).doc(check.id);
-        const log: AuditLog = {
-            id: `log-${Date.now()}-${check.id}`,
-            uid: currentUser.uid,
-            user: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
-            field: 'status',
-            oldValue: check.status,
-            newValue: newStatus,
-            timestamp: new Date().toISOString(),
-        };
-        const updates: any = {
-            status: newStatus,
-            auditTrail: firebase.firestore.FieldValue.arrayUnion(log),
-        };
-        if (newStatus === CheckStatus.COMPLETE || newStatus === CheckStatus.ARCHIVED) {
-            updates.statusUpdatedAt = firebase.firestore.FieldValue.serverTimestamp();
-        }
-        batch.update(checkRef, updates);
-    });
-    return batch.commit();
+  const batch = db.batch();
+  checks.forEach(check => {
+    if (check.status === newStatus) return; // No change needed
+    const checkRef = db.collection(CHECKS_COLLECTION).doc(check.id);
+    const log: AuditLog = {
+      id: `log-${Date.now()}-${check.id}`,
+      uid: currentUser.uid,
+      user: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
+      field: 'status',
+      oldValue: check.status,
+      newValue: newStatus,
+      timestamp: new Date().toISOString(),
+    };
+    const updates: any = {
+      status: newStatus,
+      auditTrail: firebase.firestore.FieldValue.arrayUnion(log),
+    };
+    if (newStatus === CheckStatus.ARCHIVED) {
+      updates.previousStatus = check.status;
+      updates.statusUpdatedAt = firebase.firestore.FieldValue.serverTimestamp();
+    } else if (newStatus === CheckStatus.COMPLETE) {
+      updates.statusUpdatedAt = firebase.firestore.FieldValue.serverTimestamp();
+    }
+    batch.update(checkRef, updates);
+  });
+  return batch.commit();
 };
 
 // --- Batch Operations ---
@@ -392,7 +401,7 @@ export const bulkUpdateChecksStatus = (checks: Check[], newStatus: CheckStatus, 
 export const processBatch = (checkIds: string[], trackingNumber: string, currentUser: UserProfile) => {
   const batchOp = db.batch();
   const newBatchRef = db.collection(BATCHES_COLLECTION).doc();
-  
+
   batchOp.set(newBatchRef, {
     checkIds,
     trackingNumber,
@@ -405,13 +414,13 @@ export const processBatch = (checkIds: string[], trackingNumber: string, current
   checkIds.forEach(checkId => {
     const checkRef = db.collection(CHECKS_COLLECTION).doc(checkId);
     const log: AuditLog = {
-        id: `log-${Date.now()}-${checkId}`,
-        uid: currentUser.uid,
-        user: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
-        field: 'Batch Processed',
-        oldValue: CheckStatus.QUEUED,
-        newValue: CheckStatus.COMPLETE,
-        timestamp: new Date().toISOString(),
+      id: `log-${Date.now()}-${checkId}`,
+      uid: currentUser.uid,
+      user: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
+      field: 'Batch Processed',
+      oldValue: CheckStatus.QUEUED,
+      newValue: CheckStatus.COMPLETE,
+      timestamp: new Date().toISOString(),
     };
     batchOp.update(checkRef, {
       status: CheckStatus.COMPLETE,
@@ -425,18 +434,34 @@ export const processBatch = (checkIds: string[], trackingNumber: string, current
   return batchOp.commit();
 };
 
+export const deleteBatch = async (batchId: string, checkIds: string[]) => {
+  const batchOp = db.batch();
+  const batchRef = db.collection(BATCHES_COLLECTION).doc(batchId);
+  batchOp.delete(batchRef);
+
+  checkIds.forEach(checkId => {
+    const checkRef = db.collection(CHECKS_COLLECTION).doc(checkId);
+    batchOp.update(checkRef, {
+      batchId: firebase.firestore.FieldValue.delete(),
+      trackingNumber: firebase.firestore.FieldValue.delete(),
+    });
+  });
+
+  return batchOp.commit();
+};
+
 
 // --- Flag Management ---
 export const addFlag = (flagData: Omit<Flag, 'id'>) => {
-    return db.collection(FLAGS_COLLECTION).add(flagData);
+  return db.collection(FLAGS_COLLECTION).add(flagData);
 };
 
 export const updateFlag = (flagId: string, updates: Partial<Omit<Flag, 'id'>>) => {
-    return db.collection(FLAGS_COLLECTION).doc(flagId).update(updates);
+  return db.collection(FLAGS_COLLECTION).doc(flagId).update(updates);
 };
 
 export const deleteFlag = (flagId: string) => {
-    return db.collection(FLAGS_COLLECTION).doc(flagId).delete();
+  return db.collection(FLAGS_COLLECTION).doc(flagId).delete();
 };
 
 

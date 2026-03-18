@@ -311,7 +311,7 @@ export const onCheckUpdate = onDocumentUpdated("checks/{checkId}", async (event)
 
   if (!message) {
     return null; // No relevant change detected for notification
-  }tujnmu
+  }
 
   const batch = db.batch();
   userIds.forEach((userId) => {

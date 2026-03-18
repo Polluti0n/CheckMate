@@ -4,7 +4,7 @@ import { useAuth } from './hooks/useAuth';
 import { useUserData } from './hooks/useUserData';
 import { useCheckData } from './hooks/useCheckData';
 import { useCheckActions } from './hooks/useCheckActions';
-import { Check, CheckStatus, CurrentUser, Notification, UserProfile } from './types';
+import { Check, CheckStatus, Notification, UserProfile } from './types';
 import * as firestoreService from './services/firestoreService';
 import Login from './components/Login';
 import SplashScreen from './components/SplashScreen';
@@ -16,7 +16,7 @@ const AppContent: React.FC = () => {
     const { user, loading } = useAuth();
     const navigate = useNavigate();
     const [preferences, savePreferences, clearPreferences] = useUserData();
-    const { addToast, removeToast } = useNotification();
+    const { addToast } = useNotification();
     const [sessionStartTimestamp] = useState(new Date().toISOString());
     const [shownToastIds, setShownToastIds] = useState<Set<string>>(new Set());
 
@@ -27,7 +27,7 @@ const AppContent: React.FC = () => {
             document.documentElement.classList.remove('dark');
         }
     }, [preferences?.darkMode]);
-    
+
     useEffect(() => {
         if (user) {
             const unsubscribeNotifications = firestoreService.onNotificationsSnapshot(user.uid, (newNotifications) => {
@@ -49,7 +49,7 @@ const AppContent: React.FC = () => {
             });
 
             const unsubscribeUsers = firestoreService.onUsersSnapshot(setAllUsers);
-            
+
             return () => {
                 unsubscribeNotifications();
                 unsubscribeUsers();
@@ -65,9 +65,9 @@ const AppContent: React.FC = () => {
         if (!user || !preferences) return null;
         return preferences.profile;
     }, [user, preferences]);
-    
-    const { checks, flags, batches, filteredChecks, searchTerm, setSearchTerm, activeCategoryFilter, setActiveCategoryFilter } = useCheckData(user, preferences?.profile);
-   
+
+    const { checks, flags, batches, filteredChecks, searchTerm, setSearchTerm, activeCategoryFilter, setActiveCategoryFilter } = useCheckData(user, preferences?.profile || null);
+
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
     const [sortConfig, setSortConfig] = useState<any>({});
@@ -79,7 +79,7 @@ const AppContent: React.FC = () => {
     const [viewingBatchId, setViewingBatchId] = useState<string | null>(null);
 
     const actions = useCheckActions(currentUser, checks, flags);
-    
+
     const handleToggleMultiSelect = useCallback(() => {
         setIsMultiSelectMode(prev => {
             if (prev) setSelectedCheckIds([]);
@@ -88,11 +88,17 @@ const AppContent: React.FC = () => {
         setIsMainMenuOpen(false);
     }, []);
 
-    const handleSelectCheck = useCallback((check: Check) => navigate(`/check/${check.id}`), [navigate]);
-    const handleCloseModal = useCallback(() => navigate('/'), [navigate]);
+    const handleSelectCheck = useCallback((check: Check, replace: boolean = false) => {
+        if (check.isNew) {
+            actions.handleUpdateCheck(check.id, { isNew: false }, { field: 'isNew', oldValue: true, newValue: false });
+        }
+        navigate(`/check/${check.id}`, { replace });
+    }, [navigate, actions]);
+    const handleCloseModal = useCallback(() => navigate(-1), [navigate]);
     const handleGoBack = useCallback(() => navigate(-1), [navigate]);
     const handleViewBatch = useCallback((batchId: string) => setViewingBatchId(batchId), []);
     const handleNavigateToBatch = useCallback((batchId: string) => navigate(`/batch/${batchId}`), [navigate]);
+    const onCloseBatch = useCallback(() => setViewingBatchId(null), []);
 
     const handleCheckSelection = useCallback((clickedCheckId: string, event: React.MouseEvent, allChecksInOrder: Check[]) => {
         if (!isMultiSelectMode) {
@@ -157,7 +163,7 @@ const AppContent: React.FC = () => {
             if (checkToMove.status === newStatus) {
                 calculationList = calculationList.filter(c => c.id !== checkId);
             }
-            
+
             if (calculationList.length === 0) {
                 newBoardOrder = 1;
             } else if (targetIndex >= calculationList.length) {
@@ -173,12 +179,17 @@ const AppContent: React.FC = () => {
             }
 
             const updates: Partial<Check> = { status: newStatus, boardOrder: newBoardOrder };
+            if (checkToMove.isNew) updates.isNew = false;
+            if (newStatus === CheckStatus.ARCHIVED) {
+                updates.previousStatus = checkToMove.status;
+            }
+
             const log = {
                 field: checkToMove.status !== newStatus ? 'status' : 'reordered',
                 oldValue: checkToMove.status,
                 newValue: checkToMove.status !== newStatus ? newStatus : `position ${targetIndex + 1}`
             };
-            
+
             actions.handleUpdateCheck(checkId, updates, log);
         } else {
             const checksToMove = checks.filter(c => idsToMove.includes(c.id));
@@ -187,18 +198,22 @@ const AppContent: React.FC = () => {
             const destinationColumnChecks = checks
                 .filter(c => c.status === newStatus && !idsToMove.includes(c.id))
                 .sort((a, b) => (a.boardOrder || 0) - (b.boardOrder || 0));
-            
-            let lastBoardOrder = destinationColumnChecks.length > 0 
+
+            let lastBoardOrder = destinationColumnChecks.length > 0
                 ? (destinationColumnChecks[destinationColumnChecks.length - 1].boardOrder || 0)
                 : 0;
 
             checksToMove.forEach(check => {
                 lastBoardOrder += 1;
                 const updates: Partial<Check> = { status: newStatus, boardOrder: lastBoardOrder };
+                if (check.isNew) updates.isNew = false;
+                if (newStatus === CheckStatus.ARCHIVED) {
+                    updates.previousStatus = check.status;
+                }
                 const log = { field: 'status', oldValue: check.status, newValue: newStatus };
                 actions.handleUpdateCheck(check.id, updates, log);
             });
-            
+
             setSelectedCheckIds([]);
             setIsMultiSelectMode(false);
         }
@@ -233,6 +248,7 @@ const AppContent: React.FC = () => {
         actions,
         handleSelectCheck,
         handleCloseModal,
+        onCloseBatch,
         handleMoveCheck,
         handleCheckSelection,
         viewingBatchId,
@@ -244,6 +260,7 @@ const AppContent: React.FC = () => {
         notificationCount: notifications.filter(n => !n.read).length,
         allUsers,
         cardStyle: preferences.cardStyle,
+        checkViewOptions: preferences.checkViewOptions,
     };
 
     return (
