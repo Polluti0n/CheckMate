@@ -28,48 +28,48 @@ const initializeAiClient = () => {
     return ai;
 };
 
-const checkDetailsSchema = {
-  type: Type.OBJECT,
-  properties: {
-    payor: { type: Type.STRING },
-    payorAddress: {
-      type: Type.OBJECT,
-      properties: {
-        street: { type: Type.STRING },
-        city: { type: Type.STRING },
-        state: { type: Type.STRING },
-        zip: { type: Type.STRING },
-      },
-      required: ["street", "city", "state", "zip"],
-    },
-    payee: { type: Type.STRING },
-    amount: { type: Type.NUMBER },
-    amountInWords: { type: Type.STRING },
-    date: { type: Type.STRING },
-    checkNumber: { type: Type.STRING },
-    memo: { type: Type.STRING },
-    bankName: { type: Type.STRING },
-    routingNumber: { type: Type.STRING },
-    bankAccountNumber: { type: Type.STRING },
-    signature: { type: Type.BOOLEAN },
-    additionalInfo: { type: Type.STRING },
-  },
-  required: [
-    "payor",
-    "payorAddress",
-    "payee",
-    "amount",
-    "amountInWords",
-    "date",
-    "checkNumber",
-    "bankName",
-    "routingNumber",
-    "bankAccountNumber",
-    "signature",
-  ],
-};
-
 export const extractCheckInfo = onCall({ secrets: ["GEMINI_KEY"] }, async (request) => {
+  const checkDetailsSchema = {
+    type: Type.OBJECT,
+    properties: {
+      payor: { type: Type.STRING },
+      payorAddress: {
+        type: Type.OBJECT,
+        properties: {
+          street: { type: Type.STRING },
+          city: { type: Type.STRING },
+          state: { type: Type.STRING },
+          zip: { type: Type.STRING },
+        },
+        required: ["street", "city", "state", "zip"],
+      },
+      payee: { type: Type.STRING },
+      amount: { type: Type.NUMBER },
+      amountInWords: { type: Type.STRING },
+      date: { type: Type.STRING },
+      checkNumber: { type: Type.STRING },
+      memo: { type: Type.STRING },
+      bankName: { type: Type.STRING },
+      routingNumber: { type: Type.STRING },
+      bankAccountNumber: { type: Type.STRING },
+      signature: { type: Type.BOOLEAN },
+      additionalInfo: { type: Type.STRING },
+    },
+    required: [
+      "payor",
+      "payorAddress",
+      "payee",
+      "amount",
+      "amountInWords",
+      "date",
+      "checkNumber",
+      "bankName",
+      "routingNumber",
+      "bankAccountNumber",
+      "signature",
+    ],
+  };
+
   // Auth check
   if (!request.auth) {
     throw new functions.https.HttpsError(
