@@ -182,7 +182,7 @@ export const generateExcelBatch = async ({
       link.click();
       document.body.removeChild(link);
     } else {
-        throw new Error("No checks were identified to process for the Excel sheet.");
+      throw new Error("No checks were identified to process for the Excel sheet.");
     }
   } catch (e: any) {
     console.error("Error generating Excel:", e);

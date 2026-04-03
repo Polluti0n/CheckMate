@@ -2,12 +2,14 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useOutletContext, Outlet } from 'react-router-dom';
-import { Check, CheckCategory, CheckStatus, BatchItem, BatchStatus } from '../types';
+import { Check, CheckCategory, CheckStatus, BatchItem, UserRole } from '../types';
 import { extractCheckInfoFromImage } from '../services/geminiService';
 import * as firestoreService from '../services/firestoreService';
-import { XMarkIcon, CheckCircleIcon, ProcessingLoaderIcon, CheckPlaceholderIcon, InfoIcon, ExclamationTriangleIcon, TrashIcon, PencilIcon, PlusIcon, DocumentTextIcon } from './icons';
+import { XMarkIcon, CheckCircleIcon, ProcessingLoaderIcon, CheckPlaceholderIcon, InfoIcon, ExclamationTriangleIcon, TrashIcon, PencilIcon, PlusIcon, DocumentTextIcon, BuildingOfficeIcon } from './icons';
 import { processCheckImage, transformImageWithPoints } from '../utils/imageProcessor';
 import { categoryConfig, formConfig } from '../formConfig';
+import { useDropzone } from 'react-dropzone';
+import { CameraIcon } from './icons';
 
 // Define the shape of the context that the wizard layout provides to its step components.
 type WizardContextType = {
@@ -33,6 +35,10 @@ type WizardContextType = {
     saveBatchItems: () => Promise<void>;
     activeBatchItemId: string | null;
     setActiveBatchItemId: React.Dispatch<React.SetStateAction<string | null>>;
+    currentUser?: any;
+    allUsers?: any[];
+    allRegions?: any[];
+    allBranches?: any[];
 };
 
 // A helper hook to easily access the typed context in child components.
@@ -50,48 +56,55 @@ export const CategoryStep = () => {
     };
 
     return (
-        <>
-            <div className="p-6 flex-shrink-0 border-b dark:border-gray-700">
-                <h3 className="text-xl font-semibold text-center text-gray-900 dark:text-white">Select Check Category</h3>
-                <p className="mt-1 text-sm text-center text-gray-500 dark:text-gray-400">Choose the category that best fits the payment type.</p>
+        <div className="flex flex-col h-full overflow-hidden">
+            <div className="p-5 flex-shrink-0 border-b dark:border-gray-700">
+                <h3 className="text-xl font-bold text-center text-slate-800 dark:text-white">Add Checks</h3>
+                <p className="mt-1 text-xs text-center text-slate-500 dark:text-gray-400">Choose a category or upload multiple at once.</p>
             </div>
-            <div className="p-6 flex-grow overflow-y-auto">
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+
+            <div className="p-4 sm:p-6 flex-grow overflow-y-auto no-scrollbar">
+                <div className="grid grid-cols-2 gap-3 sm:gap-5">
                     {Object.entries(categoryConfig).map(([category, config]) => {
                         const Icon = config.icon;
                         const { color } = config;
-                        // Safe access for dark mode colors to match the type definition if it's optional or structurally different in source
                         const darkBg = 'dark' in color ? (color as any).dark.bg : '';
                         const darkBorder = 'dark' in color ? (color as any).dark.border : '';
 
                         return (
-                            <button key={category} onClick={() => handleCategorySelect(category as CheckCategory)} className={`group relative text-left p-4 border dark:border-gray-700 rounded-lg transition-all duration-300 transform hover:scale-[1.03] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 dark:bg-gray-700 dark:hover:bg-gray-600 dark:hover:shadow-xl dark:focus:ring-sky-700 dark:focus:ring-offset-gray-800 ${color.bgLight} ${color.borderLight} dark:${darkBg} dark:${darkBorder}`}>
-                                <div className="flex items-start space-x-4">
-                                    <div className={`flex-shrink-0 p-3 rounded-lg ${color.bg} ${color.text} text-white`}><Icon className="h-6 w-6 text-white" /></div>
-                                    <div>
-                                        <p className="font-semibold text-slate-800 dark:text-white">{category}</p>
-                                        <p className="text-sm text-slate-600 dark:text-gray-300">{config.description}</p>
-                                    </div>
+                            <button
+                                key={category}
+                                onClick={() => handleCategorySelect(category as CheckCategory)}
+                                className={`group relative text-center sm:text-left p-3 sm:p-4 border dark:border-gray-700 rounded-xl transition-all duration-300 transform hover:scale-[1.02] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-sky-500 dark:bg-gray-700 dark:hover:bg-gray-600 ${color.bgLight} ${color.borderLight} dark:${darkBg} dark:${darkBorder} flex flex-col items-center sm:items-start`}
+                            >
+                                <div className={`flex-shrink-0 p-2 sm:p-3 rounded-xl ${color.bg} ${color.text} text-white mb-2 sm:mb-3 shadow-sm`}>
+                                    <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                                </div>
+                                <div className="w-full">
+                                    <p className="font-bold text-slate-800 dark:text-white text-xs sm:text-sm md:text-base leading-tight">{category}</p>
+                                    <p className="text-[10px] text-slate-500 dark:text-gray-400 mt-1 leading-snug hidden sm:block">{config.description}</p>
                                 </div>
                             </button>
                         );
                     })}
+
+                    <button
+                        onClick={() => {
+                            setNewCheck({}); // Ensure clean state
+                            navigate('/add-check/batch');
+                        }}
+                        className="col-span-2 mt-2 p-5 sm:p-6 border-2 border-dashed border-slate-300 dark:border-gray-600 rounded-xl text-slate-600 dark:text-gray-400 hover:border-sky-500 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-slate-50 dark:hover:bg-gray-800 transition-all flex flex-col items-center justify-center space-y-2 group"
+                    >
+                        <div className="p-2 rounded-full bg-slate-100 dark:bg-gray-700 group-hover:bg-sky-50 dark:group-hover:bg-sky-900 transition-colors">
+                            <PlusIcon className="h-6 w-6 text-current opacity-70" />
+                        </div>
+                        <div className="text-center">
+                            <span className="font-bold text-sm sm:text-lg block">Upload Multiple Checks</span>
+                            <span className="text-[10px] sm:text-sm opacity-80 block mt-0.5">Process multiple images in a single batch.</span>
+                        </div>
+                    </button>
                 </div>
             </div>
-            <div className="p-6 flex-shrink-0 border-t dark:border-gray-700">
-                <button
-                    onClick={() => {
-                        setNewCheck({}); // Ensure clean state
-                        navigate('/add-check/batch');
-                    }}
-                    className="w-full py-4 border-2 border-dashed border-slate-300 dark:border-gray-600 rounded-lg text-slate-600 dark:text-gray-400 hover:border-sky-500 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-slate-50 dark:hover:bg-gray-800 transition-colors flex flex-col items-center justify-center space-y-2"
-                >
-                    <CheckPlaceholderIcon className="h-8 w-auto text-current opacity-70" />
-                    <span className="font-medium text-lg">Batch Upload Multiple Checks</span>
-                    <span className="text-sm opacity-80">Upload multiple images and process them at once.</span>
-                </button>
-            </div>
-        </>
+        </div>
     );
 };
 
@@ -199,8 +212,32 @@ const BatchItemCard = ({ item }: { item: BatchItem }) => {
 
 // --- Step 1.5: Batch Upload Component ---
 export const BatchStep = () => {
-    const { batchItems, handleBatchUpload, saveBatchItems, isLoading } = useWizardContext();
+    const { batchItems, handleBatchUpload, saveBatchItems, isLoading, allBranches, currentUser, newCheck, setNewCheck } = useWizardContext();
     const navigate = useNavigate();
+
+    const onDrop = useCallback((acceptedFiles: File[]) => {
+        if (acceptedFiles.length > 0) {
+            const event = { target: { files: acceptedFiles } } as any;
+            handleBatchUpload(event);
+        }
+    }, [handleBatchUpload]);
+
+    const { getRootProps, getInputProps, isDragActive } = useDropzone({
+        onDrop,
+        accept: { 'image/*': [] },
+        multiple: true
+    });
+
+    // Auto-assign branch if user only has one
+    useEffect(() => {
+        if (!newCheck.branchId && currentUser?.assignedBranches?.length === 1 && allBranches?.length) {
+            const bId = currentUser.assignedBranches[0];
+            const branch = allBranches.find(b => b.id === bId);
+            if (branch) {
+                setNewCheck(prev => ({ ...prev, branchId: bId, regionId: branch.regionId }));
+            }
+        }
+    }, [currentUser, allBranches, newCheck.branchId, setNewCheck]);
 
     const readyCount = batchItems.filter(i => i.status === 'ready').length;
     const hasItems = batchItems.length > 0;
@@ -212,25 +249,64 @@ export const BatchStep = () => {
                     <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Batch Upload</h3>
                     <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Process multiple checks simultaneously.</p>
                 </div>
-                <label className="cursor-pointer inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
-                    <PlusIcon className="h-5 w-5 mr-2" />
-                    Add Images
-                    <input type="file" multiple className="hidden" onChange={handleBatchUpload} accept="image/*;capture=camera" />
-                </label>
+                <div className="flex items-center space-x-3">
+                    <label className="cursor-pointer inline-flex items-center px-4 py-2 border border-slate-300 dark:border-gray-600 text-sm font-medium rounded-md shadow-sm text-slate-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-slate-50 dark:hover:bg-gray-600 transition-colors">
+                        <CameraIcon className="h-5 w-5 mr-2 text-sky-500" />
+                        Use Camera
+                        <input type="file" className="hidden" onChange={handleBatchUpload} accept="image/*" capture="environment" />
+                    </label>
+                    <label className="cursor-pointer inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
+                        <PlusIcon className="h-5 w-5 mr-2" />
+                        Add Images
+                        <input type="file" multiple className="hidden" onChange={handleBatchUpload} accept="image/*" />
+                    </label>
+                </div>
             </div>
+
+            {/* Branch Selection for Batch */}
+            {((currentUser?.role === UserRole.GLOBAL_ADMIN) || (currentUser?.assignedBranches && currentUser.assignedBranches.length > 1)) && (
+                <div className="px-6 py-4 bg-slate-50 dark:bg-gray-800 border-b dark:border-gray-700">
+                    <div className="max-w-xs">
+                        <label className="block text-xs font-bold text-slate-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">Target Branch for Batch <span className="text-red-500">*</span></label>
+                        <select
+                            value={newCheck.branchId || ''}
+                            onChange={(e) => {
+                                const bId = e.target.value;
+                                const branch = allBranches?.find(b => b.id === bId);
+                                setNewCheck(prev => ({ ...prev, branchId: bId, regionId: branch?.regionId }));
+                            }}
+                            className="block w-full bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white rounded-md shadow-sm py-1.5 px-3 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 text-sm"
+                            required
+                        >
+                            <option value="">Select a Branch...</option>
+                            {allBranches?.filter(b => {
+                                if (currentUser?.role === UserRole.GLOBAL_ADMIN) return true;
+                                return currentUser?.assignedBranches?.includes(b.id);
+                            }).map(b => (
+                                <option key={b.id} value={b.id}>{b.name} ({b.designation})</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+            )}
 
             <div className="flex-grow overflow-y-auto p-6 bg-slate-50 dark:bg-gray-900">
                 {!hasItems ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-slate-300 rounded-lg">
-                        <div className="p-4 bg-sky-50 rounded-full mb-4">
-                            <DocumentTextIcon className="h-10 w-10 text-sky-500" />
+                    <div {...getRootProps()} className={`h-full flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-xl transition-all duration-300 ${isDragActive ? 'border-sky-500 bg-sky-50/50 dark:bg-sky-900/20' : 'border-slate-300 dark:border-gray-600 hover:border-sky-400 dark:hover:border-sky-700'}`}>
+                        <input {...getInputProps()} />
+                        <div className="p-4 bg-sky-100 dark:bg-sky-900/30 rounded-full mb-4 group-hover:scale-110 transition-transform">
+                            <DocumentTextIcon className="h-10 w-10 text-sky-600 dark:text-sky-400" />
                         </div>
-                        <h4 className="text-lg font-medium text-slate-900 dark:text-white">No checks added yet</h4>
-                        <p className="text-slate-500 dark:text-gray-400 mt-2 mb-6 max-w-sm">Upload images of checks to automatically scan and extract their details.</p>
-                        <label className="cursor-pointer inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md text-sky-700 bg-sky-100 hover:bg-sky-200">
-                            Select Files
-                            <input type="file" multiple className="hidden" onChange={handleBatchUpload} accept="image/*" />
-                        </label>
+                        <h4 className="text-lg font-bold text-slate-900 dark:text-white">Drag & drop check images</h4>
+                        <p className="text-slate-500 dark:text-gray-400 mt-2 mb-6 max-w-sm">Drop your check images here, or click to browse files. We'll automatically scan and extract details.</p>
+                        <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-4">
+                            <button className="px-6 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg font-bold shadow-sm transition-all transform active:scale-95">Browse Files</button>
+                            <label className="cursor-pointer px-6 py-2 border border-slate-300 dark:border-gray-600 text-slate-700 dark:text-gray-200 rounded-lg font-bold hover:bg-slate-50 dark:hover:bg-gray-800 transition-all flex items-center">
+                                <CameraIcon className="h-5 w-5 mr-2 text-sky-500" />
+                                Use Camera
+                                <input type="file" className="hidden" onChange={handleBatchUpload} accept="image/*" capture="environment" />
+                            </label>
+                        </div>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -266,23 +342,75 @@ export const UploadStep = () => {
     const { isLoading, error, imagePreview, handleImageUpload } = useWizardContext();
     const navigate = useNavigate();
 
+    const onDrop = useCallback((acceptedFiles: File[]) => {
+        if (acceptedFiles.length > 0) {
+            const event = { target: { files: acceptedFiles } } as any;
+            handleImageUpload(event);
+        }
+    }, [handleImageUpload]);
+
+    const { getRootProps, getInputProps, isDragActive } = useDropzone({
+        onDrop,
+        accept: { 'image/*': [] },
+        multiple: false
+    });
+
     return (
         <>
             <div className="p-6 flex-shrink-0 border-b dark:border-gray-700">
                 <h3 className="text-lg font-medium leading-6 text-gray-900 dark:text-white">Upload Check Image (Optional)</h3>
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Upload an image to automatically extract details using AI.</p>
             </div>
-            <div className="flex-grow overflow-y-auto p-6">
-                <label htmlFor="file-upload" className="relative cursor-pointer bg-white dark:bg-gray-800 rounded-md font-medium text-sky-600 dark:text-sky-400 hover:text-sky-500">
-                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-300 dark:border-gray-600 border-dashed rounded-md hover:border-sky-400 dark:hover:border-sky-700">
-                        <div className="space-y-1 text-center">
-                            {isLoading ? (<div className="py-4"><ProcessingLoaderIcon className="mx-auto h-12 w-12" /><p className="mt-4 text-sm font-medium text-slate-600 dark:text-gray-300">Processing image...</p></div>)
-                                : imagePreview ? (<img src={imagePreview} alt="Check preview" className="mx-auto h-32 object-contain rounded-md shadow-sm" />)
-                                    : (<><CheckPlaceholderIcon className="mx-auto h-16 w-auto text-slate-400 dark:text-gray-500" /><div className="mt-2 flex text-sm text-gray-600 dark:text-gray-300"><span>Upload a file</span><input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleImageUpload} accept="image/*;capture=camera" /></div><p className="text-xs text-gray-500 dark:text-gray-400">PNG, JPG, or use camera</p></>)}
-                        </div>
+            <div className="flex-grow overflow-y-auto p-6 flex flex-col">
+                <div 
+                    {...getRootProps()} 
+                    className={`flex-grow relative cursor-pointer bg-white dark:bg-gray-800 rounded-xl border-2 border-dashed transition-all duration-300 flex items-center justify-center p-12 ${
+                        isDragActive ? 'border-sky-500 bg-sky-50/50 dark:bg-sky-900/20 shadow-inner' : 'border-slate-300 dark:border-gray-600 hover:border-sky-400 dark:hover:border-sky-700'
+                    }`}
+                >
+                    <input {...getInputProps()} />
+                    <div className="space-y-4 text-center">
+                        {isLoading ? (
+                            <div className="py-4">
+                                <ProcessingLoaderIcon className="mx-auto h-16 w-16 text-sky-500 animate-spin-slow" />
+                                <p className="mt-4 text-lg font-bold text-slate-800 dark:text-white">Processing image...</p>
+                                <p className="text-sm text-slate-500">This takes just a moment.</p>
+                            </div>
+                        ) : imagePreview ? (
+                            <div className="relative group">
+                                <img src={imagePreview} alt="Check preview" className="mx-auto h-48 sm:h-64 object-contain rounded-xl shadow-2xl transition-transform group-hover:scale-105" />
+                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-xl">
+                                    <p className="text-white font-bold text-sm bg-black/40 px-3 py-1 rounded-full backdrop-blur-sm">Click or drop to replace</p>
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="p-6 bg-slate-50 dark:bg-gray-700 rounded-full inline-block mb-2 group-hover:scale-110 transition-transform">
+                                    <CheckPlaceholderIcon className="h-16 w-auto text-slate-400 dark:text-gray-500" />
+                                </div>
+                                <div className="mt-2 text-center">
+                                    <p className="text-lg font-bold text-slate-900 dark:text-white">Drag & drop check image</p>
+                                    <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">Or click to browse your files</p>
+                                </div>
+                                <div className="flex flex-col sm:flex-row items-center justify-center space-y-3 sm:space-y-0 sm:space-x-4 mt-6">
+                                    <button className="px-8 py-3 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-bold shadow-lg transition-all transform active:scale-95">Browse Files</button>
+                                    <label onClick={(e) => e.stopPropagation()} className="cursor-pointer px-8 py-3 border border-slate-300 dark:border-gray-600 text-slate-700 dark:text-gray-200 rounded-xl font-bold hover:bg-slate-50 dark:hover:bg-gray-800 transition-all flex items-center shadow-sm">
+                                        <CameraIcon className="h-5 w-5 mr-2 text-sky-500" />
+                                        Use Camera
+                                        <input type="file" className="hidden" id="cam-input" onChange={handleImageUpload} accept="image/*" capture="environment" />
+                                    </label>
+                                </div>
+                                <p className="text-xs text-slate-400 dark:text-gray-500 mt-6 uppercase tracking-widest font-bold">PNG, JPG up to 10MB</p>
+                            </>
+                        )}
                     </div>
-                </label>
-                {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
+                </div>
+                {error && (
+                    <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-center animate-shake">
+                        <ExclamationTriangleIcon className="h-5 w-5 text-red-500 mr-3" />
+                        <p className="text-sm font-medium text-red-700 dark:text-red-400">{error}</p>
+                    </div>
+                )}
             </div>
             <div className="p-6 flex-shrink-0 border-t dark:border-gray-700 flex justify-between items-center">
                 <button onClick={() => navigate(-1)} type="button" className="text-sm font-medium text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white">Back</button>
@@ -597,9 +725,11 @@ export const CropStep = () => {
 };
 
 
+import MembersDropdown from './common/MembersDropdown';
+
 // --- Step 3: Details Form Component ---
 export const DetailsStep = () => {
-    const { newCheck, toast, setToast, handleSubmit } = useWizardContext();
+    const { newCheck, toast, setToast } = useWizardContext();
     const navigate = useNavigate();
     const [openDropdown, setOpenDropdown] = useState<string | null>(null);
     const detailsRef = useRef<HTMLFormElement>(null);
@@ -665,11 +795,45 @@ export const DetailsStep = () => {
 
 // Extracted form logic into its own component for better state management of dropdowns
 const DetailsForm = React.forwardRef<HTMLFormElement, { openDropdown: string | null, setOpenDropdown: (name: string | null) => void }>(({ openDropdown, setOpenDropdown }, ref) => {
-    const { newCheck, error, handleSubmit, setNewCheck } = useWizardContext();
+    const { newCheck, error, handleSubmit, setNewCheck, currentUser, allUsers, allBranches } = useWizardContext();
+
+    // Auto-assign branch if user only has one
+    useEffect(() => {
+        if (!newCheck.branchId && currentUser?.assignedBranches?.length === 1 && allBranches?.length) {
+            const bId = currentUser.assignedBranches[0];
+            const branch = allBranches.find(b => b.id === bId);
+            if (branch) {
+                setNewCheck(prev => ({ ...prev, branchId: bId, regionId: branch.regionId }));
+            }
+        }
+    }, [currentUser, allBranches, newCheck.branchId, setNewCheck]);
 
     const handleDetailsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setNewCheck(prev => ({ ...prev, [name]: name === 'amount' ? parseFloat(value) || 0 : value }));
+    };
+
+    const handleAddMember = (uidOrEmail: string, _isEmailInvite: boolean) => {
+        setNewCheck(prev => {
+            const currentMembers = prev.members || [];
+            if (!currentMembers.includes(uidOrEmail)) {
+                return { ...prev, members: [...currentMembers, uidOrEmail] };
+            }
+            return prev;
+        });
+    };
+
+    const handleRemoveMember = (uidOrEmail: string) => {
+        setNewCheck(prev => ({
+            ...prev,
+            members: (prev.members || []).filter(memberId => memberId !== uidOrEmail)
+        }));
+    };
+
+    const canRemoveMember = (uidOrEmail: string) => {
+        // Simple permission logic or always true if they added them?
+        // Usually, office admins/branch leadership or the user themselves can remove
+        return !!uidOrEmail;
     };
 
     const handleOptionClick = (fieldName: string, optionText: string) => {
@@ -731,17 +895,56 @@ const DetailsForm = React.forwardRef<HTMLFormElement, { openDropdown: string | n
                 inputElement = <input type={field.type} {...commonProps} />;
         }
 
+        const isFlagged = newCheck.flaggedFields?.includes(field.name);
+
         return (
-            <div key={field.name} className={field.colSpan === 2 ? 'sm:col-span-2' : 'sm:col-span-1'}>
-                <label htmlFor={field.name} className="block text-sm font-medium text-slate-600 dark:text-gray-300">
+            <div key={field.name} className={`${field.colSpan === 2 ? 'sm:col-span-2' : 'sm:col-span-1'} relative`}>
+                <label htmlFor={field.name} className={`block text-sm font-medium ${isFlagged ? 'text-red-600 dark:text-red-400 font-bold' : 'text-slate-600 dark:text-gray-300'}`}>
                     {field.label} {field.required && <span className="text-red-500">*</span>}
+                    {isFlagged && (
+                        <span className="ml-2 inline-flex items-center text-[10px] bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 px-1.5 py-0.5 rounded uppercase tracking-tighter">
+                            <ExclamationTriangleIcon className="h-2.5 w-2.5 mr-1" />
+                            AI Review Needed
+                        </span>
+                    )}
                 </label>
-                {inputElement}
+                <div className="relative mt-1">
+                    {inputElement}
+                    {isFlagged && (
+                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                            <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />
+                        </div>
+                    )}
+                </div>
+                {isFlagged && (
+                    <button 
+                        type="button"
+                        onClick={() => {
+                            setNewCheck(prev => ({
+                                ...prev,
+                                flaggedFields: prev.flaggedFields?.filter(f => f !== field.name)
+                            }));
+                        }}
+                        className="mt-1 text-[10px] font-bold text-sky-600 dark:text-sky-400 hover:text-sky-700 underline flex items-center"
+                    >
+                        <CheckCircleIcon className="h-3 w-3 mr-1" />
+                        Verify Field Correctness
+                    </button>
+                )}
             </div>
         );
     };;
 
     const fields = newCheck.category ? [...formConfig.common, ...formConfig[newCheck.category]] : formConfig.common;
+
+    // Filter relevant users to show in dropdown
+    const availableUsersForBranch = (allUsers || []).filter(u => {
+        // If current user has assigned branches, only show users sharing a branch
+        if (currentUser?.assignedBranches?.length) {
+            return u.assignedBranches?.some((b: string) => currentUser.assignedBranches.includes(b));
+        }
+        return true;
+    });
 
     return (
         <form onSubmit={handleSubmit} id="addCheckForm" ref={ref}>
@@ -752,6 +955,49 @@ const DetailsForm = React.forwardRef<HTMLFormElement, { openDropdown: string | n
                 </div>
             )}
             {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
+
+            <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-2">Members (Optional)</label>
+                <MembersDropdown
+                    users={availableUsersForBranch}
+                    selectedMemberIds={newCheck.members || []}
+                    onAddMember={handleAddMember}
+                    onRemoveMember={handleRemoveMember}
+                    canRemoveMember={canRemoveMember}
+                />
+            </div>
+
+            {/* Branch Selection for Users with Multiple Assignments or Admins */}
+            {((currentUser?.role === UserRole.GLOBAL_ADMIN) || (currentUser?.assignedBranches && currentUser.assignedBranches.length > 1)) && (
+                <div className="mb-6 p-4 bg-slate-50 dark:bg-gray-800/50 border border-slate-200 dark:border-gray-700 rounded-lg">
+                    <label className="block text-sm font-bold text-slate-700 dark:text-gray-200 mb-2 flex items-center">
+                        <BuildingOfficeIcon className="h-4 w-4 mr-2 text-sky-500" />
+                        Target Branch <span className="text-red-500 ml-1">*</span>
+                    </label>
+                    <select
+                        value={newCheck.branchId || ''}
+                        onChange={(e) => {
+                            const bId = e.target.value;
+                            const branch = allBranches?.find(b => b.id === bId);
+                            setNewCheck(prev => ({ ...prev, branchId: bId, regionId: branch?.regionId }));
+                        }}
+                        className="block w-full bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white rounded-md shadow-sm py-2 px-3 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+                        required
+                    >
+                        <option value="">Select a Branch...</option>
+                        {allBranches?.filter(b => {
+                            if (currentUser?.role === UserRole.GLOBAL_ADMIN) return true;
+                            return currentUser?.assignedBranches?.includes(b.id);
+                        }).map(b => (
+                            <option key={b.id} value={b.id}>{b.name} ({b.designation})</option>
+                        ))}
+                    </select>
+                    {!newCheck.branchId && (
+                        <p className="mt-2 text-[10px] text-red-500 font-medium">Please select a branch to ensure correct filing.</p>
+                    )}
+                </div>
+            )}
+
             <div className="grid grid-cols-1 gap-y-4 gap-x-4 sm:grid-cols-2">
                 {fields.map(renderField)}
             </div>
@@ -762,7 +1008,7 @@ const DetailsForm = React.forwardRef<HTMLFormElement, { openDropdown: string | n
 
 // --- Main Wizard Layout Component ---
 // FIX: Changed to a named export to resolve module resolution issues.
-export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; onAddCheck: (check: any) => void; }> = ({ isOpen, onClose, onAddCheck }) => {
+export const AddCheckWizard: React.FC<{ onClose: () => void; onAddCheck: (check: any) => void; currentUser?: any; allUsers?: any[]; allRegions?: any[]; allBranches?: any[]; }> = ({ onClose, onAddCheck, currentUser, allUsers, allRegions, allBranches }) => {
     const navigate = useNavigate();
     const [newCheck, setNewCheck] = useState<Partial<Check>>({});
     const [isLoading, setIsLoading] = useState(false);
@@ -960,8 +1206,57 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
     };
 
     const saveBatchItems = async () => {
+        // Validate branch assignment for users who require it
+        const needsBranchChoice = currentUser?.role === UserRole.GLOBAL_ADMIN || (currentUser?.assignedBranches && currentUser.assignedBranches.length > 1);
+        if (needsBranchChoice && !newCheck.branchId) {
+            setToast({ message: "Please select a target branch for this batch.", type: 'error' });
+            return;
+        }
+
         setIsLoading(true);
         const readyItems = batchItems.filter(i => i.status === 'ready' && i.checkData);
+        
+        // 1. Pre-validation of ALL ready items
+        const invalidItems: { id: string, reasons: string[] }[] = [];
+        
+        readyItems.forEach(item => {
+            const reasons: string[] = [];
+            const data = item.checkData!;
+            const category = item.category || newCheck.category;
+            
+            if (!category) {
+                reasons.push("Missing check category");
+            } else {
+                const fieldsForCategory = [...formConfig.common, ...(formConfig[category as keyof typeof formConfig] || [])];
+                fieldsForCategory.forEach(field => {
+                    if (field.required && !data[field.name as keyof typeof data]) {
+                        reasons.push(`Missing required field: ${field.label}`);
+                    }
+                });
+            }
+            
+            if (data.flaggedFields && data.flaggedFields.length > 0) {
+                reasons.push(`Unresolved AI flags: ${data.flaggedFields.join(", ")}`);
+            }
+            
+            if (reasons.length > 0) {
+                invalidItems.push({ id: item.id, reasons });
+            }
+        });
+
+        if (invalidItems.length > 0) {
+            setToast({ 
+                message: `Cannot add checks. ${invalidItems.length} items have missing details or unresolved AI flags. Please review the items marked with errors or flags.`, 
+                type: 'error' 
+            });
+            // Highlight the items with errors by updating their status/error field
+            invalidItems.forEach(inv => {
+                updateBatchItem(inv.id, { error: inv.reasons.join(". ") });
+            });
+            setIsLoading(false);
+            return;
+        }
+
         let successCount = 0;
 
         for (const item of readyItems) {
@@ -972,7 +1267,9 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
                     payee: '',
                     memo: '',
                     ...item.checkData,
-                    category: item.category || newCheck.category || CheckCategory.HOMEOWNER_LOCKBOX // Fallback
+                    category: item.category || newCheck.category || CheckCategory.HOMEOWNER_LOCKBOX, // Fallback
+                    branchId: newCheck.branchId, // Batch items inherit Selected Branch
+                    regionId: newCheck.regionId
                 };
 
                 await onAddCheck(finalCheck as Omit<Check, 'id' | 'createdAt' | 'comments' | 'auditTrail' | 'flags' | 'statusUpdatedAt'>);
@@ -988,9 +1285,8 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
             setToast({ message: `Successfully added ${successCount} checks.`, type: 'info' });
         }
         setIsLoading(false);
-        if (batchItems.length === 0) {
-            handleClose();
-        }
+        // Modal closure after successful bulk addition
+        handleClose();
     };
 
     const continueWithProcessedImage = async (processingResult: { dataUrl: string, micrData: any }, fileName: string) => {
@@ -1154,6 +1450,21 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
             }
         }
 
+        // Require AI flag resolution
+        if (newCheck.flaggedFields && newCheck.flaggedFields.length > 0) {
+            setError(`Please verify the fields flagged by AI before proceeding: ${newCheck.flaggedFields.join(", ")}.`);
+            setIsLoading(false);
+            return;
+        }
+
+        // Validate branch assignment for users who require it
+        const needsBranchChoice = currentUser?.role === UserRole.GLOBAL_ADMIN || (currentUser?.assignedBranches && currentUser.assignedBranches.length > 1);
+        if (needsBranchChoice && !newCheck.branchId) {
+            setError("Please select a target branch.");
+            setIsLoading(false);
+            return;
+        }
+
         const finalCheck = {
             status: CheckStatus.RECEIVED,
             payor: '', // Ensure default values for required fields
@@ -1172,7 +1483,7 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
         }
     };
 
-    if (!isOpen) return null;
+    // Removed isOpen check as this is now a dedicated route
 
     // This effect handles the toast timeout for the entire wizard
     useEffect(() => {
@@ -1183,27 +1494,41 @@ export const AddCheckWizard: React.FC<{ isOpen: boolean; onClose: () => void; on
     }, [toast]);
 
     return (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 z-30">
-            <div className="flex items-center justify-center min-h-screen p-4">
-                <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl sm:my-8 sm:max-w-3xl sm:w-full max-h-[80dvh] flex flex-col">
+        <div className="w-full h-full bg-slate-50 dark:bg-gray-900 flex flex-col animate-in fade-in duration-300">
+            {/* Professional Enterprise Header */}
+            <header className="h-16 px-6 border-b border-slate-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center justify-between sticky top-0 z-20">
+                <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-2">
+                        <div className="h-8 w-8 bg-sky-600 rounded-lg flex items-center justify-center shadow-lg shadow-sky-500/20">
+                            <DocumentTextIcon className="h-5 w-5 text-white" />
+                        </div>
+                        <span className="text-lg font-black tracking-tight text-slate-800 dark:text-white uppercase italic">Check<span className="text-sky-600">Mate</span></span>
+                    </div>
+                    <div className="h-4 w-px bg-slate-300 dark:bg-gray-700"></div>
+                    <h1 className="text-sm font-bold text-slate-500 dark:text-gray-400 uppercase tracking-widest">Entry Wizard</h1>
+                </div>
+
+                <div className="flex items-center space-x-3">
                     <button
                         onClick={handleClose}
-                        className="absolute top-3 right-3 p-1 rounded-full text-slate-400 dark:text-gray-500 hover:bg-slate-100 dark:hover:bg-gray-700 z-10"
-                        aria-label="Close"
-                        title="Close"
+                        className="flex items-center px-4 py-2 text-sm font-bold text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800 rounded-xl transition-all"
                     >
-                        <XMarkIcon className="h-6 w-6" />
-                        <span className="sr-only">Close</span>
+                        <XMarkIcon className="h-5 w-5 mr-2" />
+                        Exit Process
                     </button>
-                    {/* The Outlet renders the active step component based on the URL */}
+                </div>
+            </header>
+
+            <main className="flex-grow flex flex-col max-w-5xl w-full mx-auto p-4 sm:p-8">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl shadow-slate-200/50 dark:shadow-black/50 flex-grow flex flex-col overflow-hidden border border-slate-200 dark:border-gray-700 animate-in slide-in-from-bottom-4 duration-500">
                     <Outlet context={{
                         newCheck, setNewCheck, isLoading, error, setError, imagePreview, toast, setToast,
                         handleImageUpload, handleSubmit, imageToCrop, setImageToCrop, handleManualCrop,
                         batchItems, setBatchItems, handleBatchUpload, updateBatchItem, removeBatchItem, saveBatchItems,
-                        activeBatchItemId, setActiveBatchItemId
+                        activeBatchItemId, setActiveBatchItemId, currentUser, allUsers, allRegions, allBranches
                     }} />
                 </div>
-            </div>
+            </main>
         </div>
     );
 };

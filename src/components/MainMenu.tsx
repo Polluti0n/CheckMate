@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { CheckMateLogo, ArchiveBoxIcon, CubeIcon, AdjustmentsHorizontalIcon, CheckBadgeIcon, UserCircleIcon, XMarkIcon, Cog6ToothIcon, PlusIcon } from './icons';
-import { CheckCategory } from '../types';
+import { CheckMateLogo, ArchiveBoxIcon, CubeIcon, AdjustmentsHorizontalIcon, CheckBadgeIcon, XMarkIcon, Cog6ToothIcon, DocumentTextIcon, HomeIcon } from './icons';
+import { CheckCategory, UserProfile, UserRole } from '../types';
 import { auth } from '../services/firebase';
 
 interface MainMenuProps {
@@ -10,19 +10,23 @@ interface MainMenuProps {
     onToggleMultiSelect: () => void;
     isMultiSelectModeActive: boolean;
     userEmail: string | null;
+    currentUser: UserProfile | null;
     activeCategory: CheckCategory | null;
     onCategoryFilterChange: (category: CheckCategory | null) => void;
+    onClearMockData: () => Promise<void>;
 }
 
-const MainMenu: React.FC<MainMenuProps> = ({ 
-    isOpen, 
-    onClose, 
-    onNavigate, 
-    onToggleMultiSelect, 
+const MainMenu: React.FC<MainMenuProps> = ({
+    isOpen,
+    onClose,
+    onNavigate,
+    onToggleMultiSelect,
     isMultiSelectModeActive,
     userEmail,
+    currentUser,
     activeCategory,
-    onCategoryFilterChange
+    onCategoryFilterChange,
+    onClearMockData
 }) => {
     const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
     const filterDropdownRef = useRef<HTMLDivElement>(null);
@@ -36,7 +40,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
-    
+
     const handleLogout = () => {
         auth.signOut();
         onClose();
@@ -46,16 +50,16 @@ const MainMenu: React.FC<MainMenuProps> = ({
         onNavigate(path);
         onClose();
     };
-    
+
     const handleCategorySelect = (category: CheckCategory | null) => {
         onCategoryFilterChange(category);
         setIsFilterDropdownOpen(false); // Close dropdown after selection
     };
-    
+
     const categoryFilter = (
         <div ref={filterDropdownRef} className="relative px-4">
-            <button 
-                onClick={() => setIsFilterDropdownOpen(p => !p)} 
+            <button
+                onClick={() => setIsFilterDropdownOpen(p => !p)}
                 className="w-full flex items-center justify-between gap-3 px-4 py-2.5 text-slate-700 dark:text-gray-300 rounded-md hover:bg-slate-200 dark:hover:bg-gray-700 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 text-sm font-medium"
             >
                 <div className="flex items-center gap-3">
@@ -71,7 +75,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     <div className="p-2">
                         <button onClick={() => handleCategorySelect(null)} className={`block w-full text-left px-3 py-1.5 text-sm rounded-md ${!activeCategory ? 'bg-sky-100 dark:bg-sky-900 text-sky-800 dark:text-sky-300 font-semibold' : 'text-gray-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-600'}`}>All Categories</button>
                         {Object.values(CheckCategory).map(cat => (
-                             <button key={cat} onClick={() => handleCategorySelect(cat)} className={`block w-full text-left px-3 py-1.5 text-sm rounded-md ${activeCategory === cat ? 'bg-sky-100 dark:bg-sky-900 text-sky-800 dark:text-sky-300 font-semibold' : 'text-gray-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-600'}`}>{cat}</button>
+                            <button key={cat} onClick={() => handleCategorySelect(cat)} className={`block w-full text-left px-3 py-1.5 text-sm rounded-md ${activeCategory === cat ? 'bg-sky-100 dark:bg-sky-900 text-sky-800 dark:text-sky-300 font-semibold' : 'text-gray-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-600'}`}>{cat}</button>
                         ))}
                     </div>
                 </div>
@@ -101,26 +105,85 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     <nav className="flex-grow p-4 space-y-4 overflow-y-auto">
                         <div className="space-y-1">
                             <h3 className="px-4 text-xs font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Actions</h3>
-                             <button onClick={onToggleMultiSelect} className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-700 dark:text-gray-300 rounded-md hover:bg-slate-200 dark:hover:bg-gray-700 text-sm font-medium">
+                            <button onClick={onToggleMultiSelect} className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-700 dark:text-gray-300 rounded-md hover:bg-slate-200 dark:hover:bg-gray-700 text-sm font-medium">
                                 <CheckBadgeIcon className="h-6 w-6 text-slate-500 dark:text-gray-400" />
                                 <span>{isMultiSelectModeActive ? 'Cancel Selection' : 'Select Multiple'}</span>
                             </button>
                         </div>
-                         <div className="space-y-1">
-                             <h3 className="px-4 text-xs font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Views</h3>
+                        <div className="space-y-1">
+                            <h3 className="px-4 text-xs font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Views</h3>
+                            <button onClick={() => handleNavigation('/')} className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-700 dark:text-gray-300 rounded-md hover:bg-slate-200 dark:hover:bg-gray-700 text-sm font-medium">
+                                <HomeIcon className="h-6 w-6 text-slate-500 dark:text-gray-400" />
+                                <span>Go to Dashboard</span>
+                            </button>
                             <button onClick={() => handleNavigation('/archive')} className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-700 dark:text-gray-300 rounded-md hover:bg-slate-200 dark:hover:bg-gray-700 text-sm font-medium">
                                 <ArchiveBoxIcon className="h-6 w-6 text-slate-500 dark:text-gray-400" />
                                 <span>View Archive</span>
                             </button>
-                             <button onClick={() => handleNavigation('/batch-history')} className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-700 dark:text-gray-300 rounded-md hover:bg-slate-200 dark:hover:bg-gray-700 text-sm font-medium">
+                            <button onClick={() => handleNavigation('/batch-history')} className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-700 dark:text-gray-300 rounded-md hover:bg-slate-200 dark:hover:bg-gray-700 text-sm font-medium">
                                 <CubeIcon className="h-6 w-6 text-slate-500 dark:text-gray-400" />
                                 <span>Batch History</span>
                             </button>
+                            {([UserRole.GLOBAL_ADMIN, UserRole.EXECUTIVE, UserRole.STAKEHOLDER, UserRole.AR_MANAGER] as string[]).includes(currentUser?.role || '') && (
+                                <button onClick={() => handleNavigation('/admin')} className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-700 dark:text-gray-300 rounded-md hover:bg-slate-200 dark:hover:bg-gray-700 text-sm font-medium">
+                                    <Cog6ToothIcon className="h-6 w-6 text-slate-500 dark:text-gray-400" />
+                                    <span>Admin Panel</span>
+                                </button>
+                            )}
+                        </div>
+                        <div className="space-y-1">
+                            <h3 className="px-4 text-xs font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Resources</h3>
+                            <button onClick={() => handleNavigation('/pitch')} className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-700 dark:text-gray-300 rounded-md hover:bg-slate-200 dark:hover:bg-gray-700 text-sm font-medium">
+                                <DocumentTextIcon className="h-6 w-6 text-slate-500 dark:text-gray-400" />
+                                <span>Sales Pitch Deck</span>
+                            </button>
+                        </div>
+
+                        <div className="space-y-1 pt-4 border-t dark:border-gray-700">
+                            <h3 className="px-4 text-xs font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Demo Tools</h3>
+                            <button
+                                onClick={async () => {
+                                    if (currentUser) {
+                                        const { seedMockPitchData } = await import('../services/mockDataService');
+                                        await seedMockPitchData(currentUser);
+                                        onClose();
+                                    }
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sky-600 dark:text-sky-400 rounded-md hover:bg-sky-50 dark:hover:bg-sky-900/30 text-sm font-bold"
+                            >
+                                <CheckBadgeIcon className="h-6 w-6" />
+                                <span>Seed Mock Pitch Data</span>
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    await onClearMockData();
+                                    onClose();
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-rose-600 dark:text-rose-400 rounded-md hover:bg-rose-50 dark:hover:bg-rose-900/30 text-sm font-bold"
+                            >
+                                <XMarkIcon className="h-6 w-6" />
+                                <span>Clear Mock Data</span>
+                            </button>
+                            {currentUser?.role !== UserRole.GLOBAL_ADMIN && (
+                                <button
+                                    onClick={async () => {
+                                        if (currentUser) {
+                                            const { updateUserProfile } = await import('../services/firestoreService');
+                                            await updateUserProfile(currentUser.uid, { "profile.role": UserRole.GLOBAL_ADMIN } as any);
+                                            alert("You are now a Global Admin!");
+                                        }
+                                    }}
+                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-purple-600 dark:text-purple-400 rounded-md hover:bg-purple-50 dark:hover:bg-purple-900/30 text-sm font-bold"
+                                >
+                                    <Cog6ToothIcon className="h-6 w-6" />
+                                    <span>Make Me Admin (Dev)</span>
+                                </button>
+                            )}
                         </div>
 
                         {/* Mobile-only section */}
                         <div className="sm:hidden space-y-4 pt-2 border-t dark:border-gray-700">
-                             <div className="space-y-1">
+                            <div className="space-y-1">
                                 <h3 className="px-4 text-xs font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Mobile Tools</h3>
                                 {categoryFilter}
                             </div>
@@ -144,7 +207,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                                 <Cog6ToothIcon className="h-6 w-6 text-slate-500 dark:text-gray-400" />
                                 <span>Preferences</span>
                             </button>
-                             <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-gray-700 rounded-md">
+                            <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-gray-700 rounded-md">
                                 Log Out
                             </button>
                         </div>

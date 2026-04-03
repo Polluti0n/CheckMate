@@ -1,4 +1,4 @@
-const CACHE_NAME = 'checkmate-cache-v14';
+const CACHE_NAME = 'checkmate-cache-v15';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -13,17 +13,17 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        
+
         // 1. Cache same-origin assets, ensuring we get fresh copies.
         const sameOriginRequests = urlsToCache.map(url => new Request(url, { cache: 'reload' }));
         const sameOriginPromise = cache.addAll(sameOriginRequests);
-        
+
         // 2. Cache the cross-origin OpenCV asset using a 'no-cors' request to get an opaque response.
         const crossOriginRequest = new Request(crossOriginUrl, { mode: 'no-cors', cache: 'reload' });
         const crossOriginPromise = fetch(crossOriginRequest).then(response => {
-            return cache.put(crossOriginUrl, response);
+          return cache.put(crossOriginUrl, response);
         });
-        
+
         // Wait for all caching operations to complete.
         return Promise.all([sameOriginPromise, crossOriginPromise]);
       })

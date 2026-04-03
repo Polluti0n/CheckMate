@@ -1,6 +1,6 @@
 import firebase from 'firebase/compat/app';
 import { storage, db } from './firebase';
-import { Check, Flag, Comment, AuditLog, Batch, CheckStatus, UserProfile, Notification, UserPreferences } from '../types';
+import { Check, Flag, Comment, AuditLog, Batch, CheckStatus, UserProfile, Notification, UserPreferences, UserRole, Region, Branch } from '../types';
 import { DEFAULT_PREFERENCES } from '../constants';
 import merge from 'lodash.merge';
 import isEqual from 'lodash.isequal';
@@ -10,6 +10,8 @@ const FLAGS_COLLECTION = 'flags';
 const BATCHES_COLLECTION = 'batches';
 const USERS_COLLECTION = 'users';
 const NOTIFICATIONS_COLLECTION = 'notifications';
+const REGIONS_COLLECTION = 'regions';
+const BRANCHES_COLLECTION = 'branches';
 
 const TimestampCompat = firebase.firestore.Timestamp;
 
@@ -91,8 +93,40 @@ const processDocTimestamps = (data: any) => {
 
 // --- Real-time Listeners ---
 
-export const onChecksSnapshot = (callback: (checks: Check[]) => void) => {
-  const q = db.collection(CHECKS_COLLECTION).orderBy('createdAt', 'desc');
+export const onChecksSnapshot = (user: UserProfile, callback: (checks: Check[]) => void) => {
+  let q: firebase.firestore.Query<firebase.firestore.DocumentData> = db.collection(CHECKS_COLLECTION);
+
+  if (!user || !user.role) {
+    // If no role, return early with empty array
+    callback([]);
+    return () => { };
+  }
+
+  // Apply Role-Based Filtering
+  if (
+    user.role === UserRole.GLOBAL_ADMIN ||
+    user.role === UserRole.EXECUTIVE ||
+    user.role === UserRole.STAKEHOLDER ||
+    user.role === UserRole.AR_MANAGER
+  ) {
+    // These roles see everything, no filter needed
+  } else if (user.role === UserRole.REGIONAL_MANAGER && user.assignedRegions && user.assignedRegions.length > 0) {
+    // Chunk array if > 30? For now assume a user has < 30 regions assigned
+    q = q.where('regionId', 'in', user.assignedRegions.slice(0, 30));
+  } else if (
+    (user.role === UserRole.BRANCH_LEADERSHIP || user.role === UserRole.OFFICE_ADMIN || user.role === UserRole.AR_SPECIALIST || user.role === UserRole.MEMBER) &&
+    user.assignedBranches && user.assignedBranches.length > 0
+  ) {
+    q = q.where('branchId', 'in', user.assignedBranches.slice(0, 30));
+  } else if (user.role === UserRole.COMMUNITY_MANAGER) {
+    q = q.where('members', 'array-contains', user.uid);
+  } else {
+    // Fallback: no access
+    q = q.where(firebase.firestore.FieldPath.documentId(), '==', 'NONE');
+  }
+
+  q = q.orderBy('createdAt', 'desc');
+
   return q.onSnapshot((snapshot) => {
     const checks = snapshot.docs.map((doc) => {
       return {
@@ -138,6 +172,26 @@ export const onUsersSnapshot = (callback: (users: UserProfile[]) => void) => {
       return migratedData.profile;
     }).filter((profile): profile is UserProfile => !!profile); // Ensure no null/undefined profiles are passed
     callback(users);
+  });
+};
+
+export const onRegionsSnapshot = (callback: (regions: Region[]) => void) => {
+  return db.collection(REGIONS_COLLECTION).onSnapshot((snapshot) => {
+    const regions = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data()
+    } as Region));
+    callback(regions);
+  });
+};
+
+export const onBranchesSnapshot = (callback: (branches: Branch[]) => void) => {
+  return db.collection(BRANCHES_COLLECTION).onSnapshot((snapshot) => {
+    const branches = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data()
+    } as Branch));
+    callback(branches);
   });
 };
 
@@ -241,8 +295,14 @@ export const addCheck = (checkData: Omit<Check, 'id' | 'createdAt' | 'comments' 
     timestamp: new Date().toISOString(),
   };
 
+  // Auto-assign branch and region if missing and user has a single assignment
+  const finalBranchId = checkData.branchId || (currentUser.assignedBranches?.length === 1 ? currentUser.assignedBranches[0] : undefined);
+  const finalRegionId = checkData.regionId || (currentUser.assignedRegions?.length === 1 ? currentUser.assignedRegions[0] : undefined);
+
   return db.collection(CHECKS_COLLECTION).add({
     ...checkData,
+    branchId: finalBranchId,
+    regionId: finalRegionId,
     comments: [],
     flags: [],
     auditTrail: [newLog],

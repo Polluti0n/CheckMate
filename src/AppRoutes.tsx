@@ -1,20 +1,19 @@
 import React, { lazy, Suspense } from 'react';
 import { Routes, Route, Outlet, useNavigate, useParams } from 'react-router-dom';
-import { useEffect } from 'react';
 
 // Import all your components and types 
 import { THEMES } from './constants';
 // FIX: Use named import for AddCheckWizard and its step components.
-import { Check, CheckStatus, UserPreferences, Notification, UserProfile, CheckViewOptions, CardStyle } from './types';
+import { Check, CheckStatus, UserPreferences, Notification, UserProfile, CheckViewOptions, CardStyle, UserRole, CheckField } from './types';
 import Header from './components/Header'; // FIX: Added Batch to imports
-import CheckDetailModal from './components/CheckDetailModal';
+import CheckDetailView from './components/CheckDetailView';
 import FlagManager from './components/FlagManager';
-import ProcessBatchModal from './components/BatchingModal';
+import ProcessBatchView from './components/BatchingModal';
 import ThemePickerModal from './components/ThemePickerModal';
-import PreferencesModal from './components/PreferencesModal';
+import PreferencesView from './components/PreferencesView';
 import SelectionActionBar from './components/SelectionActionBar';
 import MainMenu from './components/MainMenu';
-import BatchChecksModal from './components/BatchChecksModal'; // Import BatchChecksModal
+import BatchChecksView from './components/BatchChecksView'; // Import BatchChecksView
 import SplashScreen from './components/SplashScreen';
 import {
   AddCheckWizard,
@@ -26,10 +25,14 @@ import {
 } from './components/AddCheckWizard';
 
 // Lazy-load page components for code splitting
-const KanbanBoard = lazy(() => import('./components/CheckDashboard'));
+const CheckDashboard = lazy(() => import('./components/board/CheckDashboard'));
 const ArchiveView = lazy(() => import('./components/ArchiveView'));
 const BatchHistoryView = lazy(() => import('./components/BatchHistoryView'));
 const ExpandedColumnView = lazy(() => import('./components/ExpandedColumnView'));
+const PitchDeck = lazy(() => import('./components/PitchDeck'));
+const AdminPanel = lazy(() => import('./components/admin/AdminPanel'));
+const StakeholderDashboard = lazy(() => import('./components/dashboards/StakeholderDashboard'));
+const BranchDashboard = lazy(() => import('./components/dashboards/BranchDashboard'));
 
 
 // Define a single, comprehensive type for all props passed from App.tsx
@@ -40,6 +43,9 @@ export interface AppState {
   flags: any[];
   batches: any[];
   filteredChecks: Check[];
+  allUsers: UserProfile[];
+  allRegions: any[];
+  allBranches: any[];
   preferences: UserPreferences;
   savePreferences: (prefs: Partial<UserPreferences>) => void;
 
@@ -89,7 +95,6 @@ export interface AppState {
   // Notifications
   notifications: Notification[];
   notificationCount: number;
-  allUsers: UserProfile[];
 }
 
 // A layout component to keep the header and action bar consistent across views
@@ -118,8 +123,13 @@ const MainLayout: React.FC<{ appState: AppState }> = ({ appState }) => {
         onToggleMultiSelect={appState.handleToggleMultiSelect}
         isMultiSelectModeActive={appState.isMultiSelectMode}
         userEmail={appState.userEmail}
+        currentUser={appState.currentUser}
         activeCategory={appState.activeCategoryFilter}
         onCategoryFilterChange={appState.setActiveCategoryFilter}
+        onClearMockData={async () => {
+          const { deleteAllMockData } = await import('./services/mockDataService');
+          await deleteAllMockData();
+        }}
       />
       <div className="flex-grow flex flex-col pb-16">
         <Outlet /> {/* Nested routes (views and modals) are rendered here */}
@@ -148,7 +158,7 @@ const CheckDetailWrapper: React.FC<{ appState: AppState }> = ({ appState }) => {
 
   return (
     <>
-      <CheckDetailModal
+      <CheckDetailView
         check={check}
         checks={appState.checks}
         onSelectCheck={appState.handleSelectCheck}
@@ -171,20 +181,8 @@ const CheckDetailWrapper: React.FC<{ appState: AppState }> = ({ appState }) => {
 };
 
 const BatchChecksWrapper: React.FC<{ appState: AppState }> = ({ appState }) => {
-  const { batchId } = useParams<{ batchId: string }>();
-  const navigate = useNavigate();
-  const batch = appState.batches.find(b => b.id === batchId);
-
-  if (!batch) {
-    // Optionally, show a "not found" message before navigating away
-    useEffect(() => {
-      navigate(-1);
-    }, [navigate]);
-    return null;
-  }
-
   return (
-    <BatchChecksModal isOpen={true} batch={batch} checks={appState.checks} onClose={() => navigate(-1)} onSelectCheck={appState.handleSelectCheck} onDeleteBatch={appState.actions.handleDeleteBatch} />
+    <BatchChecksView batches={appState.batches} checks={appState.checks} onSelectCheck={appState.handleSelectCheck} onDeleteBatch={appState.actions.handleDeleteBatch} />
   );
 };
 
@@ -277,30 +275,55 @@ const AppRoutes: React.FC<{ appState: AppState }> = ({ appState }) => {
           <Route
             index
             element={
-              <KanbanBoard
-                checks={appState.checks}
-                flags={appState.flags}
-                themes={THEMES}
-                onSelectCheck={appState.handleSelectCheck}
-                onMoveCheck={appState.handleMoveCheck}
-                cardStyle={appState.cardStyle}
-                onExpandColumn={(status) => navigate(`/column/${status}`)}
-                sortConfig={appState.sortConfig}
-                onSort={handleSort}
-                onSelectAllInColumn={handleSelectAllInColumn}
-                selectedCheckIds={appState.selectedCheckIds}
-                isMultiSelectMode={appState.isMultiSelectMode}
-                onCheckSelection={appState.handleCheckSelection}
-                columnDisplayOptions={
-                  appState.preferences.columnDisplayOptions
-                }
-                columnThemes={appState.preferences.columnThemes}
-                onToggleDisplayOption={handleToggleDisplayOption}
-                onOpenThemePicker={(status) => navigate(`/theme/${status}`)}
-                cardLayout={appState.preferences.cardLayout}
-                checkViewOptions={appState.preferences.checkViewOptions}
-                preferences={appState.preferences}
-              />
+              (appState.currentUser?.role === UserRole.STAKEHOLDER || 
+               appState.currentUser?.role === UserRole.GLOBAL_ADMIN || 
+               appState.currentUser?.role === UserRole.EXECUTIVE || 
+               appState.currentUser?.role === UserRole.AR_MANAGER) ? (
+                <StakeholderDashboard 
+                  checks={appState.checks} 
+                  allRegions={appState.allRegions}
+                  allBranches={appState.allBranches}
+                  onSelectCheck={(id: string) => {
+                    const check = appState.checks.find(c => c.id === id);
+                    if (check) appState.handleSelectCheck(check);
+                  }}
+                />
+              ) : appState.currentUser ? (
+                <BranchDashboard
+                  checks={appState.checks}
+                  batches={appState.batches}
+                  currentUser={appState.currentUser}
+                  onSelectCheck={appState.handleSelectCheck}
+                  onAddCheck={() => navigate('/add-check')}
+                />
+              ) : (
+                <CheckDashboard
+                  checks={appState.checks}
+                  flags={appState.flags}
+                  themes={THEMES}
+                  onSelectCheck={appState.handleSelectCheck}
+                  onMoveCheck={appState.handleMoveCheck}
+                  onUpdateCheck={(id, updates) => appState.actions.handleUpdateCheck(id, updates, { type: 'edit', message: 'Inline edit from dashboard', user: appState.currentUser?.email })}
+                  cardStyle={appState.cardStyle}
+                  onExpandColumn={(status: CheckStatus) => navigate(`/column/${status}`)}
+                  sortConfig={appState.sortConfig}
+                  onSort={handleSort}
+                  onSelectAllInColumn={handleSelectAllInColumn}
+                  selectedCheckIds={appState.selectedCheckIds}
+                  isMultiSelectMode={appState.isMultiSelectMode}
+                  onCheckSelection={appState.handleCheckSelection}
+                  columnDisplayOptions={
+                    appState.preferences.columnDisplayOptions
+                  }
+                  columnThemes={appState.preferences.columnThemes}
+                  onToggleDisplayOption={handleToggleDisplayOption}
+                  onOpenThemePicker={(status: CheckStatus) => navigate(`/theme/${status}`)}
+                  cardLayout={appState.preferences.cardLayout}
+                  checkViewOptions={appState.preferences.checkViewOptions}
+                  preferences={appState.preferences}
+                  currentUser={appState.currentUser}
+                />
+              )
             }
           />
           <Route
@@ -311,7 +334,7 @@ const AppRoutes: React.FC<{ appState: AppState }> = ({ appState }) => {
                   (c) => c.status === CheckStatus.ARCHIVED
                 )}
                 selectedCheckIds={appState.selectedCheckIds}
-                onCheckSelection={(id, e, checks) => appState.handleCheckSelection(id, e, checks)}
+                onCheckSelection={(id: string, e: React.MouseEvent, checks: Check[]) => appState.handleCheckSelection(id, e, checks)}
                 setIsMultiSelectMode={appState.setIsMultiSelectMode}
                 onUpdateCheck={appState.actions.handleUpdateCheck}
                 onBulkDelete={appState.actions.handleBulkDelete as any}
@@ -319,14 +342,14 @@ const AppRoutes: React.FC<{ appState: AppState }> = ({ appState }) => {
                 onBack={() => navigate("/")}
                 searchTerm={appState.searchTerm}
                 visibleColumns={appState.preferences.visibleArchiveColumns}
-                onVisibleColumnsChange={(cols) =>
+                onVisibleColumnsChange={(cols: CheckField[]) =>
                   appState.savePreferences({
                     ...appState.preferences,
                     visibleArchiveColumns: cols,
                   })
                 }
                 columnWidths={appState.preferences.archiveColumnWidths}
-                onColumnWidthsChange={(widths) =>
+                onColumnWidthsChange={(widths: Record<string, number>) =>
                   appState.savePreferences({
                     ...appState.preferences,
                     archiveColumnWidths: widths,
@@ -358,6 +381,16 @@ const AppRoutes: React.FC<{ appState: AppState }> = ({ appState }) => {
             }
           />
           <Route
+            path="/admin"
+            element={
+              <AdminPanel
+                allUsers={appState.allUsers}
+                currentUser={appState.currentUser}
+                onBack={() => navigate("/")}
+              />
+            }
+          />
+          <Route
             path="/column/:status"
             element={<ExpandedColumnWrapper appState={appState} />}
           />
@@ -384,9 +417,12 @@ const AppRoutes: React.FC<{ appState: AppState }> = ({ appState }) => {
             path="/add-check"
             element={
               <AddCheckWizard
-                isOpen={true}
                 onClose={() => navigate("/")}
                 onAddCheck={appState.actions.handleAddCheck}
+                currentUser={appState.currentUser}
+                allUsers={appState.allUsers}
+                allRegions={appState.allRegions}
+                allBranches={appState.allBranches}
               />
             }
           >
@@ -400,8 +436,7 @@ const AppRoutes: React.FC<{ appState: AppState }> = ({ appState }) => {
           <Route
             path="/batching"
             element={
-              <ProcessBatchModal
-                isOpen={true}
+              <ProcessBatchView
                 checks={appState.checks}
                 currentUser={appState.currentUser}
                 onClose={() => navigate("/")}
@@ -412,8 +447,7 @@ const AppRoutes: React.FC<{ appState: AppState }> = ({ appState }) => {
           <Route
             path="/preferences"
             element={
-              <PreferencesModal
-                isOpen={true}
+              <PreferencesView
                 onClose={() => navigate("/")}
                 currentPreferences={appState.preferences}
                 onSave={appState.savePreferences}
@@ -431,21 +465,8 @@ const AppRoutes: React.FC<{ appState: AppState }> = ({ appState }) => {
             element={<BatchChecksWrapper appState={appState} />}
           />
         </Route>
+        <Route path="/pitch" element={<PitchDeck />} />
       </Routes>
-      {/* Render BatchChecksModal on top of other content, outside of <Routes> */}
-      {appState.viewingBatchId && (
-        <BatchChecksModal
-          isOpen={true}
-          batch={
-            appState.batches.find((b) => b.id === appState.viewingBatchId) ||
-            null
-          }
-          checks={appState.checks}
-          onClose={() => appState.handleViewBatch(null as any)} // Close by setting ID to null
-          onSelectCheck={appState.handleSelectCheck}
-          onDeleteBatch={appState.actions.handleDeleteBatch}
-        />
-      )}
     </Suspense>
   );
 };

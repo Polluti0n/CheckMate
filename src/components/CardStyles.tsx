@@ -151,8 +151,13 @@ export const ClassicCard: React.FC<CardProps> = ({ check, allFlags, cardLayout, 
                         )}
                         {renderZoneContent(check, allFlags, cardLayout, 'title', "font-semibold text-slate-800 dark:text-white text-base truncate", ZoneComponent, "min-w-0", darkMode)}
                     </div>
-                    {/* TopRight */}
-                    {renderZoneContent(check, allFlags, cardLayout, 'topRight', "font-bold text-slate-900 dark:text-white text-base", ZoneComponent, "flex-shrink-0", darkMode)}
+                    {/* Flags & TopRight */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="scale-90 opacity-80">
+                            {renderFlags(check, allFlags, darkMode)}
+                        </div>
+                        {renderZoneContent(check, allFlags, cardLayout, 'topRight', "font-bold text-slate-900 dark:text-white text-base", ZoneComponent, undefined, darkMode)}
+                    </div>
                 </div>
                 {/* Subtitle */}
                 {renderZoneContent(check, allFlags, cardLayout, 'subtitle', "text-xs text-slate-500 dark:text-gray-400 font-medium truncate", ZoneComponent, undefined, darkMode)}
@@ -440,8 +445,13 @@ export const CheckStyleCard: React.FC<CardProps> = ({ check, allFlags, cardLayou
                                 )}
                                 <p className="font-semibold truncate text-[3cqw]">{check.payor || 'Payor Name'}</p>
                             </div>
-                            <div className="text-right">
-                                <p className="text-[3.5cqw] text-gray-700 font-typed-handwritten">{check.checkNumber || '101'}</p>
+                            <div className="text-right flex flex-col items-end">
+                                <div className="flex items-center gap-2">
+                                    <div className="scale-75 origin-right opacity-80">
+                                        {renderFlags(check, allFlags, darkMode)}
+                                    </div>
+                                    <p className="text-[3.5cqw] text-gray-700 font-typed-handwritten">{check.checkNumber || '101'}</p>
+                                </div>
                                 <p className="text-gray-500 text-[1.8cqw]">{new Date(check.date).toLocaleDateString()}</p>
                             </div>
                         </div>

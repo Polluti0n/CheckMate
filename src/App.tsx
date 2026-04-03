@@ -49,14 +49,20 @@ const AppContent: React.FC = () => {
             });
 
             const unsubscribeUsers = firestoreService.onUsersSnapshot(setAllUsers);
+            const unsubscribeRegions = firestoreService.onRegionsSnapshot(setAllRegions);
+            const unsubscribeBranches = firestoreService.onBranchesSnapshot(setAllBranches);
 
             return () => {
                 unsubscribeNotifications();
                 unsubscribeUsers();
+                unsubscribeRegions();
+                unsubscribeBranches();
             };
         } else {
             setNotifications([]);
             setAllUsers([]);
+            setAllRegions([]);
+            setAllBranches([]);
             clearPreferences();
         }
     }, [user, clearPreferences, addToast, navigate, sessionStartTimestamp, shownToastIds]);
@@ -70,6 +76,8 @@ const AppContent: React.FC = () => {
 
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+    const [allRegions, setAllRegions] = useState<any[]>([]);
+    const [allBranches, setAllBranches] = useState<any[]>([]);
     const [sortConfig, setSortConfig] = useState<any>({});
     const [selectedCheckIds, setSelectedCheckIds] = useState<string[]>([]);
     const [lastSelectedCheckId, setLastSelectedCheckId] = useState<string | null>(null);
@@ -259,6 +267,8 @@ const AppContent: React.FC = () => {
         notifications,
         notificationCount: notifications.filter(n => !n.read).length,
         allUsers,
+        allRegions,
+        allBranches,
         cardStyle: preferences.cardStyle,
         checkViewOptions: preferences.checkViewOptions,
     };

@@ -14,12 +14,44 @@ export enum CheckStatus {
     QUEUED = "Queued",
     COMPLETE = "Complete",
     ARCHIVED = "Archived",
+    IN_TRANSIT = "In Transit",
 }
 
 export type CardStyle = 'classic' | 'ledger' | 'modern' | 'check';
 
 export type CheckField = keyof Check | 'lastComment';
 export type CardLayoutZone = 'title' | 'topRight' | 'subtitle' | 'body1' | 'body2' | 'footerLeft' | 'footerRight' | 'overlayTopRight' | 'overlayBottomLeft';
+
+export enum UserRole {
+    GLOBAL_ADMIN = 'Global Admin',
+    EXECUTIVE = 'Executive',
+    STAKEHOLDER = 'Stakeholder',
+    AR_MANAGER = 'AR Manager',
+    AR_SPECIALIST = 'AR Specialist',
+    REGIONAL_MANAGER = 'Regional Manager',
+    BRANCH_LEADERSHIP = 'Branch Leadership',
+    OFFICE_ADMIN = 'Office Admin',
+    COMMUNITY_MANAGER = 'Community Manager',
+    MEMBER = 'Member',
+}
+
+export interface Region {
+    id: string;
+    name: string;
+    description?: string;
+    members: string[]; // Array of UIDs
+    createdAt?: string;
+}
+
+export interface Branch {
+    id: string;
+    name: string;
+    designation: string; // 3-letter designation, capitalized
+    regionId: string;
+    description?: string;
+    members: string[]; // Array of UIDs
+    createdAt?: string;
+}
 
 
 export interface Flag {
@@ -97,7 +129,12 @@ export interface Check {
     createdAt: string;
     boardOrder?: number;
     isNew?: boolean;
+    isMock?: boolean; // Added for mock data identification
     previousStatus?: CheckStatus | null;
+    branchId?: string; // The branch this check was received at
+    regionId?: string; // The region of the branch
+    members?: string[]; // Array of UIDs of users mentioned or assigned
+    flaggedFields?: string[]; // Field names that AI flagged for review
 }
 
 export interface Batch {
@@ -105,6 +142,7 @@ export interface Batch {
     checkIds: string[];
     createdAt: string;
     trackingNumber: string;
+    qrCodeInfo?: string; // Stores encoded AR specialist batch data
 }
 
 export interface CurrentUser {
@@ -152,8 +190,14 @@ export interface UserProfile {
     firstName: string;
     lastName: string;
     phone: string;
-    branch: string;
+    branch: string; // legacy string representation, keep for backwards compat if needed
     profilePictureUrl: string;
+    role: UserRole;
+    assignedBranches?: string[]; // Array of Branch IDs
+    assignedRegions?: string[]; // Array of Region IDs
+    widgets?: any[]; // Array of widget configs
+    todoList?: { id: string; text: string; completed: boolean }[]; // User's customized to-do list
+    pinnedChecks?: string[]; // Array of check IDs pinned by user
 }
 
 export interface NotificationSettings {

@@ -15,8 +15,8 @@ export const useCheckData = (user: firebase.User | null, currentUser: UserProfil
 
     // Set up Firestore listeners when user is logged in
     useEffect(() => {
-        if (user) {
-            const unsubscribeChecks = firestoreService.onChecksSnapshot(setChecks);
+        if (user && currentUser) {
+            const unsubscribeChecks = firestoreService.onChecksSnapshot(currentUser, setChecks);
             const unsubscribeFlags = firestoreService.onFlagsSnapshot(setFlags);
             const unsubscribeBatches = firestoreService.onBatchesSnapshot(setBatches);
             return () => {
@@ -28,7 +28,7 @@ export const useCheckData = (user: firebase.User | null, currentUser: UserProfil
             // Reset when user logs out
             hasArchived.current = false;
         }
-    }, [user]);
+    }, [user, currentUser]);
 
     // Auto-archive logic
     useEffect(() => {

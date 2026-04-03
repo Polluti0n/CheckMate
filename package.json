@@ -1,7 +1,7 @@
 {
   "name": "checkmate",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host",
@@ -15,16 +15,22 @@
     "@atlaskit/pragmatic-drag-and-drop-flourish": "^2.0.6",
     "@atlaskit/pragmatic-drag-and-drop-hitbox": "^1.1.0",
     "@google/genai": "^1.17.0",
+    "chart.js": "^4.5.1",
     "exceljs": "^4.4.0",
     "firebase": "^10.12.2",
+    "html5-qrcode": "^2.3.8",
+    "lodash.isequal": "^4.5.0",
+    "lodash.merge": "^4.6.2",
+    "qrcode": "^1.5.4",
+    "qrcode.react": "^4.2.0",
     "react": "^19.1.1",
+    "react-chartjs-2": "^5.3.1",
     "react-dom": "^19.1.1",
+    "react-dropzone": "^15.0.0",
     "react-router-dom": "^6.24.1",
     "react-swipeable": "^7.0.2",
     "tesseract.js": "^6.0.1",
-    "uuid": "^9.0.1",
-    "lodash.merge": "^4.6.2",
-    "lodash.isequal": "^4.5.0"
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "@types/lodash.isequal": "^4.5.8",

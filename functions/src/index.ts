@@ -1,8 +1,8 @@
-import {onCall} from "firebase-functions/v2/https";
+import { onCall } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
-import {GoogleGenAI, HarmBlockThreshold, HarmCategory, Type} from "@google/genai";
+import { GoogleGenAI, HarmBlockThreshold, HarmCategory, Type } from "@google/genai";
 import * as functions from "firebase-functions";
-import {onDocumentCreated, onDocumentUpdated} from "firebase-functions/v2/firestore";
+import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
 
 
 admin.initializeApp();
@@ -12,20 +12,20 @@ const db = admin.firestore();
 let ai: GoogleGenAI | undefined;
 
 const initializeAiClient = () => {
-    // This function is only called within the onCall handler,
-    // where process.env is populated with secrets.
-    if (!ai) {
-        const API_KEY = process.env.GEMINI_KEY;
-        if (!API_KEY) {
-            console.error("GEMINI_KEY secret not found in environment variables.");
-            throw new functions.https.HttpsError(
-                "failed-precondition",
-                "The Gemini API key is not configured for this project."
-            );
-        }
-        ai = new GoogleGenAI({apiKey: API_KEY});
+  // This function is only called within the onCall handler,
+  // where process.env is populated with secrets.
+  if (!ai) {
+    const API_KEY = process.env.GEMINI_KEY;
+    if (!API_KEY) {
+      console.error("GEMINI_KEY secret not found in environment variables.");
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "The Gemini API key is not configured for this project."
+      );
     }
-    return ai;
+    ai = new GoogleGenAI({ apiKey: API_KEY });
+  }
+  return ai;
 };
 
 export const extractCheckInfo = onCall({ secrets: ["GEMINI_KEY"] }, async (request) => {
@@ -54,6 +54,10 @@ export const extractCheckInfo = onCall({ secrets: ["GEMINI_KEY"] }, async (reque
       bankAccountNumber: { type: Type.STRING },
       signature: { type: Type.BOOLEAN },
       additionalInfo: { type: Type.STRING },
+      flaggedFields: {
+        type: Type.ARRAY,
+        items: { type: Type.STRING },
+      },
     },
     required: [
       "payor",
@@ -104,7 +108,7 @@ export const extractCheckInfo = onCall({ secrets: ["GEMINI_KEY"] }, async (reque
             },
           },
           {
-            text: "Extract all available details from this financial check image and provide the data as a JSON object that strictly adheres to the provided schema. Ensure the date is in YYYY-MM-DD format and the amount is a number. If you encounter any errors, are not confident about the data for any field, or encounter any issues, very briefly describe them in the 'additionalInfo' field, otherwise leave the field empty. Respond only with the JSON object and no additional text.",
+            text: "Extract all available details from this financial check image and provide the data as a JSON object that strictly adheres to the provided schema. Ensure the date is in YYYY-MM-DD format and the amount is a number. \n\nCRITICAL: If you are not 100% confident in the extraction of a specific field (e.g., blurry text, ambiguous handwriting, unusual values), you MUST include that field's name in the 'flaggedFields' array. \n\nIf you encounter any specific errors or issues beyond individual field uncertainty, briefly describe them in 'additionalInfo', otherwise leave it empty. Respond only with the JSON object.",
           },
         ],
       },
@@ -201,30 +205,30 @@ export const extractCheckInfo = onCall({ secrets: ["GEMINI_KEY"] }, async (reque
  * @return {Promise<string[]>} A list of user UIDs to be notified.
  */
 const getUsersToNotify = async (actorUid: string): Promise<string[]> => {
-    console.log(`[Cloud Function] getUsersToNotify called with actorUid: ${actorUid}`);
-    const usersSnapshot = await db.collection("users").get();
-    if (usersSnapshot.empty) {
-        return [];
-    }
-    return usersSnapshot.docs
-        .map((doc) => doc.id)
-        .filter((uid) => uid !== actorUid);
+  console.log(`[Cloud Function] getUsersToNotify called with actorUid: ${actorUid}`);
+  const usersSnapshot = await db.collection("users").get();
+  if (usersSnapshot.empty) {
+    return [];
+  }
+  return usersSnapshot.docs
+    .map((doc) => doc.id)
+    .filter((uid) => uid !== actorUid);
 };
 
 
 const getActor = (docData: admin.firestore.DocumentData | undefined): { uid: string, name: string } | null => {
-    console.log("[Cloud Function] getActor called.");
-    if (!docData || !Array.isArray(docData.auditTrail) || docData.auditTrail.length === 0) {
-        console.log("No actor UID found in audit trail. Cannot send notifications.");
-        return null;
-    }
-    const lastLog = docData.auditTrail[docData.auditTrail.length - 1];
-    console.log("Last audit log entry:", lastLog);
-    if (!lastLog.uid) {
-        console.log("Audit log found, but is missing 'uid' field.", lastLog);
-        return null;
-    }
-    return {uid: lastLog.uid, name: lastLog.user || "A user"};
+  console.log("[Cloud Function] getActor called.");
+  if (!docData || !Array.isArray(docData.auditTrail) || docData.auditTrail.length === 0) {
+    console.log("No actor UID found in audit trail. Cannot send notifications.");
+    return null;
+  }
+  const lastLog = docData.auditTrail[docData.auditTrail.length - 1];
+  console.log("Last audit log entry:", lastLog);
+  if (!lastLog.uid) {
+    console.log("Audit log found, but is missing 'uid' field.", lastLog);
+    return null;
+  }
+  return { uid: lastLog.uid, name: lastLog.user || "A user" };
 };
 
 
@@ -288,26 +292,36 @@ export const onCheckUpdate = onDocumentUpdated("checks/{checkId}", async (event)
 
   if (!message) {
 
-  // 1. Check for status change
-  if (before.status !== after.status) {
-    message = `${actor.name} changed the status of check #${after.checkNumber || 'N/A'} from "${before.status}" to "${after.status}".`;
-  }
-  // 2. Check for new comment
-  else if ((before.comments?.length ?? 0) < (after.comments?.length ?? 0)) {
-    const newComment = after.comments[after.comments.length-1];
-    message = `${actor.name} commented on check #${after.checkNumber || 'N/A'}: "${newComment.text.substring(0, 50)}..."`;
-  }
-  // 3. Check for flag changes
-  else if ((before.flags?.length ?? 0) !== (after.flags?.length ?? 0)) {
-    const added = (after.flags ?? []).filter((f: string) => !(before.flags ?? []).includes(f));
-    const removed = (before.flags ?? []).filter((f: string) => !(after.flags ?? []).includes(f));
-    if (added.length > 0) {
-      message = `${actor.name} added a flag to check #${after.checkNumber || 'N/A'}.`;
-    } else if (removed.length > 0) {
-      message = `${actor.name} removed a flag from check #${after.checkNumber || 'N/A'}.`;
+    // 1. Check for status change
+    if (before.status !== after.status) {
+      message = `${actor.name} changed the status of check #${after.checkNumber || 'N/A'} from "${before.status}" to "${after.status}".`;
+    }
+    // 2. Check for new comment
+    else if ((before.comments?.length ?? 0) < (after.comments?.length ?? 0)) {
+      const newComment = after.comments[after.comments.length - 1];
+      message = `${actor.name} commented on check #${after.checkNumber || 'N/A'}: "${newComment.text.substring(0, 50)}..."`;
+    }
+    // 3. Check for flag changes
+    else if ((before.flags?.length ?? 0) !== (after.flags?.length ?? 0)) {
+      const added = (after.flags ?? []).filter((f: string) => !(before.flags ?? []).includes(f));
+      const removed = (before.flags ?? []).filter((f: string) => !(after.flags ?? []).includes(f));
+      if (added.length > 0) {
+        message = `${actor.name} added a flag to check #${after.checkNumber || 'N/A'}.`;
+      } else if (removed.length > 0) {
+        message = `${actor.name} removed a flag from check #${after.checkNumber || 'N/A'}.`;
+      }
+    }
+    // 4. Check for member changes
+    else if ((before.members?.length ?? 0) !== (after.members?.length ?? 0)) {
+      const added = (after.members ?? []).filter((m: string) => !(before.members ?? []).includes(m));
+      const removed = (before.members ?? []).filter((m: string) => !(after.members ?? []).includes(m));
+      if (added.length > 0) {
+        message = `${actor.name} added members to check #${after.checkNumber || 'N/A'}.`;
+      } else if (removed.length > 0) {
+        message = `${actor.name} removed members from check #${after.checkNumber || 'N/A'}.`;
+      }
     }
   }
-}
 
   if (!message) {
     return null; // No relevant change detected for notification

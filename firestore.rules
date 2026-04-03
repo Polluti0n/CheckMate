@@ -1,0 +1,134 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function getUserProfile() {
+      // Safely access document data
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return userDoc.data.profile;
+    }
+
+    function hasRole(allowedRoles) {
+      let profile = getUserProfile();
+      return profile.role in allowedRoles;
+    }
+    
+    function isGlobalAdmin() {
+      return hasRole(['GLOBAL_ADMIN', 'Global Admin', 'GlobalAdmin']);
+    }
+
+    // ===================================
+    // Checks Collection
+    // ===================================
+    match /checks/{checkId} {
+      
+      // Allow read if:
+      // 1. User is Global Admin or Executive (they see everything)
+      // 2. Or User is AR Manager/Stakeholder
+      // 3. Or Check belongs to a region in the user's assignedRegions
+      // 4. Or Check belongs to a branch in the user's assignedBranches
+      // 5. Or User is specifically listed in the 'members' array (@mentioned)
+      allow read: if isSignedIn() && (
+        isGlobalAdmin() || 
+        hasRole(['EXECUTIVE', 'Executive', 'STAKEHOLDER', 'Stakeholder', 'AR_MANAGER', 'AR Manager']) ||
+        (resource.data.regionId in getUserProfile().assignedRegions) ||
+        (resource.data.branchId in getUserProfile().assignedBranches) ||
+        (request.auth.uid in resource.data.members)
+      );
+
+      // Allow write if not a Stakeholder and has proper access
+      // For create: use request.resource.data (the incoming check)
+      // For update: use resource.data (the existing check) to check ownership, 
+      //            and request.resource.data to ensure they don't move it to a restricted branch.
+      allow create: if isSignedIn() && 
+        !hasRole(['STAKEHOLDER', 'Stakeholder']) && (
+        isGlobalAdmin() ||
+        hasRole(['EXECUTIVE', 'Executive', 'AR_MANAGER', 'AR Manager']) ||
+        (request.resource.data.regionId in getUserProfile().assignedRegions) ||
+        (request.resource.data.branchId in getUserProfile().assignedBranches) ||
+        (request.auth.uid in request.resource.data.members)
+      );
+
+      allow update: if isSignedIn() && 
+        !hasRole(['STAKEHOLDER', 'Stakeholder']) && (
+        isGlobalAdmin() ||
+        hasRole(['EXECUTIVE', 'Executive', 'AR_MANAGER', 'AR Manager']) ||
+        (resource.data.regionId in getUserProfile().assignedRegions) ||
+        (resource.data.branchId in getUserProfile().assignedBranches) ||
+        (request.auth.uid in resource.data.members)
+      ) && (
+        // Ensure they don't move the check to a branch/region they don't have access to
+        isGlobalAdmin() ||
+        hasRole(['EXECUTIVE', 'Executive', 'AR_MANAGER', 'AR Manager']) ||
+        (request.resource.data.regionId in getUserProfile().assignedRegions) ||
+        (request.resource.data.branchId in getUserProfile().assignedBranches) ||
+        (request.auth.uid in request.resource.data.members)
+      );
+
+      allow delete: if isSignedIn() && (
+        isGlobalAdmin() ||
+        hasRole(['EXECUTIVE', 'Executive', 'AR_MANAGER', 'AR Manager']) ||
+        (resource.data.branchId in getUserProfile().assignedBranches)
+      );
+    }
+
+    // ===================================
+    // Users Collection
+    // ===================================
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow update, delete: if isSignedIn() && (
+        isGlobalAdmin() || hasRole(['AR_MANAGER', 'AR Manager']) || request.auth.uid == userId
+      );
+      allow create: if isSignedIn();
+    }
+
+    // ===================================
+    // Organization (Regions/Branches)
+    // ===================================
+    match /regions/{regionId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && (isGlobalAdmin() || hasRole(['AR_MANAGER', 'AR Manager']));
+    }
+    
+    match /branches/{branchId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && (isGlobalAdmin() || hasRole(['AR_MANAGER', 'AR Manager', 'REGIONAL_MANAGER', 'Regional Manager']));
+    }
+
+    // ===================================
+    // Notifications Collection
+    // ===================================
+    match /notifications/{notifId} {
+      allow read, update, delete: if isSignedIn() && (request.auth.uid == resource.data.userId);
+      allow create: if false;
+    }
+
+    // ===================================
+    // Flags Collection
+    // ===================================
+    match /flags/{flagId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && (isGlobalAdmin() || hasRole(['AR_MANAGER', 'AR Manager']));
+    }
+
+    // ===================================
+    // Batches Collection
+    // ===================================
+    match /batches/{batchId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && !hasRole(['STAKEHOLDER', 'Stakeholder']);
+      allow delete: if isSignedIn() && (isGlobalAdmin() || hasRole(['AR_MANAGER', 'AR Manager']));
+    }
+
+    // Default deny for everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
