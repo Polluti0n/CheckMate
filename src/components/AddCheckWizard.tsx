@@ -1,15 +1,15 @@
-// src/components/AddCheckWizard.tsx
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { useNavigate, useOutletContext, Outlet } from 'react-router-dom';
+import MembersDropdown from './common/MembersDropdown';
+
+import { useLocation, useNavigate, useOutletContext, Outlet } from 'react-router-dom';
 import { Check, CheckCategory, CheckStatus, BatchItem, UserRole } from '../types';
 import { extractCheckInfoFromImage } from '../services/geminiService';
 import * as firestoreService from '../services/firestoreService';
-import { XMarkIcon, CheckCircleIcon, ProcessingLoaderIcon, CheckPlaceholderIcon, InfoIcon, ExclamationTriangleIcon, TrashIcon, PencilIcon, PlusIcon, DocumentTextIcon, BuildingOfficeIcon } from './icons';
+import { XMarkIcon, CheckCircleIcon, ProcessingLoaderIcon, CheckPlaceholderIcon, InfoIcon, ExclamationTriangleIcon, TrashIcon, PencilIcon, PlusIcon, DocumentTextIcon, BuildingOfficeIcon, CameraIcon, CategoryIcon, CheckBadgeIcon, ChevronLeftIcon, ChevronRightIcon } from './icons';
 import { processCheckImage, transformImageWithPoints } from '../utils/imageProcessor';
 import { categoryConfig, formConfig } from '../formConfig';
 import { useDropzone } from 'react-dropzone';
-import { CameraIcon } from './icons';
+
 
 // Define the shape of the context that the wizard layout provides to its step components.
 type WizardContextType = {
@@ -19,6 +19,7 @@ type WizardContextType = {
     error: string | null;
     setError: React.Dispatch<React.SetStateAction<string | null>>;
     imagePreview: string | null;
+    setImagePreview: React.Dispatch<React.SetStateAction<string | null>>;
     toast: { message: string; type: 'info' | 'error' } | null;
     setToast: React.Dispatch<React.SetStateAction<{ message: string; type: 'info' | 'error' } | null>>;
     handleImageUpload: (event: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
@@ -109,19 +110,8 @@ export const CategoryStep = () => {
 };
 
 // --- Batch Item Card Component ---
-const BatchItemCard = ({ item }: { item: BatchItem }) => {
-    const { updateBatchItem, removeBatchItem, setActiveBatchItemId } = useWizardContext();
-    const navigate = useNavigate();
-    // Re-getting context with full type to access exposed setter
-    const { setImageToCrop } = useWizardContext();
-
-    const onCrop = () => {
-        setActiveBatchItemId(item.id);
-        if (item.originalPreviewUrl) {
-            setImageToCrop(item.originalPreviewUrl);
-            navigate('/add-check/crop');
-        }
-    };
+const BatchItemCard: React.FC<{ item: BatchItem, onCrop?: () => void, onEdit: () => void }> = ({ item, onCrop, onEdit }) => {
+    const { removeBatchItem, updateBatchItem } = useWizardContext();
 
     const statusConfig = {
         queued: { color: 'bg-slate-100 text-slate-600', icon: null, text: 'Queued' },
@@ -152,8 +142,19 @@ const BatchItemCard = ({ item }: { item: BatchItem }) => {
                     </div>
                 )}
 
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center pointer-events-none group-hover:pointer-events-auto">
+                    {item.status === 'ready' && (
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                            className="scale-0 group-hover:scale-100 bg-white text-slate-800 px-4 py-1.5 rounded-full text-xs font-bold shadow-xl transition-all hover:bg-sky-600 hover:text-white"
+                        >
+                            Review Details
+                        </button>
+                    )}
+                </div>
+
                 <button
-                    onClick={() => removeBatchItem(item.id)}
+                    onClick={(e) => { e.stopPropagation(); removeBatchItem(item.id); }}
                     className="absolute top-2 right-2 p-1.5 bg-white/80 dark:bg-black/50 rounded-full text-slate-500 hover:text-red-600 dark:text-gray-300 dark:hover:text-red-400 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
                     title="Remove"
                 >
@@ -212,7 +213,10 @@ const BatchItemCard = ({ item }: { item: BatchItem }) => {
 
 // --- Step 1.5: Batch Upload Component ---
 export const BatchStep = () => {
-    const { batchItems, handleBatchUpload, saveBatchItems, isLoading, allBranches, currentUser, newCheck, setNewCheck } = useWizardContext();
+    const { 
+        batchItems, handleBatchUpload, saveBatchItems, isLoading, allBranches, currentUser, 
+        newCheck, setNewCheck, setActiveBatchItemId, setImageToCrop, setImagePreview 
+    } = useWizardContext();
     const navigate = useNavigate();
 
     const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -311,7 +315,21 @@ export const BatchStep = () => {
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {batchItems.map(item => (
-                            <BatchItemCard key={item.id} item={item} />
+                            <BatchItemCard 
+                                key={item.id} 
+                                item={item} 
+                                onCrop={() => {
+                                    setActiveBatchItemId(item.id);
+                                    setImageToCrop(item.originalPreviewUrl!);
+                                    navigate('/add-check/crop');
+                                }}
+                                onEdit={() => {
+                                    setActiveBatchItemId(item.id);
+                                    setNewCheck(item.checkData || {});
+                                    setImagePreview(item.processedPreviewUrl || item.originalPreviewUrl || null);
+                                    navigate('/add-check/details');
+                                }}
+                            />
                         ))}
                     </div>
                 )}
@@ -725,8 +743,6 @@ export const CropStep = () => {
 };
 
 
-import MembersDropdown from './common/MembersDropdown';
-
 // --- Step 3: Details Form Component ---
 export const DetailsStep = () => {
     const { newCheck, toast, setToast } = useWizardContext();
@@ -795,7 +811,11 @@ export const DetailsStep = () => {
 
 // Extracted form logic into its own component for better state management of dropdowns
 const DetailsForm = React.forwardRef<HTMLFormElement, { openDropdown: string | null, setOpenDropdown: (name: string | null) => void }>(({ openDropdown, setOpenDropdown }, ref) => {
-    const { newCheck, error, handleSubmit, setNewCheck, currentUser, allUsers, allBranches } = useWizardContext();
+    const { 
+        newCheck, error, handleSubmit, setNewCheck, currentUser, allUsers, allBranches,
+        activeBatchItemId, setActiveBatchItemId, updateBatchItem, isLoading, setImagePreview
+    } = useWizardContext();
+    const navigate = useNavigate();
 
     // Auto-assign branch if user only has one
     useEffect(() => {
@@ -998,18 +1018,60 @@ const DetailsForm = React.forwardRef<HTMLFormElement, { openDropdown: string | n
                 </div>
             )}
 
-            <div className="grid grid-cols-1 gap-y-4 gap-x-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-y-4 gap-x-4 sm:grid-cols-2 mt-6">
                 {fields.map(renderField)}
+            </div>
+
+            <div className="mt-12 flex justify-between items-center pt-8 border-t border-slate-100 dark:border-gray-800">
+                <button 
+                    type="button" 
+                    onClick={() => {
+                        if (activeBatchItemId) {
+                            setActiveBatchItemId(null);
+                            setNewCheck({});
+                            navigate('/add-check/batch');
+                        } else {
+                            navigate('/add-check/upload');
+                        }
+                    }} 
+                    className="flex items-center text-sm font-bold text-slate-500 hover:text-slate-800 dark:text-gray-400 dark:hover:text-white transition-colors"
+                >
+                    <ChevronLeftIcon className="h-4 w-4 mr-2" />
+                    Discard & Go Back
+                </button>
+
+                <button
+                    onClick={async (e) => {
+                        if (activeBatchItemId) {
+                           e.preventDefault();
+                           updateBatchItem(activeBatchItemId, { checkData: newCheck });
+                           setActiveBatchItemId(null);
+                           setNewCheck({});
+                           setImagePreview(null);
+                           navigate('/add-check/batch');
+                        } else {
+                           await handleSubmit(e);
+                        }
+                    }}
+                    className="px-8 py-3 bg-sky-600 hover:bg-sky-700 text-white rounded-2xl font-black shadow-xl shadow-sky-600/20 active:scale-95 transition-all flex items-center gap-2"
+                >
+                    {isLoading ? <ProcessingLoaderIcon className="h-5 w-5 animate-spin" /> : <ChevronRightIcon className="h-5 w-5" />}
+                    {activeBatchItemId ? 'Apply Changes to Item' : 'Upload Check to Dashboard'}
+                </button>
             </div>
         </form>
     );
 });
 
 
+
 // --- Main Wizard Layout Component ---
 // FIX: Changed to a named export to resolve module resolution issues.
 export const AddCheckWizard: React.FC<{ onClose: () => void; onAddCheck: (check: any) => void; currentUser?: any; allUsers?: any[]; allRegions?: any[]; allBranches?: any[]; }> = ({ onClose, onAddCheck, currentUser, allUsers, allRegions, allBranches }) => {
     const navigate = useNavigate();
+    const location = useLocation();
+    
+    // Internal Wizard State
     const [newCheck, setNewCheck] = useState<Partial<Check>>({});
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -1519,16 +1581,63 @@ export const AddCheckWizard: React.FC<{ onClose: () => void; onAddCheck: (check:
                 </div>
             </header>
 
-            <main className="flex-grow flex flex-col max-w-5xl w-full mx-auto p-4 sm:p-8">
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl shadow-slate-200/50 dark:shadow-black/50 flex-grow flex flex-col overflow-hidden border border-slate-200 dark:border-gray-700 animate-in slide-in-from-bottom-4 duration-500">
-                    <Outlet context={{
-                        newCheck, setNewCheck, isLoading, error, setError, imagePreview, toast, setToast,
-                        handleImageUpload, handleSubmit, imageToCrop, setImageToCrop, handleManualCrop,
-                        batchItems, setBatchItems, handleBatchUpload, updateBatchItem, removeBatchItem, saveBatchItems,
-                        activeBatchItemId, setActiveBatchItemId, currentUser, allUsers, allRegions, allBranches
-                    }} />
-                </div>
-            </main>
+            <div className="flex-grow flex h-[calc(100vh-64px)] overflow-hidden">
+                {/* Side Stepper */}
+                <aside className="w-80 border-r border-slate-200 dark:border-gray-800 bg-white dark:bg-gray-900 hidden lg:flex flex-col p-8">
+                    <div className="space-y-8 flex-grow">
+                        <div>
+                            <h3 className="text-[10px] font-black text-slate-400 dark:text-gray-500 uppercase tracking-widest mb-6">Wizard Progress</h3>
+                            <div className="space-y-6">
+                                {[
+                                    { id: 'category', label: 'Define Category', icon: <CategoryIcon className="h-4 w-4" /> },
+                                    { id: 'upload', label: 'Capture & Process', icon: <CameraIcon className="h-4 w-4" /> },
+                                    { id: 'details', label: 'Verify Details', icon: <PencilIcon className="h-4 w-4" /> }
+                                ].map((step, idx) => {
+                                    const path = location.pathname;
+                                    const isActive = path.includes(step.id);
+                                    const isComplete = !isActive && (
+                                        (step.id === 'category' && (path.includes('upload') || path.includes('details'))) ||
+                                        (step.id === 'upload' && path.includes('details'))
+                                    );
+                                    
+                                    return (
+                                        <div key={step.id} className="flex items-start gap-4">
+                                            <div className={`mt-0.5 h-6 w-6 rounded-lg flex items-center justify-center text-[10px] font-black transition-all ${isActive ? 'bg-sky-600 text-white shadow-lg shadow-sky-600/30 ring-2 ring-sky-600/20' : isComplete ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : 'bg-slate-100 dark:bg-gray-800 text-slate-400'}`}>
+                                                {isComplete ? <CheckBadgeIcon className="h-4 w-4" /> : idx + 1}
+                                            </div>
+                                            <div>
+                                                <p className={`text-xs font-black uppercase tracking-widest ${isActive ? 'text-slate-800 dark:text-white' : 'text-slate-400 dark:text-gray-600'}`}>{step.label}</p>
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 opacity-50">Step 0{idx + 1}</p>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                        
+                        <div className="pt-8 border-t border-slate-100 dark:border-gray-800">
+                             <div className="bg-slate-50 dark:bg-gray-800/50 rounded-2xl p-4 border border-slate-100 dark:border-gray-800">
+                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5 leading-none">
+                                    <InfoIcon className="h-3 w-3" />
+                                    Security Protocol
+                                </h4>
+                                <p className="text-[10px] leading-relaxed text-slate-500 font-bold uppercase tracking-[0.02em]">Financial records are encrypted during ingest and processed in a secure sandboxed environment.</p>
+                             </div>
+                        </div>
+                    </div>
+                </aside>
+
+                <main className="flex-grow flex flex-col bg-white dark:bg-gray-950 overflow-hidden relative">
+                    <div className="flex-grow overflow-y-auto no-scrollbar">
+                        <Outlet context={{
+                            newCheck, setNewCheck, isLoading, error, setError, imagePreview, setImagePreview, toast, setToast,
+                            handleImageUpload, handleSubmit, imageToCrop, setImageToCrop, handleManualCrop,
+                            batchItems, setBatchItems, handleBatchUpload, updateBatchItem, removeBatchItem, saveBatchItems,
+                            activeBatchItemId, setActiveBatchItemId, currentUser, allUsers, allRegions, allBranches
+                        }} />
+                    </div>
+                </main>
+            </div>
         </div>
     );
 };

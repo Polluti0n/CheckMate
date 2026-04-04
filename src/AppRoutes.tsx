@@ -8,11 +8,12 @@ import { Check, CheckStatus, UserPreferences, Notification, UserProfile, CheckVi
 import Header from './components/Header'; // FIX: Added Batch to imports
 import CheckDetailView from './components/CheckDetailView';
 import FlagManager from './components/FlagManager';
-import ProcessBatchView from './components/BatchingModal';
+import BatchingView from './components/BatchingView';
 import ThemePickerModal from './components/ThemePickerModal';
 import PreferencesView from './components/PreferencesView';
 import SelectionActionBar from './components/SelectionActionBar';
 import MainMenu from './components/MainMenu';
+import SideBar from './components/SideBar';
 import BatchChecksView from './components/BatchChecksView'; // Import BatchChecksView
 import SplashScreen from './components/SplashScreen';
 import {
@@ -97,11 +98,23 @@ export interface AppState {
   notificationCount: number;
 }
 
+// Layout for views that include the persistent sidebar
+const AppShell: React.FC<{ appState: AppState }> = ({ appState }) => {
+  return (
+    <div className="flex flex-grow overflow-hidden">
+      <SideBar currentUser={appState.currentUser} userEmail={appState.userEmail} />
+      <main className="flex-grow overflow-y-auto bg-slate-50 dark:bg-gray-950 relative">
+        <Outlet />
+      </main>
+    </div>
+  );
+};
+
 // A layout component to keep the header and action bar consistent across views
 const MainLayout: React.FC<{ appState: AppState }> = ({ appState }) => {
   const navigate = useNavigate();
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-gray-900 font-sans flex flex-col">
+    <div className="min-h-screen bg-slate-50 dark:bg-gray-900 font-sans flex flex-col overflow-hidden">
       <Header
         onOpenMainMenu={() => appState.setIsMainMenuOpen(true)}
         onAddCheck={() => navigate('/add-check')}
@@ -131,7 +144,7 @@ const MainLayout: React.FC<{ appState: AppState }> = ({ appState }) => {
           await deleteAllMockData();
         }}
       />
-      <div className="flex-grow flex flex-col pb-16">
+      <div className="flex-grow flex flex-col overflow-hidden">
         <Outlet /> {/* Nested routes (views and modals) are rendered here */}
       </div>
       {appState.isMultiSelectMode && (
@@ -271,131 +284,177 @@ const AppRoutes: React.FC<{ appState: AppState }> = ({ appState }) => {
     <Suspense fallback={<SplashScreen />}>
       <Routes>
         <Route path="/" element={<MainLayout appState={appState} />}>
-          {/* Main Views */}
-          <Route
-            index
-            element={
-              (appState.currentUser?.role === UserRole.STAKEHOLDER || 
-               appState.currentUser?.role === UserRole.GLOBAL_ADMIN || 
-               appState.currentUser?.role === UserRole.EXECUTIVE || 
-               appState.currentUser?.role === UserRole.AR_MANAGER) ? (
-                <StakeholderDashboard 
-                  checks={appState.checks} 
-                  allRegions={appState.allRegions}
-                  allBranches={appState.allBranches}
-                  onSelectCheck={(id: string) => {
-                    const check = appState.checks.find(c => c.id === id);
-                    if (check) appState.handleSelectCheck(check);
-                  }}
-                />
-              ) : appState.currentUser ? (
-                <BranchDashboard
-                  checks={appState.checks}
-                  batches={appState.batches}
-                  currentUser={appState.currentUser}
-                  onSelectCheck={appState.handleSelectCheck}
-                  onAddCheck={() => navigate('/add-check')}
-                />
-              ) : (
+          {/* Shell Views with Sidebar */}
+          <Route element={<AppShell appState={appState} />}>
+            <Route
+              index
+              element={
+                (appState.currentUser?.role === UserRole.STAKEHOLDER || 
+                appState.currentUser?.role === UserRole.GLOBAL_ADMIN || 
+                appState.currentUser?.role === UserRole.EXECUTIVE || 
+                appState.currentUser?.role === UserRole.AR_MANAGER) ? (
+                  <StakeholderDashboard 
+                    checks={appState.checks} 
+                    allRegions={appState.allRegions}
+                    allBranches={appState.allBranches}
+                    onSelectCheck={(id: string) => {
+                      const check = appState.checks.find(c => c.id === id);
+                      if (check) appState.handleSelectCheck(check);
+                    }}
+                  />
+                ) : appState.currentUser ? (
+                  <BranchDashboard
+                    checks={appState.checks}
+                    batches={appState.batches}
+                    currentUser={appState.currentUser}
+                    onSelectCheck={appState.handleSelectCheck}
+                    onAddCheck={() => navigate('/add-check')}
+                  />
+                ) : (
+                  <CheckDashboard
+                    {...appState}
+                    themes={THEMES}
+                    onSelectCheck={appState.handleSelectCheck}
+                    onMoveCheck={appState.handleMoveCheck}
+                    onUpdateCheck={(id: string, updates: Partial<Check>) => appState.actions.handleUpdateCheck(id, updates, { type: 'edit', message: 'Inline edit from dashboard', user: appState.currentUser?.email })}
+                    cardStyle={appState.cardStyle}
+                    onExpandColumn={(status: CheckStatus) => navigate(`/column/${status}`)}
+                    onSort={handleSort}
+                    onSelectAllInColumn={handleSelectAllInColumn}
+                    onToggleDisplayOption={handleToggleDisplayOption}
+                    onOpenThemePicker={(status: CheckStatus) => navigate(`/theme/${status}`)}
+                    columnDisplayOptions={appState.preferences.columnDisplayOptions}
+                    columnThemes={appState.preferences.columnThemes}
+                    cardLayout={appState.preferences.cardLayout}
+                    checkViewOptions={appState.preferences.checkViewOptions}
+                    preferences={appState.preferences}
+                    onCheckSelection={appState.handleCheckSelection}
+                    defaultView="dashboard"
+                  />
+                )
+              }
+            />
+            <Route
+              path="/kanban"
+              element={
                 <CheckDashboard
-                  checks={appState.checks}
-                  flags={appState.flags}
+                  {...appState}
                   themes={THEMES}
                   onSelectCheck={appState.handleSelectCheck}
                   onMoveCheck={appState.handleMoveCheck}
-                  onUpdateCheck={(id, updates) => appState.actions.handleUpdateCheck(id, updates, { type: 'edit', message: 'Inline edit from dashboard', user: appState.currentUser?.email })}
+                  onUpdateCheck={(id: string, updates: Partial<Check>) => appState.actions.handleUpdateCheck(id, updates, { type: 'edit', message: 'Inline edit from dashboard', user: appState.currentUser?.email })}
                   cardStyle={appState.cardStyle}
                   onExpandColumn={(status: CheckStatus) => navigate(`/column/${status}`)}
-                  sortConfig={appState.sortConfig}
                   onSort={handleSort}
                   onSelectAllInColumn={handleSelectAllInColumn}
-                  selectedCheckIds={appState.selectedCheckIds}
-                  isMultiSelectMode={appState.isMultiSelectMode}
-                  onCheckSelection={appState.handleCheckSelection}
-                  columnDisplayOptions={
-                    appState.preferences.columnDisplayOptions
-                  }
-                  columnThemes={appState.preferences.columnThemes}
                   onToggleDisplayOption={handleToggleDisplayOption}
                   onOpenThemePicker={(status: CheckStatus) => navigate(`/theme/${status}`)}
+                  columnDisplayOptions={appState.preferences.columnDisplayOptions}
+                  columnThemes={appState.preferences.columnThemes}
                   cardLayout={appState.preferences.cardLayout}
                   checkViewOptions={appState.preferences.checkViewOptions}
                   preferences={appState.preferences}
+                  onCheckSelection={appState.handleCheckSelection}
+                  defaultView="kanban"
+                />
+              }
+            />
+            <Route
+              path="/table"
+              element={
+                <CheckDashboard
+                  {...appState}
+                  themes={THEMES}
+                  onSelectCheck={appState.handleSelectCheck}
+                  onMoveCheck={appState.handleMoveCheck}
+                  onUpdateCheck={(id: string, updates: Partial<Check>) => appState.actions.handleUpdateCheck(id, updates, { type: 'edit', message: 'Inline edit from dashboard', user: appState.currentUser?.email })}
+                  cardStyle={appState.cardStyle}
+                  onExpandColumn={(status: CheckStatus) => navigate(`/column/${status}`)}
+                  onSort={handleSort}
+                  onSelectAllInColumn={handleSelectAllInColumn}
+                  onToggleDisplayOption={handleToggleDisplayOption}
+                  onOpenThemePicker={(status: CheckStatus) => navigate(`/theme/${status}`)}
+                  columnDisplayOptions={appState.preferences.columnDisplayOptions}
+                  columnThemes={appState.preferences.columnThemes}
+                  cardLayout={appState.preferences.cardLayout}
+                  checkViewOptions={appState.preferences.checkViewOptions}
+                  preferences={appState.preferences}
+                  onCheckSelection={appState.handleCheckSelection}
+                  defaultView="table"
+                />
+              }
+            />
+            <Route
+              path="/archive"
+              element={
+                <ArchiveView
+                  checks={appState.filteredChecks.filter(
+                    (c) => c.status === CheckStatus.ARCHIVED
+                  )}
+                  selectedCheckIds={appState.selectedCheckIds}
+                  onCheckSelection={(id: string, e: React.MouseEvent, checks: Check[]) => appState.handleCheckSelection(id, e, checks)}
+                  setIsMultiSelectMode={appState.setIsMultiSelectMode}
+                  onUpdateCheck={appState.actions.handleUpdateCheck}
+                  onBulkDelete={appState.actions.handleBulkDelete as any}
+                  onSelectCheck={appState.handleSelectCheck}
+                  onBack={() => navigate("/")}
+                  searchTerm={appState.searchTerm}
+                  visibleColumns={appState.preferences.visibleArchiveColumns}
+                  onVisibleColumnsChange={(cols: CheckField[]) =>
+                    appState.savePreferences({
+                      ...appState.preferences,
+                      visibleArchiveColumns: cols,
+                    })
+                  }
+                  columnWidths={appState.preferences.archiveColumnWidths}
+                  onColumnWidthsChange={(widths: Record<string, number>) =>
+                    appState.savePreferences({
+                      ...appState.preferences,
+                      archiveColumnWidths: widths,
+                    })
+                  }
+                  archiveTheme={appState.preferences.archiveTheme}
+                  themes={THEMES}
+                  onOpenThemePicker={() => navigate("/theme/ARCHIVE")}
+                  preferences={appState.preferences}
+                />
+              }
+            />
+            <Route
+              path="/batch-history"
+              element={
+                <BatchHistoryView
+                  batches={appState.batches}
+                  checks={appState.checks}
+                  onSelectCheck={appState.handleSelectCheck}
+                  onBack={() => navigate("/")}
+                  preferences={appState.preferences}
+                  savePreferences={appState.savePreferences}
+                  viewingBatchId={appState.viewingBatchId}
+                  onViewBatch={appState.handleViewBatch}
+                  onCloseBatch={appState.onCloseBatch}
+                  onDeleteBatch={appState.actions.handleDeleteBatch}
                   currentUser={appState.currentUser}
                 />
-              )
-            }
-          />
-          <Route
-            path="/archive"
-            element={
-              <ArchiveView
-                checks={appState.filteredChecks.filter(
-                  (c) => c.status === CheckStatus.ARCHIVED
-                )}
-                selectedCheckIds={appState.selectedCheckIds}
-                onCheckSelection={(id: string, e: React.MouseEvent, checks: Check[]) => appState.handleCheckSelection(id, e, checks)}
-                setIsMultiSelectMode={appState.setIsMultiSelectMode}
-                onUpdateCheck={appState.actions.handleUpdateCheck}
-                onBulkDelete={appState.actions.handleBulkDelete as any}
-                onSelectCheck={appState.handleSelectCheck}
-                onBack={() => navigate("/")}
-                searchTerm={appState.searchTerm}
-                visibleColumns={appState.preferences.visibleArchiveColumns}
-                onVisibleColumnsChange={(cols: CheckField[]) =>
-                  appState.savePreferences({
-                    ...appState.preferences,
-                    visibleArchiveColumns: cols,
-                  })
-                }
-                columnWidths={appState.preferences.archiveColumnWidths}
-                onColumnWidthsChange={(widths: Record<string, number>) =>
-                  appState.savePreferences({
-                    ...appState.preferences,
-                    archiveColumnWidths: widths,
-                  })
-                }
-                archiveTheme={appState.preferences.archiveTheme}
-                themes={THEMES}
-                onOpenThemePicker={() => navigate("/theme/ARCHIVE")}
-                preferences={appState.preferences}
-              />
-            }
-          />
-          <Route
-            path="/batch-history"
-            element={
-              <BatchHistoryView
-                batches={appState.batches}
-                checks={appState.checks}
-                onSelectCheck={appState.handleSelectCheck}
-                onBack={() => navigate("/")}
-                preferences={appState.preferences}
-                savePreferences={appState.savePreferences}
-                viewingBatchId={appState.viewingBatchId}
-                onViewBatch={appState.handleViewBatch}
-                onCloseBatch={appState.onCloseBatch}
-                onDeleteBatch={appState.actions.handleDeleteBatch}
-                currentUser={appState.currentUser}
-              />
-            }
-          />
-          <Route
-            path="/admin"
-            element={
-              <AdminPanel
-                allUsers={appState.allUsers}
-                currentUser={appState.currentUser}
-                onBack={() => navigate("/")}
-              />
-            }
-          />
-          <Route
-            path="/column/:status"
-            element={<ExpandedColumnWrapper appState={appState} />}
-          />
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <AdminPanel
+                  allUsers={appState.allUsers}
+                  currentUser={appState.currentUser}
+                  onBack={() => navigate("/")}
+                />
+              }
+            />
+            <Route
+              path="/column/:status"
+              element={<ExpandedColumnWrapper appState={appState} />}
+            />
+          </Route>
 
-          {/* Modals as Routes */}
+          {/* Full-Screen Workspace Views (No Sidebar) */}
           <Route
             path="/check/:checkId"
             element={<CheckDetailWrapper appState={appState} />}
@@ -436,7 +495,7 @@ const AppRoutes: React.FC<{ appState: AppState }> = ({ appState }) => {
           <Route
             path="/batching"
             element={
-              <ProcessBatchView
+              <BatchingView
                 checks={appState.checks}
                 currentUser={appState.currentUser}
                 onClose={() => navigate("/")}

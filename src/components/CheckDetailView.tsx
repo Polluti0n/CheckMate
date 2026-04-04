@@ -23,14 +23,14 @@ import {
     ChevronLeftIcon, 
     ChevronRightIcon, 
     ChevronUpDownIcon, 
-    EllipsisVerticalIcon, 
     PencilIcon, 
     XMarkIcon, 
     TrashIcon, 
     ArrowDownTrayIcon, 
     ClipboardDocumentIcon, 
     ExclamationTriangleIcon,
-    ChatIcon
+    ChatIcon,
+    PlusIcon
 } from './icons';
 import { useNotification } from '@/contexts/NotificationContext';
 import './CheckDetailView.css';
@@ -92,7 +92,6 @@ const CheckDetailView: React.FC<CheckDetailViewProps> = ({
     const [editableCheck, setEditableCheck] = useState<Check | null>(check);
     const [isFlagDropdownOpen, setIsFlagDropdownOpen] = useState(false);
     const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
-    const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const [isUnsavedConfirmOpen, setIsUnsavedConfirmOpen] = useState(false);
     const [pendingAction, setPendingAction] = useState<{ type: 'CLOSE' | 'NAVIGATE', payload?: Check } | null>(null);
@@ -103,7 +102,6 @@ const CheckDetailView: React.FC<CheckDetailViewProps> = ({
     const activeTab = tabs[activeTabIndex];
     
     const statusDropdownRef = useRef<HTMLDivElement>(null);
-    const actionMenuRef = useRef<HTMLDivElement>(null);
     const flagDropdownRef = useRef<HTMLDivElement>(null);
 
     const darkMode = preferences.darkMode || false;
@@ -123,9 +121,6 @@ const CheckDetailView: React.FC<CheckDetailViewProps> = ({
             }
             if (flagDropdownRef.current && !flagDropdownRef.current.contains(event.target as Node)) {
                 setIsFlagDropdownOpen(false);
-            }
-            if (actionMenuRef.current && !actionMenuRef.current.contains(event.target as Node)) {
-                setIsActionMenuOpen(false);
             }
         };
 
@@ -572,213 +567,266 @@ const CheckDetailView: React.FC<CheckDetailViewProps> = ({
                         )}
                     </div>
                 );
-            default:
-                return null;
         }
     };
 
     const statusColor = statusColors[editableCheck.status] || statusColors[CheckStatus.RECEIVED];
-    
+
     return (
-        <div className="flex flex-col h-full bg-slate-50 dark:bg-gray-950 overflow-hidden">
-            {/* Main Header */}
-            <header className="flex-shrink-0 bg-white dark:bg-gray-900 border-b border-slate-200 dark:border-gray-800 px-6 py-4 shadow-sm z-10 transition-colors">
-                <div className="flex items-center justify-between gap-4 max-w-7xl mx-auto">
-                    <div className="flex items-center gap-4 min-w-0">
-                        <button 
-                            onClick={handleClose}
-                            className="p-2 hover:bg-slate-100 dark:hover:bg-gray-800 rounded-full transition-colors flex-shrink-0"
-                        >
-                            <ChevronLeftIcon className="h-6 w-6 text-slate-600 dark:text-gray-400" />
-                        </button>
-                        <div className="min-w-0">
-                            <div className="flex items-center gap-3">
-                                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white truncate">
-                                    {isEditing ? (
-                                        <EditableField 
-                                            value={editableCheck.payor} 
-                                            isEditing={true} 
-                                            onChange={(val) => handleContentEditableChange('payor', val)} 
-                                        />
-                                    ) : check.payor}
-                                </h1>
-                                {!isEditing && (
-                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${darkMode ? statusColor.dark.border + ' ' + statusColor.dark.bg + ' ' + statusColor.dark.text : statusColor.border + ' ' + statusColor.bg + ' ' + statusColor.text}`}>
-                                        {check.status}
-                                    </span>
-                                )}
-                            </div>
-                            <p className="text-sm text-slate-500 dark:text-gray-400 mt-0.5 font-medium truncate">
-                                {check.checkNumber || 'No Check #'} • {new Date(check.date).toLocaleDateString()} • {check.category}
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                        <div className="hidden sm:flex items-center gap-2">
-                            {isEditing ? (
-                                <>
-                                    <button 
-                                        onClick={handleSave} 
-                                        className="inline-flex items-center gap-2 px-4 py-2 bg-sky-600 text-white rounded-lg font-bold text-sm shadow-md hover:bg-sky-700 active:scale-95 transition-all"
-                                    >
-                                        <PencilIcon className="h-4 w-4" /> Save Changes
-                                    </button>
-                                    <button 
-                                        onClick={handleCancel} 
-                                        className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-gray-300 rounded-lg font-bold text-sm hover:bg-slate-50 dark:hover:bg-gray-700 active:scale-95 transition-all"
-                                    >
-                                        <XMarkIcon className="h-4 w-4" /> Cancel
-                                    </button>
-                                </>
-                            ) : (
-                                <>
-                                    <button 
-                                        onClick={() => setIsEditing(true)} 
-                                        className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-gray-300 rounded-lg font-bold text-sm hover:bg-slate-50 dark:hover:bg-gray-700 active:scale-95 transition-all shadow-sm"
-                                    >
-                                        <PencilIcon className="h-4 w-4" /> Edit
-                                    </button>
-                                    <button 
-                                        onClick={() => setIsDeleteConfirmOpen(true)} 
-                                        className="p-2 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
-                                    >
-                                        <TrashIcon className="h-5 w-5" />
-                                    </button>
-                                </>
+        <div className="flex flex-col h-full bg-slate-50 dark:bg-gray-950 overflow-hidden animate-in fade-in duration-500">
+            {/* Professional Enterprise Header */}
+            <header className="h-20 shrink-0 bg-white dark:bg-gray-900 border-b border-slate-200 dark:border-gray-800 px-8 flex items-center justify-between sticky top-0 z-30 transition-colors shadow-sm">
+                <div className="flex items-center gap-6 min-w-0">
+                    <button 
+                        onClick={handleClose}
+                        className="group flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-gray-800 hover:bg-slate-900 hover:text-white dark:hover:bg-white dark:hover:text-black rounded-xl transition-all font-bold text-xs"
+                    >
+                        <ChevronLeftIcon className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+                        BACK
+                    </button>
+                    
+                    <div className="h-10 w-px bg-slate-200 dark:bg-gray-800 hidden md:block"></div>
+                    
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-3">
+                            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight truncate">
+                                {isEditing ? (
+                                    <EditableField 
+                                        value={editableCheck.payor} 
+                                        isEditing={true} 
+                                        onChange={(val) => handleContentEditableChange('payor', val)} 
+                                    />
+                                ) : check.payor}
+                            </h1>
+                            {!isEditing && (
+                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black border uppercase tracking-widest ${darkMode ? statusColor.dark.border + ' ' + statusColor.dark.bg + ' ' + statusColor.dark.text : statusColor.border + ' ' + statusColor.bg + ' ' + statusColor.text}`}>
+                                    {check.status}
+                                </span>
                             )}
                         </div>
+                        <p className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-[0.2em] mt-1 truncate">
+                            ID: {check.id.slice(0,8)} • {check.checkNumber || 'NO NUMBER'} • {check.category}
+                        </p>
+                    </div>
+                </div>
 
-                        {/* Mobile Action Menu Toggle */}
-                        <div className="sm:hidden relative" ref={actionMenuRef}>
-                            <button 
-                                onClick={() => setIsActionMenuOpen(p => !p)}
-                                className="p-2 hover:bg-slate-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                <div className="flex items-center gap-4">
+                    {isEditing ? (
+                        <div className="flex items-center gap-2">
+                             <button 
+                                onClick={handleCancel} 
+                                className="px-5 py-2.5 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-gray-300 rounded-xl font-bold text-sm hover:bg-slate-50 dark:hover:bg-gray-700 transition-all active:scale-95 shadow-sm"
                             >
-                                <EllipsisVerticalIcon className="h-6 w-6 text-slate-600 dark:text-gray-400" />
+                                DISCARD
                             </button>
-                            {isActionMenuOpen && (
-                                <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-slate-200 dark:border-gray-700 py-2 z-20 animate-in fade-in slide-in-from-top-2 duration-200">
-                                    <button 
-                                        onClick={() => { setIsEditing(true); setIsActionMenuOpen(false); }}
-                                        className="w-full text-left px-4 py-3 text-sm font-bold text-slate-700 dark:text-gray-300 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-gray-700"
-                                    >
-                                        <PencilIcon className="h-4 w-4 text-sky-500" /> Edit Record
-                                    </button>
-                                    <button 
-                                        onClick={() => { setIsDeleteConfirmOpen(true); setIsActionMenuOpen(false); }}
-                                        className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 dark:text-red-400 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-gray-700 border-t border-slate-100 dark:border-gray-700"
-                                    >
-                                        <TrashIcon className="h-4 w-4" /> Delete Permanently
-                                    </button>
-                                </div>
-                            )}
+                            <button 
+                                onClick={handleSave} 
+                                className="px-6 py-2.5 bg-sky-600 text-white rounded-xl font-bold text-sm shadow-xl shadow-sky-600/20 hover:bg-sky-700 active:scale-95 transition-all ring-1 ring-sky-400/30"
+                            >
+                                COMMIT CHANGES
+                            </button>
                         </div>
-                    </div>
+                    ) : (
+                        <div className="flex items-center gap-3">
+                            <button 
+                                onClick={() => setIsEditing(true)} 
+                                className="px-6 py-2.5 bg-slate-900 dark:bg-white text-white dark:text-black rounded-xl font-bold text-sm shadow-xl hover:bg-slate-800 dark:hover:bg-slate-100 transition-all active:scale-95 flex items-center gap-2"
+                            >
+                                <PencilIcon className="h-4 w-4" /> EDIT DATA
+                            </button>
+                            <div className="h-8 w-px bg-slate-200 dark:bg-gray-800 hidden sm:block mx-1"></div>
+                            <button 
+                                onClick={() => setIsDeleteConfirmOpen(true)} 
+                                className="p-2.5 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm"
+                                title="Delete Check"
+                            >
+                                <TrashIcon className="h-5 w-5" />
+                            </button>
+                        </div>
+                    )}
                 </div>
             </header>
 
-            {/* Navigation Bar / Batch Context */}
-            {batchChecks.length > 0 && (
-                <div className="flex-shrink-0 bg-slate-100 dark:bg-gray-900 border-b border-slate-200 dark:border-gray-800 px-6 py-2 transition-colors">
-                    <div className="max-w-7xl mx-auto flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Batch Processing</span>
-                            <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <button 
-                                onClick={() => prevCheck && handleNavigate(prevCheck)} 
-                                disabled={!prevCheck}
-                                className="p-1.5 hover:bg-white dark:hover:bg-gray-800 rounded-md disabled:opacity-30 flex items-center gap-1 group transition-all"
-                            >
-                                <ChevronLeftIcon className="h-4 w-4 text-slate-500 group-hover:text-sky-500" />
-                                <span className="text-xs font-bold text-slate-500 hidden sm:inline group-hover:text-sky-500">Previous</span>
-                            </button>
-                            <div className="text-xs font-bold text-slate-600 dark:text-gray-400 px-3 py-1 bg-white dark:bg-gray-800 rounded-md shadow-sm border border-slate-200 dark:border-gray-700">
-                                {currentIndex + 1} <span className="text-slate-400">/</span> {batchChecks.length}
+            <div className="flex-grow flex overflow-hidden">
+                {/* Left: Summary and Navigation Sidebar */}
+                <aside className="w-80 shrink-0 border-r border-slate-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 hidden lg:flex flex-col overflow-hidden transition-colors">
+                    <div className="p-6 border-b border-slate-100 dark:border-gray-800">
+                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-4">Processing Queue</label>
+                         {batchChecks.length > 0 ? (
+                             <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                     <span className="text-xs font-bold text-slate-800 dark:text-white">Batch Nav</span>
+                                     <span className="text-[10px] font-black text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/40 px-2 py-0.5 rounded-full">{currentIndex + 1} / {batchChecks.length}</span>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => prevCheck && handleNavigate(prevCheck)} 
+                                        disabled={!prevCheck}
+                                        className="flex-1 p-2 bg-slate-50 dark:bg-gray-800 hover:bg-slate-100 dark:hover:bg-gray-700 disabled:opacity-30 rounded-lg flex items-center justify-center transition-all border border-slate-200 dark:border-gray-700"
+                                    >
+                                        <ChevronLeftIcon className="h-4 w-4" />
+                                    </button>
+                                    <button 
+                                        onClick={() => nextCheck && handleNavigate(nextCheck)}
+                                        disabled={!nextCheck}
+                                        className="flex-1 p-2 bg-slate-50 dark:bg-gray-800 hover:bg-slate-100 dark:hover:bg-gray-700 disabled:opacity-30 rounded-lg flex items-center justify-center transition-all border border-slate-200 dark:border-gray-700"
+                                    >
+                                        <ChevronRightIcon className="h-4 w-4" />
+                                    </button>
+                                </div>
+                             </div>
+                         ) : (
+                             <p className="text-xs text-slate-400 font-medium italic">Not part of an active session</p>
+                         )}
+                    </div>
+
+                    <div className="flex-grow overflow-y-auto p-6 space-y-6 custom-scrollbar">
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">Quick Analysis</label>
+                            <div className="bg-slate-50 dark:bg-gray-800/40 rounded-2xl p-4 border border-slate-100 dark:border-gray-800 space-y-4">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs text-slate-500 font-bold">Confidence</span>
+                                    <span className="text-xs font-black text-green-600">98.2%</span>
+                                </div>
+                                <div className="w-full bg-slate-200 dark:bg-gray-700 h-1 rounded-full overflow-hidden">
+                                    <div className="bg-green-500 h-full w-[98.2%]"></div>
+                                </div>
+                                <div className="flex justify-between items-center pt-2">
+                                    <span className="text-xs text-slate-500 font-bold">Exceptions</span>
+                                    <span className="text-xs font-black text-red-600">{check.flags.length} Detect</span>
+                                </div>
                             </div>
-                            <button 
-                                onClick={() => nextCheck && handleNavigate(nextCheck)}
-                                disabled={!nextCheck}
-                                className="p-1.5 hover:bg-white dark:hover:bg-gray-800 rounded-md disabled:opacity-30 flex items-center gap-1 group transition-all"
-                            >
-                                <span className="text-xs font-bold text-slate-500 hidden sm:inline group-hover:text-sky-500">Next</span>
-                                <ChevronRightIcon className="h-4 w-4 text-slate-500 group-hover:text-sky-500" />
-                            </button>
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">Active Flags</label>
+                            <div className="flex flex-wrap gap-2" ref={flagDropdownRef}>
+                                {checkFlags.map(flag => (
+                                    <button
+                                        key={flag.id}
+                                        onClick={() => onToggleFlag(check.id, flag.id)}
+                                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black border transition-all ${flag.color} ${flag.textColor}`}
+                                    >
+                                        {flag.name}
+                                        <XMarkIcon className="h-3 w-3 opacity-50" />
+                                    </button>
+                                ))}
+                                <button 
+                                    onClick={() => setIsFlagDropdownOpen(p => !p)}
+                                    className="p-1 px-3 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg text-[10px] font-black text-slate-400 hover:text-sky-600 hover:border-sky-300 transition-all flex items-center gap-1"
+                                >
+                                    <PlusIcon className="h-3 w-3" /> ADD FLAG
+                                </button>
+                                
+                                {isFlagDropdownOpen && (
+                                    <div className="absolute left-6 mt-8 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-slate-200 dark:border-gray-700 p-2 z-50 animate-in fade-in slide-in-from-top-2">
+                                        <div className="p-2 border-b border-slate-50 dark:border-gray-700 mb-1 flex items-center justify-between">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Select Flag</span>
+                                            <button onClick={onOpenFlagManager} className="text-[10px] font-black text-sky-600 hover:underline">MANAGE</button>
+                                        </div>
+                                        <div className="max-h-48 overflow-y-auto no-scrollbar py-1">
+                                            {availableFlags.length > 0 ? (
+                                                availableFlags.map(flag => (
+                                                    <button
+                                                        key={flag.id}
+                                                        onClick={() => { onToggleFlag(check.id, flag.id); setIsFlagDropdownOpen(false); }}
+                                                        className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-700 rounded-lg flex items-center gap-2"
+                                                    >
+                                                        <span className={`h-2 w-2 rounded-full ${flag.color.split(' ')[0]}`}></span>
+                                                        {flag.name}
+                                                    </button>
+                                                ))
+                                            ) : (
+                                                <p className="px-3 py-4 text-[10px] text-slate-400 font-medium italic text-center">No more flags available</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="pt-4">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">Collaboration</label>
+                            <div className="bg-slate-50 dark:bg-gray-800/40 rounded-2xl p-4 border border-slate-100 dark:border-gray-800">
+                                <MembersDropdown
+                                    users={availableUsersForBranch}
+                                    selectedMemberIds={check.members || []}
+                                    onAddMember={handleAddMember}
+                                    onRemoveMember={handleRemoveMember}
+                                    canRemoveMember={() => true}
+                                    compact={true}
+                                />
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                </aside>
 
-            {/* Main Layout Area */}
-            <main className="flex-grow overflow-hidden flex flex-col sm:flex-row max-w-[1920px] mx-auto w-full">
-                {/* Left: Check Data & Image */}
-                <div className="flex-grow overflow-y-auto custom-scrollbar flex flex-col">
-                    <div className="p-6 md:p-8 space-y-8 max-w-4xl mx-auto w-full">
-                        
-                        {/* Summary Card */}
-                        <section className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-slate-200 dark:border-gray-800 overflow-hidden transition-colors">
-                            <div 
-                                className={`p-6 sm:p-10 flex flex-col sm:flex-row justify-between items-start gap-8 ${darkMode ? "bg-gradient-to-br from-gray-800/50 to-gray-900/50" : CHECK_TYPE_COLORS[editableCheck.category]?.bg || 'bg-slate-50'}`}
-                            >
-                                <div className="space-y-4 flex-1">
+                {/* Center: Main Workspace */}
+                <main className="flex-grow flex flex-col bg-slate-50 dark:bg-gray-950 overflow-hidden">
+                    {/* Workspace Tabs */}
+                    <nav className="shrink-0 bg-white dark:bg-gray-900 border-b border-slate-200 dark:border-gray-800 flex px-8 transition-colors">
+                        <TabButton tabName="payment">
+                            <BanknotesIcon className="h-4 w-4" /> PAYMENT DATA
+                        </TabButton>
+                        <TabButton tabName="accounting">
+                            <DocumentTextIcon className="h-4 w-4" /> ACCOUNTING
+                        </TabButton>
+                        <TabButton tabName="banking">
+                            <BankBuildingIcon className="h-4 w-4" /> BANKING
+                        </TabButton>
+                        <TabButton tabName="image">
+                            <ImageIcon className="h-4 w-4" /> VIEW ORIGINAL
+                        </TabButton>
+                    </nav>
+
+                    <div className="flex-grow overflow-y-auto no-scrollbar">
+                        <div className="p-8 md:p-12 w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            {/* Summary Banner */}
+                            <section className={`mb-10 rounded-2xl p-8 sm:p-12 flex flex-col sm:flex-row justify-between items-start gap-8 shadow-sm relative overflow-hidden transition-all ${darkMode ? "bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700" : CHECK_TYPE_COLORS[editableCheck.category]?.bg || 'bg-white border border-slate-200'}`}>
+                                <div className="absolute top-0 right-0 h-full w-1/3 bg-gradient-to-l from-white/10 dark:from-black/10 pointer-events-none"></div>
+                                <div className="space-y-6 flex-1 z-10">
                                     <div>
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Entity / Payor</label>
-                                        <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white leading-tight">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 opacity-70">Entity / Payor</label>
+                                        <h2 className="text-3xl sm:text-5xl font-black text-slate-900 dark:text-white leading-tight tracking-tight">
                                             {check.payor}
                                         </h2>
                                         {check.associationName && (
-                                            <div className="flex items-center gap-2 text-slate-600 dark:text-gray-400 mt-2 font-medium">
-                                                <BuildingOfficeIcon className="h-4 w-4" />
+                                            <div className="flex items-center gap-2 text-slate-600 dark:text-gray-400 mt-4 font-black uppercase text-xs tracking-widest">
+                                                <BuildingOfficeIcon className="h-5 w-5 opacity-40 text-sky-500" />
                                                 <span>{check.associationName}</span>
                                             </div>
                                         )}
                                     </div>
-
-                                    {/* Members Section */}
-                                    <div className="pt-4 border-t border-black/5 dark:border-white/5">
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Collaboration Team</label>
-                                        <MembersDropdown
-                                            users={availableUsersForBranch}
-                                            selectedMemberIds={check.members || []}
-                                            onAddMember={handleAddMember}
-                                            onRemoveMember={handleRemoveMember}
-                                            canRemoveMember={() => true}
-                                            compact={true}
-                                        />
-                                    </div>
                                 </div>
 
-                                <div className="flex flex-col items-end gap-2 h-full sm:justify-start">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Validated Amount</label>
-                                    <div className="text-4xl sm:text-5xl font-black text-slate-950 dark:text-white tracking-tight flex items-baseline">
-                                        <span className="text-2xl text-slate-400 mr-1 font-bold font-mono">$</span>
+                                <div className="flex flex-col items-end gap-2 h-full sm:justify-start z-10 shrink-0">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest opacity-70">Total Check Value</label>
+                                    <div className="text-5xl sm:text-7xl font-black text-slate-950 dark:text-white tracking-tighter flex items-baseline">
+                                        <span className="text-3xl text-slate-400 mr-2 font-black">$</span>
                                         {isEditing ? (
                                             <EditableField 
                                                 value={editableCheck.amount} 
                                                 isEditing={true} 
                                                 onChange={(val) => handleContentEditableChange('amount', val)} 
-                                                className="min-w-[120px] text-right"
+                                                className="min-w-[160px] text-right"
                                             />
                                         ) : formatCurrency(check.amount).replace('$', '')}
                                     </div>
                                     <div className="mt-4 flex flex-col items-end">
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Verification Status</label>
                                         <div ref={statusDropdownRef} className="relative">
                                             <button 
                                                 onClick={() => isEditing && setIsStatusDropdownOpen(p => !p)}
-                                                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border-2 text-sm font-bold shadow-sm transition-all ${
+                                                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl border-2 text-xs font-black shadow-xl transition-all uppercase tracking-widest ${
                                                     isEditing ? 'cursor-pointer hover:scale-[1.02] active:scale-95' : 'cursor-default'
                                                 } ${darkMode ? statusColor.dark.border + ' ' + statusColor.dark.bg + ' ' + statusColor.dark.text : statusColor.border + ' ' + statusColor.bg + ' ' + statusColor.text}`}
                                             >
-                                                <span className={`h-2 w-2 rounded-full animate-pulse ${darkMode ? 'bg-current' : 'bg-current'}`}></span>
+                                                <span className={`h-2 w-2 rounded-full ${darkMode ? 'bg-current animate-pulse' : 'bg-current animate-pulse'}`}></span>
                                                 {editableCheck.status}
                                                 {isEditing && <ChevronUpDownIcon className="h-4 w-4 opacity-50" />}
                                             </button>
                                             
                                             {isStatusDropdownOpen && (
-                                                <div className="absolute top-full right-0 mt-2 w-52 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-slate-200 dark:border-gray-700 p-2 z-20 flex flex-col gap-1 overflow-hidden animate-in fade-in slide-in-from-top-2">
+                                                <div className="absolute top-full right-0 mt-3 w-56 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-gray-700 p-2 z-50 flex flex-col gap-1 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                                                     {Object.values(CheckStatus).map(s => {
                                                         const sClr = darkMode ? statusColors[s].dark : statusColors[s];
                                                         const isActive = s === editableCheck.status;
@@ -786,13 +834,13 @@ const CheckDetailView: React.FC<CheckDetailViewProps> = ({
                                                             <button 
                                                                 key={s}
                                                                 onClick={() => { setEditableCheck(p => p ? {...p, status: s} : null); setIsStatusDropdownOpen(false); }}
-                                                                className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm font-bold transition-colors ${
+                                                                className={`flex items-center justify-between px-4 py-2.5 rounded-xl text-[10px] font-black transition-all uppercase tracking-widest ${
                                                                     isActive 
-                                                                        ? 'bg-slate-100 dark:bg-gray-900 text-slate-900 dark:text-white' 
-                                                                        : 'hover:bg-slate-50 dark:hover:bg-gray-700/50 text-slate-600 dark:text-gray-400'
+                                                                        ? 'bg-slate-900 text-white dark:bg-white dark:text-black' 
+                                                                        : 'hover:bg-slate-50 dark:hover:bg-gray-700 text-slate-500 dark:text-gray-400'
                                                                 }`}
                                                             >
-                                                                <span className="flex items-center gap-2">
+                                                                <span className="flex items-center gap-3">
                                                                     <span className={`h-2 w-2 rounded-full ${sClr.bg.split(' ')[0]} border ${sClr.border}`}></span>
                                                                     {s}
                                                                 </span>
@@ -802,23 +850,10 @@ const CheckDetailView: React.FC<CheckDetailViewProps> = ({
                                                     })}
                                                 </div>
                                             )}
-                                        </div>
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Section Navigation Tabs */}
-                            <div className="bg-slate-50 dark:bg-gray-800 border-t border-slate-100 dark:border-gray-700 px-4">
-                                <div className="flex overflow-x-auto no-scrollbar gap-2 py-0.5 justify-around sm:justify-start">
-                                    <TabButton tabName="payment"><BanknotesIcon className="h-5 w-5" /> Payment</TabButton>
-                                    <TabButton tabName="accounting"><DocumentTextIcon className="h-5 w-5" /> Accounting</TabButton>
-                                    <TabButton tabName="banking"><BankBuildingIcon className="h-5 w-5" /> Banking</TabButton>
-                                    <TabButton tabName="image"><ImageIcon className="h-5 w-5" /> Image Scan</TabButton>
-                                </div>
-                            </div>
                         </section>
-
-                        {/* Content Pane */}
                         <section className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-slate-200 dark:border-gray-800 p-6 sm:p-10 transition-colors">
                             {renderTabContent()}
                         </section>
@@ -899,16 +934,20 @@ const CheckDetailView: React.FC<CheckDetailViewProps> = ({
                         <div className="h-20" /> {/* Spacer */}
                     </div>
                 </div>
+            </main>
 
                 {/* Right: Communication & Audit Sidebar */}
                 <aside className="w-full sm:w-[380px] lg:w-[440px] flex-shrink-0 bg-white dark:bg-gray-900 border-l border-slate-200 dark:border-gray-800 flex flex-col shadow-2xl z-10 transition-colors">
                     <ChatComponent 
-                        check={check}
-                        currentUser={currentUser as any}
-                        onAddComment={(text) => onAddComment(check.id, text)}
+                        checkId={check.id}
+                        comments={check.comments || []}
+                        auditLog={check.auditTrail || []}
+                        onAddComment={onAddComment}
+                        currentUser={currentUser!}
+                        allUsers={allUsers}
                     />
                 </aside>
-            </main>
+            </div>
 
             {/* Overlays / Modals */}
             

@@ -114,7 +114,15 @@ const MainMenu: React.FC<MainMenuProps> = ({
                             <h3 className="px-4 text-xs font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Views</h3>
                             <button onClick={() => handleNavigation('/')} className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-700 dark:text-gray-300 rounded-md hover:bg-slate-200 dark:hover:bg-gray-700 text-sm font-medium">
                                 <HomeIcon className="h-6 w-6 text-slate-500 dark:text-gray-400" />
-                                <span>Go to Dashboard</span>
+                                <span>Overview Dashboard</span>
+                            </button>
+                            <button onClick={() => handleNavigation('/kanban')} className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-700 dark:text-gray-300 rounded-md hover:bg-slate-200 dark:hover:bg-gray-700 text-sm font-medium">
+                                <DocumentTextIcon className="h-6 w-6 text-slate-500 dark:text-gray-400" />
+                                <span>Kanban Board</span>
+                            </button>
+                            <button onClick={() => handleNavigation('/table')} className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-700 dark:text-gray-300 rounded-md hover:bg-slate-200 dark:hover:bg-gray-700 text-sm font-medium">
+                                <AdjustmentsHorizontalIcon className="h-6 w-6 text-slate-500 dark:text-gray-400" />
+                                <span>Data List (Grid)</span>
                             </button>
                             <button onClick={() => handleNavigation('/archive')} className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-700 dark:text-gray-300 rounded-md hover:bg-slate-200 dark:hover:bg-gray-700 text-sm font-medium">
                                 <ArchiveBoxIcon className="h-6 w-6 text-slate-500 dark:text-gray-400" />

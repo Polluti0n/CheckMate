@@ -72,7 +72,7 @@ const BatchChecksView: React.FC<BatchChecksViewProps> = ({ batches, checks, onSe
                 </div>
             </header>
 
-            <main className="flex-grow overflow-y-auto p-4 sm:p-8 max-w-6xl w-full mx-auto">
+            <main className="flex-grow overflow-y-auto p-4 sm:p-8 w-full">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Left Panel: Batch Info & QR */}
                     <div className="lg:col-span-1 space-y-6">

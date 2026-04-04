@@ -362,67 +362,96 @@ const PreferencesView: React.FC<PreferencesViewProps> = ({ onClose, currentPrefe
     }
 
     return (
-        <div className="w-full h-full bg-slate-50 dark:bg-gray-900 flex flex-col animate-in fade-in duration-300 overflow-hidden">
-            <div className="max-w-4xl w-full mx-auto p-4 sm:p-8 flex flex-col h-full">
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-slate-200 dark:border-gray-700 flex flex-col h-full overflow-hidden">
-                    <div className="flex items-start justify-between px-6 py-4 border-b border-slate-100 dark:border-gray-700 flex-shrink-0 bg-white dark:bg-gray-800 z-10">
-                        <div>
-                            <h2 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">System Settings</h2>
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Configure your workspace & account</p>
+        <div className="w-full h-full bg-slate-50 dark:bg-gray-950 flex flex-col animate-in fade-in duration-500 overflow-hidden">
+            {/* Enterprise Header */}
+            <header className="h-16 px-8 border-b border-slate-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center justify-between sticky top-0 z-20 transition-colors">
+                <div className="flex items-center space-x-6">
+                    <div className="flex items-center space-x-3">
+                        <div className="h-9 w-9 bg-slate-900 dark:bg-sky-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <UserCircleIcon className="h-6 w-6 text-white" />
                         </div>
-                        <button onClick={onClose} className="p-2 rounded-xl text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700 transition-all">
-                            <XMarkIcon className="h-6 w-6" />
-                        </button>
+                        <div>
+                            <h1 className="text-lg font-black tracking-tight text-slate-800 dark:text-white uppercase leading-none">System Settings</h1>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Enterprise Configuration</p>
+                        </div>
                     </div>
+                </div>
 
-                    <div className="border-b border-slate-200 dark:border-gray-700 px-6 flex-shrink-0 bg-slate-50/50 dark:bg-gray-900/50">
-                        <nav className="-mb-px flex space-x-8">
-                            {(['Appearance', 'Profile', 'Notifications'] as Tab[]).map(tab => (
-                                <button 
-                                    key={tab} 
-                                    onClick={() => setActiveTab(tab)} 
-                                    className={`whitespace-nowrap py-4 px-1 border-b-2 font-bold text-sm transition-all ${activeTab === tab ? 'border-sky-500 text-sky-600' : 'border-transparent text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300 hover:border-slate-300'}`}
-                                >
-                                    {tab}
-                                </button>
-                            ))}
-                        </nav>
+                <div className="flex items-center space-x-4">
+                    <button 
+                        onClick={handleReset}
+                        className="text-[10px] font-black text-slate-400 hover:text-red-500 uppercase tracking-widest transition-all px-4 py-2 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg"
+                    >
+                        Reset Defaults
+                    </button>
+                    <div className="h-6 w-px bg-slate-200 dark:bg-gray-800"></div>
+                    <button
+                        onClick={onClose}
+                        className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800 rounded-xl transition-all"
+                    >
+                        <XMarkIcon className="h-6 w-6" />
+                    </button>
+                </div>
+            </header>
+
+            <div className="flex-grow flex overflow-hidden">
+                {/* Navigation Sidebar */}
+                <aside className="w-72 border-r border-slate-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 hidden md:flex flex-col p-6 transition-colors">
+                    <nav className="flex-grow space-y-2">
+                        {(['Appearance', 'Profile', 'Notifications'] as Tab[]).map(tab => (
+                            <button 
+                                key={tab} 
+                                onClick={() => setActiveTab(tab)} 
+                                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold text-sm transition-all ${
+                                    activeTab === tab 
+                                        ? 'bg-sky-600 text-white shadow-lg shadow-sky-600/20 ring-1 ring-sky-400/30' 
+                                        : 'text-slate-500 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-800 hover:text-slate-900 dark:hover:text-white'
+                                }`}
+                            >
+                                <span>{tab}</span>
+                                {activeTab === tab && <div className="h-1.5 w-1.5 rounded-full bg-white animate-pulse"></div>}
+                            </button>
+                        ))}
+                    </nav>
+
+                    <div className="pt-6 border-t border-slate-100 dark:border-gray-800">
+                        <div className="bg-slate-50 dark:bg-gray-800/50 rounded-2xl p-4 border border-slate-100 dark:border-gray-800">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Signed in as</p>
+                            <p className="text-xs font-black text-slate-800 dark:text-white truncate">{userEmail}</p>
+                        </div>
                     </div>
+                </aside>
 
-                    <div className="flex-1 overflow-y-auto px-6 py-6 custom-scrollbar">
-                        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                {/* Content Area */}
+                <main className="flex-grow flex flex-col bg-slate-50 dark:bg-gray-950 overflow-hidden relative">
+                    <div className="flex-grow overflow-y-auto px-8 py-10 custom-scrollbar">
+                        <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
                             {renderContent()}
                         </div>
                     </div>
 
-                    <div className="bg-slate-50 dark:bg-gray-900/80 px-6 py-4 flex flex-shrink-0 justify-between items-center border-t border-slate-100 dark:border-gray-700">
-                        <button 
-                            type="button" 
-                            onClick={handleReset} 
-                            className="text-xs font-black text-slate-400 hover:text-red-500 uppercase tracking-widest transition-colors flex items-center"
-                        >
-                            <span className="h-1.5 w-1.5 bg-slate-300 dark:bg-gray-600 rounded-full mr-2"></span>
-                            Reset All Defaults
-                        </button>
-                        <div className="flex gap-3">
+                    <footer className="h-20 px-8 border-t border-slate-200 dark:border-gray-800 bg-white dark:bg-gray-900/80 backdrop-blur-md flex items-center justify-between transition-colors">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:block">Configuration changes affect all active sessions</p>
+                        <div className="flex gap-4 ml-auto">
                             <button 
                                 type="button" 
                                 onClick={onClose} 
-                                className="rounded-xl border border-slate-200 dark:border-gray-700 px-6 py-2 bg-white dark:bg-gray-800 text-sm font-bold text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-700 transition-all"
+                                className="rounded-xl border border-slate-200 dark:border-gray-700 px-6 py-2.5 bg-white dark:bg-gray-800 text-sm font-bold text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-700 transition-all active:scale-95 shadow-sm"
                             >
-                                Cancel
+                                Cancel Changes
                             </button>
                             <button 
                                 type="button" 
                                 onClick={handleSave} 
-                                className="rounded-xl px-8 py-2 bg-sky-600 text-sm font-bold text-white hover:bg-sky-700 shadow-lg shadow-sky-600/20 transition-all active:scale-95"
+                                className="rounded-xl px-10 py-2.5 bg-sky-600 text-sm font-bold text-white hover:bg-sky-700 shadow-xl shadow-sky-600/30 transition-all active:scale-95 ring-1 ring-sky-400/30"
                             >
-                                Apply Changes
+                                Save Configuration
                             </button>
                         </div>
-                    </div>
-                </div>
+                    </footer>
+                </main>
             </div>
+
             <ImageCropperModal
                 isOpen={!!imageToCrop}
                 imageSrc={imageToCrop}
@@ -431,6 +460,7 @@ const PreferencesView: React.FC<PreferencesViewProps> = ({ onClose, currentPrefe
             />
         </div>
     );
+
 };
 
 export default PreferencesView;

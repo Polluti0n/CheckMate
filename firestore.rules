@@ -8,9 +8,9 @@ service cloud.firestore {
     }
     
     function getUserProfile() {
-      // Safely access document data
+      // Access document data directly
       let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
-      return userDoc.data.profile;
+      return userDoc.data;
     }
 
     function hasRole(allowedRoles) {
