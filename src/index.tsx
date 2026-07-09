@@ -24,11 +24,27 @@ root.render(
   </React.StrictMode>
 );
 
-// Register Service Worker for PWA
+// Register Service Worker for PWA (using dynamic BASE_URL)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').then(registration => {
+    // This resolves to '/sw.js' on Stable, and '/latest/sw.js' on Latest
+    const swPath = `${import.meta.env.BASE_URL}sw.js`;
+    navigator.serviceWorker.register(swPath).then(registration => {
       console.log('SW registered: ', registration);
+
+      // Handle updates - prompt user to reload when a new worker is ready
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        if (newWorker) {
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              if (window.confirm('A new version of CheckMate is available. Refresh to update?')) {
+                window.location.reload();
+              }
+            }
+          });
+        }
+      });
     }).catch(registrationError => {
       console.log('SW registration failed: ', registrationError);
     });
