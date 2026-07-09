@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 // FIX: Import firebase for types
 import firebase from 'firebase/compat/app';
 import { auth, db } from '../services/firebase';
-import { getBranches } from '../services/branchService';
-import { Branch, UserRole } from '../types';
 import { CheckMateLogo, ProcessingLoaderIcon } from './icons';
 
 const Login: React.FC = () => {
@@ -12,7 +10,6 @@ const Login: React.FC = () => {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [selectedBranchId, setSelectedBranchId] = useState('');
-    const [branches, setBranches] = useState<Branch[]>([]);
 
     const [isLogin, setIsLogin] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -71,9 +68,8 @@ const Login: React.FC = () => {
                             email: email,
                             firstName: firstName.trim(),
                             lastName: lastName.trim(),
-                            role: UserRole.MEMBER,
-                            assignedBranches: [selectedBranchId],
-                            assignedRegions: []
+                            role: "MEMBER",
+                            selectedBranchId: selectedBranchId
                         }
                     }, { merge: true });
                 }
@@ -184,22 +180,6 @@ const Login: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div>
-                                <label htmlFor="branch" className="sr-only">Select Branch</label>
-                                <select
-                                    id="branch"
-                                    name="branch"
-                                    required={!isLogin}
-                                    className="relative block w-full appearance-none rounded-md border border-slate-300 dark:border-gray-600 px-3 py-2 text-slate-900 dark:text-white dark:bg-gray-700 focus:z-10 focus:border-sky-500 focus:outline-none focus:ring-sky-500 sm:text-sm"
-                                    value={selectedBranchId}
-                                    onChange={(e) => setSelectedBranchId(e.target.value)}
-                                >
-                                    <option value="" disabled>Select your branch</option>
-                                    {branches.map(b => (
-                                        <option key={b.id} value={b.id}>{b.name} ({b.designation})</option>
-                                    ))}
-                                </select>
-                            </div>
                         </>
                     )}
 
