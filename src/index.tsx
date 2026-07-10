@@ -24,14 +24,12 @@ root.render(
   </React.StrictMode>
 );
 
-// Register Service Worker for PWA (using dynamic BASE_URL)
+// Register Service Worker for PWA
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    // This resolves to '/sw.js' on Stable, and '/latest/sw.js' on Latest
-    const swPath = `${import.meta.env.BASE_URL}sw.js`;
-    navigator.serviceWorker.register(swPath).then(registration => {
+    navigator.serviceWorker.register('/sw.js').then(registration => {
       console.log('SW registered: ', registration);
-
+      
       // Handle updates - prompt user to reload when a new worker is ready
       registration.addEventListener('updatefound', () => {
         const newWorker = registration.installing;

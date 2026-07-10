@@ -36,6 +36,10 @@ const Login: React.FC = () => {
         }
     };
 
+    const handleVersionToggle = () => {
+        window.location.href = 'https://checkmate-latest.web.app';
+    };
+
     const handleAuthAction = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
@@ -68,8 +72,9 @@ const Login: React.FC = () => {
                             email: email,
                             firstName: firstName.trim(),
                             lastName: lastName.trim(),
-                            role: "MEMBER",
-                            selectedBranchId: selectedBranchId
+                            role: UserRole.MEMBER,
+                            assignedBranches: [selectedBranchId],
+                            assignedRegions: []
                         }
                     }, { merge: true });
                 }
@@ -122,7 +127,7 @@ const Login: React.FC = () => {
                         </button>
                         <button
                             type="button"
-                            onClick={() => window.location.href = '/latest/'}
+                            onClick={() => handleVersionToggle()}
                             className="flex-1 text-center py-1.5 text-xs font-medium rounded-md transition-all text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                         >
                             Latest
@@ -179,7 +184,6 @@ const Login: React.FC = () => {
                                     />
                                 </div>
                             </div>
-
                         </>
                     )}
 

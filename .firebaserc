@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "checkmate-prod-6c0b3"
-  }
+  },
+  "targets": {
+    "checkmate-prod-6c0b3": {
+      "hosting": {
+        "stable": [
+          "checkmate-prod-6c0b3.webb.app"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

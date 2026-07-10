@@ -1,4 +1,4 @@
-const CACHE_NAME = 'checkmate-cache-v14';
+const CACHE_NAME = 'checkmate-cache-v16';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -9,21 +9,22 @@ const urlsToCache = [
 const crossOriginUrl = 'https://docs.opencv.org/4.x/opencv.js';
 
 self.addEventListener('install', (event) => {
+  // Force the waiting service worker to become the active service worker.
   self.skipWaiting();
+  
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        
         // 1. Cache same-origin assets, ensuring we get fresh copies.
         const sameOriginRequests = urlsToCache.map(url => new Request(url, { cache: 'reload' }));
         const sameOriginPromise = cache.addAll(sameOriginRequests);
-        
+
         // 2. Cache the cross-origin OpenCV asset using a 'no-cors' request to get an opaque response.
         const crossOriginRequest = new Request(crossOriginUrl, { mode: 'no-cors', cache: 'reload' });
         const crossOriginPromise = fetch(crossOriginRequest).then(response => {
-            return cache.put(crossOriginUrl, response);
+          return cache.put(crossOriginUrl, response);
         });
-        
+
         // Wait for all caching operations to complete.
         return Promise.all([sameOriginPromise, crossOriginPromise]);
       })
@@ -37,11 +38,15 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheWhitelist.indexOf(cacheName) === -1) {
+            console.log('Clearing old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
-    }).then(() => self.clients.claim())
+    }).then(() => {
+      // Force all open pages to take control by the new service worker.
+      return self.clients.claim();
+    })
   );
 });
 
