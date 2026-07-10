@@ -6,7 +6,10 @@
     "checkmate-prod-6c0b3": {
       "hosting": {
         "stable": [
-          "checkmate-prod-6c0b3.webb.app"
+          "checkmate-prod-6c0b3"
+        ],
+        "latest": [
+          "checkmate-latest"
         ]
       }
     }
