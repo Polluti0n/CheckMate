@@ -15,6 +15,7 @@ const Login: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [hoveredVersion, setHoveredVersion] = useState<'latest' | 'stable' | null>(null);
 
     const handleForgotPassword = async () => {
         if (!email) {
@@ -223,22 +224,22 @@ const Login: React.FC = () => {
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
                         </span>
-                        <span className="text-slate-500 dark:text-gray-400 font-medium">Running Latest Release</span>
+                        <span className="text-slate-500 dark:text-gray-400 font-medium">Running Stable Release</span>
                         <span className="h-3 w-px bg-slate-200 dark:bg-gray-700" />
                         <button
                             type="button"
                             onClick={handleVersionToggle}
-                            onMouseEnter={() => setHoveredVersion('stable')}
+                            onMouseEnter={() => setHoveredVersion('latest')}
                             onMouseLeave={() => setHoveredVersion(null)}
                             className="font-semibold text-sky-600 dark:text-sky-400 hover:text-sky-500 dark:hover:text-sky-300 transition-colors"
                         >
-                            Switch to Stable
+                            Switch to Latest
                         </button>
                     </div>
                     <p className="text-[11px] text-slate-400 dark:text-gray-500 text-center max-w-[280px]">
-                        {hoveredVersion === 'stable'
-                            ? 'Simplified, field-tested check processing for everyday use.'
-                            : 'Multi-role accounts, high-density dashboard &amp; advanced features.'
+                        {hoveredVersion === 'latest'
+                            ? 'Multi-role accounts, high-density dashboard &amp; advanced features.'
+                            : 'Simplified, field-tested check processing for everyday use.'
                         }
                     </p>
                 </div>
