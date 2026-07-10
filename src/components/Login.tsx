@@ -107,136 +107,140 @@ const Login: React.FC = () => {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-gray-900 p-4">
-            <div className="max-w-md w-full bg-white dark:bg-gray-800 shadow-lg rounded-xl p-8 space-y-6 border border-slate-200 dark:border-gray-700">
-                <div className="flex flex-col items-center">
-                    <CheckMateLogo className="h-12 w-12" />
-                    <h2 className="mt-4 text-center text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
-                        {isLogin ? 'Sign in to your account' : 'Create a new account'}
-                    </h2>
-                </div>
-
-                <div className="flex flex-col items-center space-y-2 border-b border-slate-200 dark:border-gray-700 pb-4">
-                    <span className="text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wider">App Version</span>
-                    <div className="flex bg-slate-100 dark:bg-gray-700 p-1 rounded-lg w-full max-w-[200px]">
-                        <button
-                            type="button"
-                            disabled
-                            className="flex-1 text-center py-1.5 text-xs font-medium rounded-md transition-all bg-white dark:bg-gray-600 text-sky-600 dark:text-sky-400 shadow-sm font-semibold"
-                        >
-                            Stable
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => handleVersionToggle()}
-                            className="flex-1 text-center py-1.5 text-xs font-medium rounded-md transition-all text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
-                        >
-                            Latest
-                        </button>
-                    </div>
-                    <p className="text-xs text-slate-500 dark:text-gray-400 text-center px-2">
-                        <strong>Latest (Corporate):</strong> Active overhaul with multi-role accounts, high-density dashboard, and advanced features.
-                    </p>
-                </div>
-
-                <form className="space-y-6" onSubmit={handleAuthAction}>
-                    <div>
-                        <label htmlFor="email-address" className="sr-only">Email address</label>
-                        <input
-                            id="email-address"
-                            name="email"
-                            type="email"
-                            autoComplete="email"
-                            required
-                            className="relative block w-full appearance-none rounded-md border border-slate-300 dark:border-gray-600 px-3 py-2 text-slate-900 dark:text-white dark:bg-gray-700 placeholder-slate-500 dark:placeholder-gray-400 focus:z-10 focus:border-sky-500 focus:outline-none focus:ring-sky-500 sm:text-sm"
-                            placeholder="Email address"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                        />
+            <div className="flex-col">
+                <div className="max-w-md w-full bg-white dark:bg-gray-800 shadow-lg rounded-xl p-8 space-y-6 border border-slate-200 dark:border-gray-700">
+                    <div className="flex flex-col items-center">
+                        <CheckMateLogo className="h-12 w-12" />
+                        <h2 className="mt-4 text-center text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+                            {isLogin ? 'Sign in to your account' : 'Create a new account'}
+                        </h2>
                     </div>
 
-                    {!isLogin && (
-                        <>
-                            <div className="flex gap-4">
-                                <div className="flex-1">
-                                    <label htmlFor="first-name" className="sr-only">First name</label>
-                                    <input
-                                        id="first-name"
-                                        name="firstName"
-                                        type="text"
-                                        required={!isLogin}
-                                        className="relative block w-full appearance-none rounded-md border border-slate-300 dark:border-gray-600 px-3 py-2 text-slate-900 dark:text-white dark:bg-gray-700 placeholder-slate-500 dark:placeholder-gray-400 focus:z-10 focus:border-sky-500 focus:outline-none focus:ring-sky-500 sm:text-sm"
-                                        placeholder="First name"
-                                        value={firstName}
-                                        onChange={(e) => setFirstName(e.target.value)}
-                                    />
-                                </div>
-                                <div className="flex-1">
-                                    <label htmlFor="last-name" className="sr-only">Last name</label>
-                                    <input
-                                        id="last-name"
-                                        name="lastName"
-                                        type="text"
-                                        required={!isLogin}
-                                        className="relative block w-full appearance-none rounded-md border border-slate-300 dark:border-gray-600 px-3 py-2 text-slate-900 dark:text-white dark:bg-gray-700 placeholder-slate-500 dark:placeholder-gray-400 focus:z-10 focus:border-sky-500 focus:outline-none focus:ring-sky-500 sm:text-sm"
-                                        placeholder="Last name"
-                                        value={lastName}
-                                        onChange={(e) => setLastName(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-                        </>
-                    )}
+                    <form className="space-y-6" onSubmit={handleAuthAction}>
+                        <div>
+                            <label htmlFor="email-address" className="sr-only">Email address</label>
+                            <input
+                                id="email-address"
+                                name="email"
+                                type="email"
+                                autoComplete="email"
+                                required
+                                className="relative block w-full appearance-none rounded-md border border-slate-300 dark:border-gray-600 px-3 py-2 text-slate-900 dark:text-white dark:bg-gray-700 placeholder-slate-500 dark:placeholder-gray-400 focus:z-10 focus:border-sky-500 focus:outline-none focus:ring-sky-500 sm:text-sm"
+                                placeholder="Email address"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                            />
+                        </div>
 
-                    <div>
-                        <label htmlFor="password" className="sr-only">Password</label>
-                        <input
-                            id="password"
-                            name="password"
-                            type="password"
-                            autoComplete={isLogin ? "current-password" : "new-password"}
-                            required
-                            className="relative block w-full appearance-none rounded-md border border-slate-300 dark:border-gray-600 px-3 py-2 text-slate-900 dark:text-white dark:bg-gray-700 placeholder-slate-500 dark:placeholder-gray-400 focus:z-10 focus:border-sky-500 focus:outline-none focus:ring-sky-500 sm:text-sm"
-                            placeholder="Password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                        />
-                        {isLogin && (
-                            <div className="flex justify-end mt-1.5">
-                                <button
-                                    type="button"
-                                    onClick={handleForgotPassword}
-                                    className="text-xs font-medium text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
-                                >
-                                    Forgot password?
-                                </button>
-                            </div>
+                        {!isLogin && (
+                            <>
+                                <div className="flex gap-4">
+                                    <div className="flex-1">
+                                        <label htmlFor="first-name" className="sr-only">First name</label>
+                                        <input
+                                            id="first-name"
+                                            name="firstName"
+                                            type="text"
+                                            required={!isLogin}
+                                            className="relative block w-full appearance-none rounded-md border border-slate-300 dark:border-gray-600 px-3 py-2 text-slate-900 dark:text-white dark:bg-gray-700 placeholder-slate-500 dark:placeholder-gray-400 focus:z-10 focus:border-sky-500 focus:outline-none focus:ring-sky-500 sm:text-sm"
+                                            placeholder="First name"
+                                            value={firstName}
+                                            onChange={(e) => setFirstName(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="flex-1">
+                                        <label htmlFor="last-name" className="sr-only">Last name</label>
+                                        <input
+                                            id="last-name"
+                                            name="lastName"
+                                            type="text"
+                                            required={!isLogin}
+                                            className="relative block w-full appearance-none rounded-md border border-slate-300 dark:border-gray-600 px-3 py-2 text-slate-900 dark:text-white dark:bg-gray-700 placeholder-slate-500 dark:placeholder-gray-400 focus:z-10 focus:border-sky-500 focus:outline-none focus:ring-sky-500 sm:text-sm"
+                                            placeholder="Last name"
+                                            value={lastName}
+                                            onChange={(e) => setLastName(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                            </>
                         )}
-                    </div>
 
-                    {error && <p className="text-sm text-red-600 dark:text-red-400 text-center">{error}</p>}
-                    {successMessage && <p className="text-sm text-emerald-600 dark:text-emerald-400 text-center">{successMessage}</p>}
+                        <div>
+                            <label htmlFor="password" className="sr-only">Password</label>
+                            <input
+                                id="password"
+                                name="password"
+                                type="password"
+                                autoComplete={isLogin ? "current-password" : "new-password"}
+                                required
+                                className="relative block w-full appearance-none rounded-md border border-slate-300 dark:border-gray-600 px-3 py-2 text-slate-900 dark:text-white dark:bg-gray-700 placeholder-slate-500 dark:placeholder-gray-400 focus:z-10 focus:border-sky-500 focus:outline-none focus:ring-sky-500 sm:text-sm"
+                                placeholder="Password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                            />
+                            {isLogin && (
+                                <div className="flex justify-end mt-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={handleForgotPassword}
+                                        className="text-xs font-medium text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
+                                    >
+                                        Forgot password?
+                                    </button>
+                                </div>
+                            )}
+                        </div>
 
-                    <div>
+                        {error && <p className="text-sm text-red-600 dark:text-red-400 text-center">{error}</p>}
+                        {successMessage && <p className="text-sm text-emerald-600 dark:text-emerald-400 text-center">{successMessage}</p>}
+
+                        <div>
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="group relative flex w-full justify-center rounded-md border border-transparent bg-sky-600 py-2 px-4 text-sm font-medium text-white hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 disabled:bg-sky-400 dark:disabled:bg-sky-900 disabled:cursor-not-allowed"
+                            >
+                                {loading ? <ProcessingLoaderIcon /> : (isLogin ? 'Sign in' : 'Create account')}
+                            </button>
+                        </div>
+                    </form>
+                    <div className="text-sm text-center">
                         <button
-                            type="submit"
-                            disabled={loading}
-                            className="group relative flex w-full justify-center rounded-md border border-transparent bg-sky-600 py-2 px-4 text-sm font-medium text-white hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 disabled:bg-sky-400 dark:disabled:bg-sky-900 disabled:cursor-not-allowed"
+                            onClick={() => {
+                                setIsLogin(!isLogin);
+                                setError(null);
+                                setSuccessMessage(null);
+                            }}
+                            className="font-medium text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
                         >
-                            {loading ? <ProcessingLoaderIcon /> : (isLogin ? 'Sign in' : 'Create account')}
+                            {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
                         </button>
                     </div>
-                </form>
-                <div className="text-sm text-center">
-                    <button
-                        onClick={() => {
-                            setIsLogin(!isLogin);
-                            setError(null);
-                            setSuccessMessage(null);
-                        }}
-                        className="font-medium text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
-                    >
-                        {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
-                    </button>
+                </div>
+                <div className="mt-6 flex flex-col items-center gap-1.5">
+                    <div className="inline-flex items-center gap-2 bg-white dark:bg-gray-800 px-3.5 py-1.5 rounded-full border border-slate-200 dark:border-gray-750 shadow-sm text-xs">
+                        <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
+                        </span>
+                        <span className="text-slate-500 dark:text-gray-400 font-medium">Running Latest Release</span>
+                        <span className="h-3 w-px bg-slate-200 dark:bg-gray-700" />
+                        <button
+                            type="button"
+                            onClick={handleVersionToggle}
+                            onMouseEnter={() => setHoveredVersion('stable')}
+                            onMouseLeave={() => setHoveredVersion(null)}
+                            className="font-semibold text-sky-600 dark:text-sky-400 hover:text-sky-500 dark:hover:text-sky-300 transition-colors"
+                        >
+                            Switch to Stable
+                        </button>
+                    </div>
+                    <p className="text-[11px] text-slate-400 dark:text-gray-500 text-center max-w-[280px]">
+                        {hoveredVersion === 'stable'
+                            ? 'Simplified, field-tested check processing for everyday use.'
+                            : 'Multi-role accounts, high-density dashboard &amp; advanced features.'
+                        }
+                    </p>
                 </div>
             </div>
         </div>
